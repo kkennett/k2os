@@ -36,10 +36,18 @@
 #include <spec/acpi.h>
 
 #if K2_TARGET_ARCH_IS_INTEL
+#if K2_TARGET_ARCH_IS_32BIT
 #include <lib/k2archx32.h>
+#else
+#include <lib/k2archx64.h>
+#endif
 #endif
 #if K2_TARGET_ARCH_IS_ARM
+#if K2_TARGET_ARCH_IS_32BIT
 #include <lib/k2archa32.h>
+#else
+#include <lib/k2archa64.h>
+#endif
 #endif
 
 #if __cplusplus

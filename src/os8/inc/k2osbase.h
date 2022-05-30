@@ -108,6 +108,7 @@ struct _K2OS_UEFI_LOADINFO32
     UINT32                  mFwFacsPhys;
     UINT32                  mFwXFacsPhys;
     DLX *                   mpDlxCrt;
+    UINT32                  mReserved;
     K2OS_BOOT_GRAPHICS      BootGraf;
 };
 K2_STATIC_ASSERT(sizeof(K2OS_UEFI_LOADINFO32) < (K2_VA32_MEMPAGE_BYTES / 2));
@@ -168,8 +169,23 @@ struct _K2OS_PHYSTRACK32_UEFI
     UINT32  mUnused0;
     UINT32  mUnused1;
 };
+
+typedef struct _K2OS_PHYSTRACK64_UEFI K2OS_PHYSTRACK64_UEFI;
+struct _K2OS_PHYSTRACK64_UEFI
+{
+    UINT64  mProp;
+    UINT64  mType;
+    UINT64  mUnused0;
+    UINT64  mUnused1;
+};
+
+#if K2_TARGET_ARCH_IS_32BIT
 K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK32_UEFI) == K2OS_PHYSTRACK32_BYTES);
-K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK32_UEFI) == sizeof(K2TREE_NODE32));
+K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK32_UEFI) == sizeof(K2TREE_NODE));
+#else
+K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK64_UEFI) == K2OS_PHYSTRACK64_BYTES);
+K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK64_UEFI) == sizeof(K2TREE_NODE));
+#endif
 
 //
 //------------------------------------------------------------------------

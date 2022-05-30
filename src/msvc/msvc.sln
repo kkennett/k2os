@@ -29,6 +29,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2list", "lib\k2list\k2list
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2tree", "lib\k2tree\k2tree.vcxproj", "{F8EA6124-DEF9-43DA-9969-A1B35CA22759}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2crc", "lib\k2crc\k2crc.vcxproj", "{E25E2343-8B8D-46E2-A19F-741E5AD45C1F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -109,6 +111,14 @@ Global
 		{F8EA6124-DEF9-43DA-9969-A1B35CA22759}.Release|x64.Build.0 = Release|x64
 		{F8EA6124-DEF9-43DA-9969-A1B35CA22759}.Release|x86.ActiveCfg = Release|Win32
 		{F8EA6124-DEF9-43DA-9969-A1B35CA22759}.Release|x86.Build.0 = Release|Win32
+		{E25E2343-8B8D-46E2-A19F-741E5AD45C1F}.Debug|x64.ActiveCfg = Debug|x64
+		{E25E2343-8B8D-46E2-A19F-741E5AD45C1F}.Debug|x64.Build.0 = Debug|x64
+		{E25E2343-8B8D-46E2-A19F-741E5AD45C1F}.Debug|x86.ActiveCfg = Debug|Win32
+		{E25E2343-8B8D-46E2-A19F-741E5AD45C1F}.Debug|x86.Build.0 = Debug|Win32
+		{E25E2343-8B8D-46E2-A19F-741E5AD45C1F}.Release|x64.ActiveCfg = Release|x64
+		{E25E2343-8B8D-46E2-A19F-741E5AD45C1F}.Release|x64.Build.0 = Release|x64
+		{E25E2343-8B8D-46E2-A19F-741E5AD45C1F}.Release|x86.ActiveCfg = Release|Win32
+		{E25E2343-8B8D-46E2-A19F-741E5AD45C1F}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -39,6 +39,61 @@
 
 /* --------------------------------------------------------------------------------- */
 
+//
+// must exactly match K2OS_UEFI_LOADINFO64 in k2osbase.h
+//
+#define K2OS_UEFI_LOADINFO_OFFSET_MARKER                        0x0000      // 'K2OS'
+#define K2OS_UEFI_LOADINFO_OFFSET_CPU_CORE_COUNT                0x0004
+#define K2OS_UEFI_LOADINFO_OFFSET_EFIST                         0x0008
+#define K2OS_UEFI_LOADINFO_OFFSET_KERNDLXENTRY                  0x0010 
+#define K2OS_UEFI_LOADINFO_OFFSET_SYSVIRTENTRY                  0x0018      // encoded in code bytes in uefi loader. careful
+#define K2OS_UEFI_LOADINFO_OFFSET_KERN_ARENA_LOW                0x0020
+#define K2OS_UEFI_LOADINFO_OFFSET_KERN_ARENA_HIGH               0x0028
+#define K2OS_UEFI_LOADINFO_OFFSET_BUILTIN_ROFS_PHYS             0x0030
+#define K2OS_UEFI_LOADINFO_OFFSET_TRANSBASE_PHYS                0x0038      // encoded in code bytes in uefi loader. careful
+#define K2OS_UEFI_LOADINFO_OFFSET_ZEROPAGE_PHYS                 0x0040
+#define K2OS_UEFI_LOADINFO_OFFSET_TRANS_PAGE_ADDR               0x0048
+#define K2OS_UEFI_LOADINFO_OFFSET_DEBUG_PAGE_VIRT               0x0050
+#define K2OS_UEFI_LOADINFO_OFFSET_EFIMAP_SIZE                   0x0058
+#define K2OS_UEFI_LOADINFO_OFFSET_EFIMAP_DESC_SIZE              0x0060 
+#define K2OS_UEFI_LOADINFO_OFFSET_EFIMAP_DESC_VER               0x0068
+#define K2OS_UEFI_LOADINFO_OFFSET_FWTAB_PAGES_PHYS              0x0070
+#define K2OS_UEFI_LOADINFO_OFFSET_FWTAB_PAGES_VIRT              0x0078
+#define K2OS_UEFI_LOADINFO_OFFSET_FWTAB_PAGE_COUNT              0x0080
+#define K2OS_UEFI_LOADINFO_OFFSET_FWFACS_PHYS                   0x0088
+#define K2OS_UEFI_LOADINFO_OFFSET_XFWFACS_PHYS                  0x0090
+#define K2OS_UEFI_LOADINFO_OFFSET_DLXCRT                        0x0098
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_FRAMEBUFFERPHYS      0x00A0
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_FRAMEBUFFERBYTES     0x00A8
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_MODE_VERSION         0x00AC
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_HORIZONTALRESOLUTION 0x00B0
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_VERTICALRESOLUTION   0x00B4
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_PIXELFORMATID        0x00B8
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_PIXELREDMASK         0x00BC
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_PIXELGREENMASK       0x00C0
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_PIXELBLUEMASK        0x00C4
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_PIXELRESERVEDMASK    0x00C8
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_PIXELSPERSCANLINE    0x00CC
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_BGRT_BMP_WIDTH       0x00D0 
+#define K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_BGRT_BMP_HEIGHT      0x00D4
+#define K2OS_UEFI_LOADINFO_SIZE_BYTES                           0x00D8
+
+//
+// size of physical per-page tracking structure
+//
+#define K2OS_PHYSTRACK64_BYTES                      (8 * 4)
+
+//
+// max memory pages to use for EFI memory map coming from UEFI 
+//
+#define K2OS_EFIMAP_PAGECOUNT                       2
+
+//
+// max # of threads in the system - threadptrs pages hold 16kB/8 = 2048 = 0x800 of these
+//
+#define K2OS_MAX_THREAD_COUNT                       0x7FE   // 0 and 0x7FF reserved
+
+
 
 
 /* --------------------------------------------------------------------------------- */
