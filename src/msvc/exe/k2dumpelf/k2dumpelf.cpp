@@ -252,6 +252,8 @@ DumpElf64(
 
 int main(int argc, char **argv)
 {
+    UINT8 const *pData;
+
     if (argc < 2)
     {
         printf("\nk2dumpelf: Need an Arg\n\n");
@@ -265,35 +267,37 @@ int main(int argc, char **argv)
         return -2;
     }
 
-	K2ELF32PARSE parse32;
-    K2STAT stat = K2ELF32_Parse((UINT8 const *)pFile->DataPtr(), (UINT_PTR)pFile->FileBytes(), &parse32);
-    if (!K2STAT_IS_ERROR(stat))
+    K2STAT stat;
+    pData = (UINT8 const *)pFile->DataPtr();
+    if (ELFCLASS32 == pData[EI_CLASS])
     {
-        if (ELFCLASS32 == parse32.mpRawFileData->e_ident[EI_CLASS])
+        K2ELF32PARSE parse32;
+        stat = K2ELF32_Parse((UINT8 const *)pFile->DataPtr(), (UINT_PTR)pFile->FileBytes(), &parse32);
+        if (!K2STAT_IS_ERROR(stat))
         {
             DumpElf32(&parse32);
         }
-        else if (ELFCLASS64 == parse32.mpRawFileData->e_ident[EI_CLASS])
+        else
         {
-            K2ELF64PARSE parse64;
-            stat = K2ELF64_Parse((UINT8 const *)pFile->DataPtr(), (UINT_PTR)pFile->FileBytes(), &parse64);
-            if (!K2STAT_IS_ERROR(stat))
-            {
-                DumpElf64(&parse64);
-            }
-            else
-            {
-                printf("\nk2dumpelf: error %08X parsing 64-bit elf file \"%s\"\n", stat, argv[1]);
-            }
+            printf("\nk2dumpelf: error %08X parsing 64-bit elf file \"%s\"\n", stat, argv[1]);
+        }
+    }
+    else if (ELFCLASS64 == pData[EI_CLASS])
+    {
+        K2ELF64PARSE parse64;
+        stat = K2ELF64_Parse((UINT8 const *)pFile->DataPtr(), (UINT_PTR)pFile->FileBytes(), &parse64);
+        if (!K2STAT_IS_ERROR(stat))
+        {
+            DumpElf64(&parse64);
         }
         else
         {
-            printf("\nk2dumpelf: parsed as 32-bit but unknown file class \"%s\"\n", argv[1]);
+            printf("\nk2dumpelf: error %08X parsing 64-bit elf file \"%s\"\n", stat, argv[1]);
         }
     }
     else
     {
-        printf("Error %d (%08X) parsing file\n", stat, stat);
+        printf("\nk2dumpelf: unknown file class \"%s\"\n", argv[1]);
     }
 
     pFile->Release();
