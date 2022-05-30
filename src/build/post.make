@@ -113,7 +113,7 @@ LDOPT      += -static
 LDOPT      += --no-undefined
 LDENTRY    ?= -e __entry
 
-BUILD_CONTROL_FILES = makefile $(K2_ROOT)/src/shared/build/pre.make $(K2_ROOT)/src/shared/build/post.make $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make $(K2_ROOT)/src/$(K2_OS)/build/k2osspec_$(K2_OS).make
+BUILD_CONTROL_FILES = makefile $(K2_ROOT)/src/build/pre.make $(K2_ROOT)/src/build/post.make $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make $(K2_ROOT)/src/$(K2_OS)/build/k2osspec_$(K2_OS).make
 
 $(K2_OBJECT_PATH)/%.o : %.s  $(BUILD_CONTROL_FILES)
 	@-if not exist $(subst /,\,$(dir $@)) md $(subst /,\,$(dir $@))
@@ -206,9 +206,9 @@ K2_TARGET_NAME_SPEC := $(K2_TARGET_NAME).elf
 K2_TARGET_FULL_SPEC := $(K2_TARGET_PATH)/$(K2_TARGET_NAME_SPEC)
 
 ifeq ($(K2_ARCH_BITS),32)
-LINKER_SCRIPT ?= $(K2_ROOT)/src/shared/build/gcc_link32.l
+LINKER_SCRIPT ?= $(K2_ROOT)/src/build/gcc_link32.l
 else
-LINKER_SCRIPT ?= $(K2_ROOT)/src/shared/build/gcc_link64.l
+LINKER_SCRIPT ?= $(K2_ROOT)/src/build/gcc_link64.l
 endif
 
 LDOPT += --script $(LINKER_SCRIPT) -Map $(K2_TARGET_PATH)/$(K2_TARGET_NAME).map
@@ -245,7 +245,7 @@ DLX_STACK := 0
 endif
 
 LDOPT += -q 
-LDOPT += --script $(K2_ROOT)/src/shared/build/gcc_link.l
+LDOPT += --script $(K2_ROOT)/src/build/gcc_link.l
 
 ifeq ($(basename $(K2_TARGET_NAME)),k2oscrt)
 

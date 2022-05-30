@@ -29,10 +29,10 @@
 #   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-include $(K2_ROOT)/src/shared/build/pre.make
+include $(K2_ROOT)/src/build/pre.make
 
 TARGET_TYPE = LIB
 
 SOURCES += parse.c
 
-include $(K2_ROOT)/src/shared/build/post.make
+include $(K2_ROOT)/src/build/post.make

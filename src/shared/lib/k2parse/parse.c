@@ -35,7 +35,7 @@
 void 
 K2PARSE_EatToEOL(
     char const **   appPars, 
-    UINT32 *        apLeft
+    UINT_PTR *      apLeft
     )
 {
     char chk;
@@ -56,7 +56,7 @@ K2PARSE_EatToEOL(
 void 
 K2PARSE_EatEOL(
     char const **   appPars, 
-    UINT32 *        apLeft
+    UINT_PTR *      apLeft
     )
 {
     char chk;
@@ -77,7 +77,7 @@ K2PARSE_EatEOL(
 void 
 K2PARSE_EatWhitespace(
     char const **   appPars, 
-    UINT32 *        apLeft
+    UINT_PTR *      apLeft
     )
 {
     char chk;
@@ -98,7 +98,7 @@ K2PARSE_EatWhitespace(
 void 
 K2PARSE_EatWhitespaceAtEnd(
     char const *    apPars, 
-    UINT32 *        apLineLen
+    UINT_PTR *      apLineLen
     )
 {
     char chk;
@@ -122,9 +122,9 @@ K2PARSE_EatWhitespaceAtEnd(
 void 
 K2PARSE_EatLine(
     char const **   appPars, 
-    UINT32 *        apLeft, 
+    UINT_PTR *      apLeft, 
     char const **   apRetLine, 
-    UINT32 *        apRetLineLen
+    UINT_PTR *      apRetLineLen
     )
 {
     K2_ASSERT(appPars != NULL);
@@ -136,16 +136,16 @@ K2PARSE_EatLine(
     if ((*apLeft) == 0)
         return;
     K2PARSE_EatToEOL(appPars, apLeft);
-    *apRetLineLen = (UINT32)((*appPars)-(*apRetLine));
+    *apRetLineLen = (UINT_PTR)((*appPars)-(*apRetLine));
     K2PARSE_EatEOL(appPars, apLeft);
 }
 
 void 
 K2PARSE_EatWord(
     char const **   appPars, 
-    UINT32 *        apLeft, 
+    UINT_PTR *      apLeft, 
     char const **   apRetToken, 
-    UINT32 *        apRetTokLen
+    UINT_PTR *      apRetTokLen
     )
 {
     char chk;
@@ -173,13 +173,13 @@ K2PARSE_EatWord(
         (*appPars)++;
     } while (--(*apLeft));
 
-    *apRetTokLen = (UINT32)((*appPars) - (*apRetToken));
+    *apRetTokLen = (UINT_PTR)((*appPars) - (*apRetToken));
 }
 
 void
 K2PARSE_EatToChar(
     char const **   appPars,
-    UINT32 *        apLeft,
+    UINT_PTR *      apLeft,
     char            aCh
     )
 {
@@ -201,9 +201,9 @@ K2PARSE_EatToChar(
 void
 K2PARSE_Token(
     char const **   appPars,
-    UINT32 *        apLeft,
+    UINT_PTR *      apLeft,
     char const **   apRetToken,
-    UINT32 *        apRetTokLen
+    UINT_PTR *      apRetTokLen
     )
 {
     char chk;
@@ -250,13 +250,13 @@ K2PARSE_Token(
 static
 BOOL
 sTextToHex(
-    char const *apText,
-    UINT32      aCharCount,
-    UINT32 *    apRetVal
+    char const *    apText,
+    UINT_PTR        aCharCount,
+    UINT_PTR *      apRetVal
     )
 {
-    UINT32 val;
-    UINT32 ix;
+    UINT_PTR val;
+    UINT_PTR ix;
     char  ch;
 
     val = 0;
@@ -285,12 +285,12 @@ sTextToHex(
 BOOL
 K2PARSE_Guid128(
     char const *    apText,
-    UINT32          aLen,
+    UINT_PTR        aLen,
     K2_GUID128 *    apRetGuid
     )
 {
-    UINT32  ix;
-    UINT32  val;
+    UINT_PTR  ix;
+    UINT_PTR  val;
 
     K2_ASSERT(aLen != 0);
     K2_ASSERT(apRetGuid != NULL);

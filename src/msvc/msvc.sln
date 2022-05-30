@@ -23,6 +23,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2elf", "lib\k2elf\k2elf.vc
 		{CD02994E-9DC0-4256-BCFD-676A37CADAF8} = {CD02994E-9DC0-4256-BCFD-676A37CADAF8}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2parse", "lib\k2parse\k2parse.vcxproj", "{77FC24FF-D117-4C9F-A3D0-4EC39F6B6826}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -79,6 +81,14 @@ Global
 		{24616C8C-4F5E-4AC7-9521-286484144A68}.Release|x64.Build.0 = Release|x64
 		{24616C8C-4F5E-4AC7-9521-286484144A68}.Release|x86.ActiveCfg = Release|Win32
 		{24616C8C-4F5E-4AC7-9521-286484144A68}.Release|x86.Build.0 = Release|Win32
+		{77FC24FF-D117-4C9F-A3D0-4EC39F6B6826}.Debug|x64.ActiveCfg = Debug|x64
+		{77FC24FF-D117-4C9F-A3D0-4EC39F6B6826}.Debug|x64.Build.0 = Debug|x64
+		{77FC24FF-D117-4C9F-A3D0-4EC39F6B6826}.Debug|x86.ActiveCfg = Debug|Win32
+		{77FC24FF-D117-4C9F-A3D0-4EC39F6B6826}.Debug|x86.Build.0 = Debug|Win32
+		{77FC24FF-D117-4C9F-A3D0-4EC39F6B6826}.Release|x64.ActiveCfg = Release|x64
+		{77FC24FF-D117-4C9F-A3D0-4EC39F6B6826}.Release|x64.Build.0 = Release|x64
+		{77FC24FF-D117-4C9F-A3D0-4EC39F6B6826}.Release|x86.ActiveCfg = Release|Win32
+		{77FC24FF-D117-4C9F-A3D0-4EC39F6B6826}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
