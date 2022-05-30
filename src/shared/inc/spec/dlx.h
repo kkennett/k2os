@@ -200,6 +200,12 @@ struct _DLX_INFO64
 K2_PACKED_POP
 typedef struct _DLX_INFO64 DLX_INFO64;
 
+#if K2_TARGET_ARCH_IS_32BIT
+#define DLX_INFO    DLX_INFO32
+#else
+#define DLX_INFO    DLX_INFO64
+#endif
+
 //
 // DLX entrypoint
 //
