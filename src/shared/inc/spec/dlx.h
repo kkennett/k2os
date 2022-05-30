@@ -273,7 +273,7 @@ DLX_FindAddrName(
     UINT_PTR    aBufferLen
 );
 
-UINT32
+UINT_PTR
 DLX_AddrToName(
     DLX *       apDlx,
     UINT_PTR    aAddr,

@@ -320,10 +320,10 @@ typedef enum _K2Rot K2Rot;
 #define K2_ROUNDUP(x,round)     K2_ROUNDDOWN(x + (round-1), round)
 
 #ifdef __cplusplus
-#define K2_FIELDOFFSET(s,m)     ((UINT32)&reinterpret_cast<const volatile char&>((((s *)0)->m)))
+#define K2_FIELDOFFSET(s,m)     ((UINT_PTR)&reinterpret_cast<const volatile char&>((((s *)0)->m)))
 #define K2_ADDROF(v)            ( &reinterpret_cast<const char &>(v) )
 #else
-#define K2_FIELDOFFSET(s,m)     ((UINT32)&(((const s *)0)->m))
+#define K2_FIELDOFFSET(s,m)     ((UINT_PTR)&(((const s *)0)->m))
 #define K2_ADDROF(v)            ( &(v) )
 #endif    
 
