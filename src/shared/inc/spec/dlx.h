@@ -198,7 +198,7 @@ struct _DLX_INFO64
     // followed at 4 byte alignment by DLX_IMPORT * mImportCount
 };
 K2_PACKED_POP
-typedef struct _DLX_INFO32 DLX_INFO32;
+typedef struct _DLX_INFO64 DLX_INFO64;
 
 //
 // DLX entrypoint

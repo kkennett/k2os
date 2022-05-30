@@ -242,7 +242,7 @@ bool ArgTrack::Load(char const *apFileName)
 
     char const *pPars;
     pPars = (char const *)pFile->DataPtr();
-    UINT_PTR left = pFile->FileBytes();
+    UINT_PTR left = (UINT_PTR)pFile->FileBytes();
 
     ok = true;
     do {

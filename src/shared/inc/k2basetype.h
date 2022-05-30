@@ -357,7 +357,7 @@ typedef enum _K2Rot K2Rot;
 
 #define K2STAT_FACILITY_EXCEPTION       0x0FF00000U
 #define K2STAT_FACILITY_SYSTEM          0x05000000U
-#define K2STAT_FACILITY_ELF32           0x05100000U
+#define K2STAT_FACILITY_ELF             0x05100000U
 #define K2STAT_FACILITY_DLX             0x05200000U
 
 #define K2STAT_TYPE_MASK                0xF0000000U
