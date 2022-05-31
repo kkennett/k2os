@@ -37,21 +37,21 @@ X32Kern_PIC_EOI_BitNum(
     UINT8 aBitNum
 )
 {
-    K2_ASSERT((aBitNum != X32PC_IRQ_PIC2) && (aBitNum <= X32PC_IRQ_LAST));
+    K2_ASSERT((aBitNum != PC_IRQ_PIC2) && (aBitNum <= PC_IRQ_LAST));
 
     if (aBitNum > 7)
     {
         /* mark specific EOI for slave PIC */
         aBitNum -= 8;
 
-        X32_IoWrite8(X32PC_8259_OCW_SPECIFIC_EOI(aBitNum), X32PC_PIC2_COMMAND);
+        X32_IoWrite8(PC_8259_OCW_SPECIFIC_EOI(aBitNum), PC_PIC2_COMMAND);
 
         /* set to EOI slave's port on master PIC */
-        aBitNum = X32PC_IRQ_PIC2;
+        aBitNum = PC_IRQ_PIC2;
     }
 
     /* mark specific EOI for master PIC */
-    X32_IoWrite8(X32PC_8259_OCW_SPECIFIC_EOI(aBitNum), X32PC_PIC1_COMMAND);
+    X32_IoWrite8(PC_8259_OCW_SPECIFIC_EOI(aBitNum), PC_PIC1_COMMAND);
 }
 
 void
@@ -61,50 +61,50 @@ X32Kern_PICInit(
 {
     UINT8 bitNum;
 
-    gX32Kern_IoTable[gX32Kern_IoTableCount].mPortBase = X32PC_8259_PIC1_IOPORT;
+    gX32Kern_IoTable[gX32Kern_IoTableCount].mPortBase = PC_8259_PIC1_IOPORT;
     gX32Kern_IoTable[gX32Kern_IoTableCount].mPortCount = 2;
     gX32Kern_IoTableCount++;
     K2_ASSERT(gX32Kern_IoTableCount <= X32KERN_IOTABLE_MAX_ENTRIES);
-    gX32Kern_IoTable[gX32Kern_IoTableCount].mPortBase = X32PC_8259_PIC2_IOPORT;
+    gX32Kern_IoTable[gX32Kern_IoTableCount].mPortBase = PC_8259_PIC2_IOPORT;
     gX32Kern_IoTable[gX32Kern_IoTableCount].mPortCount = 2;
     gX32Kern_IoTableCount++;
     K2_ASSERT(gX32Kern_IoTableCount <= X32KERN_IOTABLE_MAX_ENTRIES);
 
     /* start the init sequence (ICW1) */
-    X32_IoWrite8(X32PC_8259_PIC_ICW1_INIT | X32PC_8259_PIC_ICW1_WORD4NEEDED, X32PC_PIC1_COMMAND);
+    X32_IoWrite8(PC_8259_PIC_ICW1_INIT | PC_8259_PIC_ICW1_WORD4NEEDED, PC_PIC1_COMMAND);
     X32_IoWait();
-    X32_IoWrite8(X32PC_8259_PIC_ICW1_INIT | X32PC_8259_PIC_ICW1_WORD4NEEDED, X32PC_PIC2_COMMAND);
+    X32_IoWrite8(PC_8259_PIC_ICW1_INIT | PC_8259_PIC_ICW1_WORD4NEEDED, PC_PIC2_COMMAND);
     X32_IoWait();
 
     /* define the PIC vector bases (ICW2) */
-    X32_IoWrite8(32, X32PC_PIC1_DATA);    /* master IRQ 0-7 -> IRQ 32->39 */
+    X32_IoWrite8(32, PC_PIC1_DATA);    /* master IRQ 0-7 -> IRQ 32->39 */
     X32_IoWait();
-    X32_IoWrite8(40, X32PC_PIC2_DATA);    /* slave  IRQ 0-7 -> IRQ 40->47 */
+    X32_IoWrite8(40, PC_PIC2_DATA);    /* slave  IRQ 0-7 -> IRQ 40->47 */
     X32_IoWait();
 
     /* define the slave location (ICW3) */
-    X32_IoWrite8(0x04, X32PC_PIC1_DATA);  /* MASTER, so bit 2 is a SLAVE */
+    X32_IoWrite8(0x04, PC_PIC1_DATA);  /* MASTER, so bit 2 is a SLAVE */
     X32_IoWait();
-    X32_IoWrite8(2, X32PC_PIC2_DATA);     /* SLAVE, id is 2 */
+    X32_IoWrite8(2, PC_PIC2_DATA);     /* SLAVE, id is 2 */
     X32_IoWait();
 
     /* operation mode (ICW4) - not special, nonbuffered, normal EOI, 8086 mode */
-    X32_IoWrite8(X32PC_8259_PIC_ICW4_8086MODE, X32PC_PIC1_DATA);
+    X32_IoWrite8(PC_8259_PIC_ICW4_8086MODE, PC_PIC1_DATA);
     X32_IoWait();
-    X32_IoWrite8(X32PC_8259_PIC_ICW4_8086MODE, X32PC_PIC2_DATA);
+    X32_IoWrite8(PC_8259_PIC_ICW4_8086MODE, PC_PIC2_DATA);
     X32_IoWait();
 
     /* init finished */
 
     /* mask all interrupts */
-    X32_IoWrite8(0xFB, X32PC_PIC1_DATA);    /* bit 2 clear (2nd pic) */
-    X32_IoWrite8(0xFF, X32PC_PIC2_DATA);
+    X32_IoWrite8(0xFB, PC_PIC1_DATA);    /* bit 2 clear (2nd pic) */
+    X32_IoWrite8(0xFF, PC_PIC2_DATA);
 
     /* eoi all interrupts */
-    for (bitNum = 0; bitNum < X32PC_IRQ_PIC2; bitNum++)
+    for (bitNum = 0; bitNum < PC_IRQ_PIC2; bitNum++)
         X32Kern_PIC_EOI_BitNum(bitNum);
     bitNum++;
-    while (bitNum <= X32PC_IRQ_LAST)
+    while (bitNum <= PC_IRQ_LAST)
         X32Kern_PIC_EOI_BitNum(bitNum++);
 }
 

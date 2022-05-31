@@ -52,9 +52,9 @@ default: $(K2_TARGET_FULL_SPEC)
 
 #========================================================================================
 
-STOCK_IMAGE_KERN_DLX := @$(K2_OS)/kern/crt/$(K2_ARCH)/k2oscrt
-STOCK_IMAGE_KERN_DLX += @$(K2_OS)/kern/$(K2_ARCH)/k2oskern 
-BUILTIN_DLX += @$(K2_OS)/user/crt/$(K2_ARCH)/k2oscrt
+STOCK_IMAGE_KERN_DLX := @$(K2_OS)/kern/crt/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oscrt
+STOCK_IMAGE_KERN_DLX += @$(K2_OS)/kern/main/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oskern 
+BUILTIN_DLX += @$(K2_OS)/user/crt/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oscrt
 BUILTIN_DLX += @$(K2_OS)/user/k2osacpi
 BUILTIN_DLX += @$(K2_OS)/user/root 
 

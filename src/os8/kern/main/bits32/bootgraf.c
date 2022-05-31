@@ -104,7 +104,7 @@ KernBootGraf_Init(
     }
 
 #if 0
-    K2OSKERN_Debug("graf.phys =   0x%08X\n", pGraf->mFrameBufferPhys);
+    K2OSKERN_Debug("graf.phys =   0x%08X%08X\n", ((UINT32)pGraf->mFrameBufferPhys >> 32) & 0xFFFFFFFF, (UINT32)(pGraf->mFrameBufferPhys & 0xFFFFFFFFull));
     K2OSKERN_Debug("graf.size =   0x%08X\n", pGraf->mFrameBufferBytes);
     K2OSKERN_Debug("graf.width =  %d\n", pGraf->ModeInfo.HorizontalResolution);
     K2OSKERN_Debug("graf.height = %d\n", pGraf->ModeInfo.VerticalResolution);
@@ -152,14 +152,14 @@ KernBootGraf_Init(
     //
     // map the display buffer
     //
-    physAddr = pGraf->mFrameBufferPhys;
+    physAddr = (UINT32)pGraf->mFrameBufferPhys;
     physAddr &= K2_VA32_PAGEFRAME_MASK;
-    bufferMapPages = (((pGraf->mFrameBufferPhys + pGraf->mFrameBufferBytes) + (K2_VA32_MEMPAGE_BYTES - 1)) / K2_VA32_MEMPAGE_BYTES) * K2_VA32_MEMPAGE_BYTES;
+    bufferMapPages = (UINT32)(((pGraf->mFrameBufferPhys + pGraf->mFrameBufferBytes) + (K2_VA32_MEMPAGE_BYTES - 1)) / K2_VA32_MEMPAGE_BYTES) * K2_VA32_MEMPAGE_BYTES;
     bufferMapPages = (bufferMapPages - physAddr) / K2_VA32_MEMPAGE_BYTES;
     virtAddr = KernVirt_AllocPages(bufferMapPages);
     if (0 != virtAddr)
     {
-        pTopLeft = (UINT32 *)((pGraf->mFrameBufferPhys - physAddr) + virtAddr);
+        pTopLeft = (UINT32 *)((((UINT32)pGraf->mFrameBufferPhys) - physAddr) + virtAddr);
 
         // make mapping
         mapAttr = (K2OS_MEMPAGE_ATTR_READWRITE | K2OS_MEMPAGE_ATTR_WRITE_THRU);

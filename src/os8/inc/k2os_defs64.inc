@@ -81,7 +81,7 @@
 //
 // size of physical per-page tracking structure
 //
-#define K2OS_PHYSTRACK64_BYTES                      (8 * 4)
+#define K2OS_PHYSTRACK_BYTES                        (8 * 4)
 
 //
 // max memory pages to use for EFI memory map coming from UEFI 
@@ -89,11 +89,9 @@
 #define K2OS_EFIMAP_PAGECOUNT                       2
 
 //
-// max # of threads in the system - threadptrs pages hold 16kB/8 = 2048 = 0x800 of these
+// max # of threads in the system - threadptrs pages hold 8kB/8 = 1048 = 0x400 of these
 //
-#define K2OS_MAX_THREAD_COUNT                       0x7FE   // 0 and 0x7FF reserved
-
-
+#define K2OS_MAX_THREAD_COUNT                       0x3FE   // 0 and 0x3FF reserved
 
 
 /* --------------------------------------------------------------------------------- */

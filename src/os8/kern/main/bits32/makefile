@@ -74,5 +74,5 @@ SOURCES += ipcend.c
 SOURCES += trace.c
 SOURCES += bootgraf.c
 
-include $(K2_ROOT)/src/shared/build/post.make
+include $(K2_ROOT)/src/build/post.make
 

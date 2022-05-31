@@ -161,31 +161,17 @@ K2_STATIC_ASSERT(sizeof(K2OS_UEFI_LOADINFO) == K2OS_UEFI_LOADINFO_SIZE_BYTES);
 // 16 bytes * 1 Million pages = 16MB.  THis is the size of the virtual area
 // carved out in the kernel va space for this purpose.  VA space is cheap
 //
-typedef struct _K2OS_PHYSTRACK32_UEFI K2OS_PHYSTRACK32_UEFI;
-struct _K2OS_PHYSTRACK32_UEFI
+typedef struct _K2OS_PHYSTRACK_UEFI K2OS_PHYSTRACK_UEFI;
+struct _K2OS_PHYSTRACK_UEFI
 {
-    UINT32  mProp;
-    UINT32  mType;
-    UINT32  mUnused0;
-    UINT32  mUnused1;
+    UINT_PTR    mProp;
+    UINT_PTR    mType;
+    UINT_PTR    mUnused0;
+    UINT_PTR    mUnused1;
 };
 
-typedef struct _K2OS_PHYSTRACK64_UEFI K2OS_PHYSTRACK64_UEFI;
-struct _K2OS_PHYSTRACK64_UEFI
-{
-    UINT64  mProp;
-    UINT64  mType;
-    UINT64  mUnused0;
-    UINT64  mUnused1;
-};
-
-#if K2_TARGET_ARCH_IS_32BIT
-K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK32_UEFI) == K2OS_PHYSTRACK32_BYTES);
-K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK32_UEFI) == sizeof(K2TREE_NODE));
-#else
-K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK64_UEFI) == K2OS_PHYSTRACK64_BYTES);
-K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK64_UEFI) == sizeof(K2TREE_NODE));
-#endif
+K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK_UEFI) == K2OS_PHYSTRACK_BYTES);
+K2_STATIC_ASSERT(sizeof(K2OS_PHYSTRACK_UEFI) == sizeof(K2TREE_NODE));
 
 //
 //------------------------------------------------------------------------

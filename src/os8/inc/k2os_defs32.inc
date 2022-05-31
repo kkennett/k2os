@@ -82,7 +82,7 @@
 //
 // size of physical per-page tracking structure
 //
-#define K2OS_PHYSTRACK32_BYTES                      (4 * 4)
+#define K2OS_PHYSTRACK_BYTES                        (4 * 4)
 
 //
 // max memory pages to use for EFI memory map coming from UEFI 
@@ -214,7 +214,7 @@
 
 // 0x80400000 - 0x813FFFFF
 #define K2OS_KVA_PHYSTRACKAREA_BASE                 (K2OS_KVA_KERNVAMAP_BASE + K2OS_KVA_KERNVAMAP_SIZE)
-#define K2OS_KVA_PHYSTRACKAREA_SIZE                 (K2_VA32_PAGEFRAMES_FOR_4G * K2OS_PHYSTRACK32_BYTES)
+#define K2OS_KVA_PHYSTRACKAREA_SIZE                 (K2_VA32_PAGEFRAMES_FOR_4G * K2OS_PHYSTRACK_BYTES)
 #define K2OS_KVA_PHYSTRACKAREA_END                  (K2OS_KVA_PHYSTRACKAREA_BASE + K2OS_KVA_PHYSTRACKAREA_SIZE)
 
 //
@@ -249,8 +249,8 @@
 #define K2OS_KVA_TO_PTE_ADDR(x)                     K2_VA32_TO_PTE_ADDR(K2OS_KVA_KERNVAMAP_BASE, (x))
 #define K2OS_KVA_TO_PT_ADDR(x)                      K2_VA32_TO_PT_ADDR(K2OS_KVA_KERNVAMAP_BASE, (x))
 
-#define K2OS_PHYS32_TO_PHYSTRACK(x)                 (K2OS_KVA_PHYSTRACKAREA_BASE + (((x) >> K2_VA32_MEMPAGE_BYTES_POW2) * K2OS_PHYSTRACK32_BYTES))
-#define K2OS_PHYSTRACK_TO_PHYS32(x)                 ((((x) - K2OS_KVA_PHYSTRACKAREA_BASE) / K2OS_PHYSTRACK32_BYTES) << K2_VA32_MEMPAGE_BYTES_POW2)
+#define K2OS_PHYS32_TO_PHYSTRACK(x)                 (K2OS_KVA_PHYSTRACKAREA_BASE + (((x) >> K2_VA32_MEMPAGE_BYTES_POW2) * K2OS_PHYSTRACK_BYTES))
+#define K2OS_PHYSTRACK_TO_PHYS32(x)                 ((((x) - K2OS_KVA_PHYSTRACKAREA_BASE) / K2OS_PHYSTRACK_BYTES) << K2_VA32_MEMPAGE_BYTES_POW2)
 
 /* --------------------------------------------------------------------------------- */
 

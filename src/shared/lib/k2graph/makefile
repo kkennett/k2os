@@ -29,49 +29,12 @@
 #   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
+include $(K2_ROOT)/src/build/pre.make
 
-include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
+TARGET_TYPE = LIB
 
-TARGET_TYPE = DLX
-
-TARGET_SPECIFIC_ARCH = X32
-
-K2_KERNEL := TRUE
-
-DLX_INF := ../../k2oskern.inf
-
-SOURCES += x32init.c
-SOURCES += x32setintr.c
-SOURCES += x32time.c
-SOURCES += x32gdt.c 
-SOURCES += x32gdtasm.s 
-SOURCES += x32idt.c 
-SOURCES += x32idtasm.s 
-SOURCES += x32intrasm.s
-SOURCES += x32intrhand.c
-SOURCES += x32pte.c
-SOURCES += x32devintr.c
-SOURCES += x32cpu.c
-SOURCES += x32cpuasm.s
-SOURCES += x32tlb.c
-SOURCES += x32tss.c
-SOURCES += x32kerndbg.c
-SOURCES += x32ici.c
-SOURCES += x32virt.c
-SOURCES += x32monitorasm.s
-SOURCES += x32user.c
-SOURCES += x32thread.c
-
-STATIC_LIBS += @shared/lib/k2archx32
-STATIC_LIBS += @shared/lib/k2rofshelp
-STATIC_LIBS += @shared/lib/k2elf
-STATIC_LIBS += @shared/lib/k2heap
-STATIC_LIBS += @shared/lib/k2ramheap
-STATIC_LIBS += @shared/lib/k2ring
-STATIC_LIBS += @shared/lib/k2dlxsupp
-STATIC_LIBS += @shared/lib/k2frame
-
-STATIC_KERNEL_LIBS += @$(K2_OS)/kern/main/bits32
+SOURCES += k2pxf.c 
+SOURCES += k2raster.c 
+SOURCES += k2bitmap.c
 
 include $(K2_ROOT)/src/build/post.make
-

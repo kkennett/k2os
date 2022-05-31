@@ -267,9 +267,9 @@ else
 LDENTRY := -e __K2OS_dlx_crt
 CRTSTUB_OBJ := $(K2_TARGET_BASE)/obj/$(K2_BUILD_SPEC)/$(K2_OS)/crtstub/crtstub.o
 ifneq ($(K2_KERNEL),)
-IMPORT_KERNEL_LIBS += @$(K2_OS)/kern/crt/$(K2_ARCH)/k2oscrt
+IMPORT_KERNEL_LIBS += @$(K2_OS)/kern/crt/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oscrt
 else
-IMPORT_LIBS += @$(K2_OS)/user/crt/$(K2_ARCH)/k2oscrt
+IMPORT_LIBS += @$(K2_OS)/user/crt/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oscrt
 endif
 
 endif
