@@ -29,10 +29,69 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
+#include "idlx.h"
 
-#include "..\crtkern.h"
+DLX *
+iK2DLXSUPP_FindAndAddRef(
+    DLX * apDlx
+    )
+{
+    K2LIST_LINK *   pLink;
+    DLX *           pDlx;
+    K2STAT          status;
 
+    if (gpK2DLXSUPP_Vars->Host.CritSec != NULL)
+    {
+        status = gpK2DLXSUPP_Vars->Host.CritSec(TRUE);
+        if (K2STAT_IS_ERROR(status))
+        {
+            status = K2DLXSUPP_ERRORPOINT(status);
+            return NULL;
+        }
+    }
 
-#endif // __CRTKERN_H
+    pDlx = NULL;
+    pLink = gpK2DLXSUPP_Vars->LoadedList.mpHead;
+    while (pLink != NULL)
+    {
+        if (pLink == (K2LIST_LINK *)apDlx)
+        {
+            pDlx = K2_GET_CONTAINER(DLX, pLink, ListLink);
+            if (0 == (pDlx->mFlags & K2DLXSUPP_FLAG_PERMANENT))
+            {
+                if (gpK2DLXSUPP_Vars->Host.RefChange != NULL)
+                    gpK2DLXSUPP_Vars->Host.RefChange(pDlx->mHostFile, pDlx, 1);
+                pDlx->mRefs++;
+            }
+            break;
+        }
+        pLink = pLink->mpNext;
+    }
+
+    if (gpK2DLXSUPP_Vars->Host.CritSec != NULL)
+        gpK2DLXSUPP_Vars->Host.CritSec(FALSE);
+
+    if (pDlx == NULL)
+    {
+        status = K2DLXSUPP_ERRORPOINT(K2STAT_ERROR_NOT_FOUND);
+    }
+
+    return pDlx;
+}
+
+K2STAT
+DLX_AddRef(
+    DLX *   apDlx
+)
+{
+    DLX * pDlx;
+
+    pDlx = iK2DLXSUPP_FindAndAddRef(apDlx);
+    if (pDlx == NULL)
+    {
+        return K2STAT_ERROR_NOT_FOUND;
+    }
+
+    return K2STAT_OK;
+}
+

@@ -29,10 +29,13 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
 
-#include "..\crtkern.h"
+#include "crtkern32.h"
 
-
-#endif // __CRTKERN_H
+void
+Dummy(
+    void
+)
+{
+    
+}

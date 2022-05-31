@@ -244,8 +244,14 @@ ifeq ($(DLX_STACK),)
 DLX_STACK := 0
 endif
 
+ifeq ($(K2_ARCH_BITS),32)
+LINKER_SCRIPT ?= $(K2_ROOT)/src/build/gcc_link32.l
+else
+LINKER_SCRIPT ?= $(K2_ROOT)/src/build/gcc_link64.l
+endif
+
 LDOPT += -q 
-LDOPT += --script $(K2_ROOT)/src/build/gcc_link.l
+LDOPT += --script $(LINKER_SCRIPT)
 
 ifeq ($(basename $(K2_TARGET_NAME)),k2oscrt)
 

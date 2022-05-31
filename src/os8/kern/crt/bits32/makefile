@@ -35,8 +35,7 @@ TARGET_TYPE = LIB
 
 K2_KERNEL := TRUE
 
-SOURCES += atexit.c
-SOURCES += main.c
+SOURCES += dummy.c
 
 include $(K2_ROOT)/src/build/post.make
 

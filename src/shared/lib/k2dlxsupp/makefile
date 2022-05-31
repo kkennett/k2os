@@ -29,29 +29,25 @@
 #   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
-TARGET_TYPE = DLX
-TARGET_SPECIFIC_ARCH = X32
-K2_KERNEL := TRUE
+include $(K2_ROOT)/src/build/pre.make
 
-DLX_INF := ../../../k2oscrt_kern.inf
+TARGET_TYPE = LIB
 
-SOURCES += x32entry_asm.s
-SOURCES += x32entry.c
-SOURCES += x32cache.c
-
-STATIC_LIBS += @shared/lib/k2archx32
-STATIC_LIBS += @shared/lib/k2mem
-STATIC_LIBS += @shared/lib/k2asc
-STATIC_LIBS += @shared/lib/k2list
-STATIC_LIBS += @shared/lib/k2tree
-STATIC_LIBS += @shared/lib/k2atomic
-STATIC_LIBS += @shared/lib/k2crc
-
-STATIC_KERNEL_LIBS += @$(K2_OS)/kern/crt
-STATIC_KERNEL_LIBS += @$(K2_OS)/kern/crt/bits32
+SOURCES += dlx_acquire.c
+SOURCES += dlx_addref.c
+SOURCES += dlx_addrname.c
+SOURCES += dlx_callback.c
+SOURCES += dlx_cleanup.c
+SOURCES += dlx_findcont.c
+SOURCES += dlx_findexp.c
+SOURCES += dlx_getinfo.c
+SOURCES += dlx_handoff.c
+SOURCES += dlx_init.c
+SOURCES += dlx_link.c
+SOURCES += dlx_loadseg.c
+SOURCES += dlx_release.c
+SOURCES += dlx_ident.c
+SOURCES += dlx_preload.c
 
 include $(K2_ROOT)/src/build/post.make
-
-

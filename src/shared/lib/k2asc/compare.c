@@ -29,10 +29,69 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
+#include <lib/k2asc.h>
 
-#include "..\crtkern.h"
+int          
+K2ASC_CompLen(
+    char const *    apStr1,
+    char const *    apStr2,
+    UINT_PTR        aMaxLen
+    )
+{
+    int c;
+    int ret;
 
+    if ((aMaxLen == 0) || (apStr1==apStr2))
+        return 0;
 
-#endif // __CRTKERN_H
+    do
+    {
+        c = (int)(*((unsigned char *)apStr1));
+
+        ret = c - ((int)(*((unsigned char *)apStr2)));
+        if (ret != 0)
+            return ret;
+
+        if ((c == 0) || (--aMaxLen == 0))
+            return 0;
+
+        apStr1++;
+        apStr2++;
+
+    } while (1);
+
+    return ret;
+}
+
+int          
+K2ASC_CompInsLen(
+    char const *    apStr1,
+    char const *    apStr2,
+    UINT_PTR        aMaxLen
+    )
+{
+    int c;
+    int ret;
+
+    if ((aMaxLen == 0) || (apStr1==apStr2))
+        return 0;
+
+    do
+    {
+        c = (int)((unsigned char)(K2ASC_ToUpper(*apStr1)));
+
+        ret = c - ((int)((unsigned char)(K2ASC_ToUpper(*apStr2))));
+        if (ret != 0)
+            return ret;
+
+        if ((c == 0) || (--aMaxLen == 0))
+            return 0;
+
+        apStr1++;
+        apStr2++;
+
+    } while (1);
+
+    return ret;
+}
+

@@ -29,10 +29,41 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
+#include "idlx.h"
 
-#include "..\crtkern.h"
+K2STAT
+DLX_GetIdent(
+    DLX *           apDlx,
+    char *          apNameBuf,
+    UINT32          aNameBufLen,
+    K2_GUID128  *   apRetID
+)
+{
+    if (apDlx == NULL)
+        return K2DLXSUPP_ERRORPOINT(K2STAT_ERROR_BAD_ARGUMENT);
 
+    if (apRetID != NULL)
+    {
+        K2MEM_Zero(apRetID, sizeof(K2_GUID128));
+    }
 
-#endif // __CRTKERN_H
+    apDlx = iK2DLXSUPP_FindAndAddRef(apDlx);
+
+    if (apDlx == NULL)
+        return K2DLXSUPP_ERRORPOINT(K2STAT_ERROR_NOT_FOUND);
+
+    if ((apNameBuf != NULL) && (aNameBufLen > 0))
+    {
+        K2ASC_CopyLen(apNameBuf, apDlx->mpInfo->mFileName, aNameBufLen);
+    }
+
+    if (apRetID != NULL)
+    {
+        *apRetID = apDlx->mpInfo->ID;
+    }
+
+    DLX_Release(apDlx);
+
+    return K2STAT_NO_ERROR;
+}
+

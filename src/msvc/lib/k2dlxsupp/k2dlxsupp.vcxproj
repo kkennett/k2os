@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{77fc24ff-d117-4c9f-a3d0-4ec39f6b6826}</ProjectGuid>
-    <RootNamespace>k2parse</RootNamespace>
+    <ProjectGuid>{482754e6-d080-4f84-ae97-bc8163e6e285}</ProjectGuid>
+    <RootNamespace>k2dlxsupp</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -143,10 +143,26 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\shared\inc\lib\k2parse.h" />
+    <ClInclude Include="..\..\..\shared\inc\lib\k2dlxsupp.h" />
+    <ClInclude Include="..\..\..\shared\lib\k2dlxsupp\dlx_struct.h" />
+    <ClInclude Include="..\..\..\shared\lib\k2dlxsupp\idlx.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\shared\lib\k2parse\parse.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_acquire.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_addref.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_addrname.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_callback.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_cleanup.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_findcont.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_findexp.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_getinfo.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_handoff.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_ident.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_init.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_link.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_loadseg.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_preload.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2dlxsupp\dlx_release.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

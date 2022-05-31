@@ -29,10 +29,32 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
+#include <lib/k2asc.h>
 
-#include "..\crtkern.h"
+UINT_PTR
+K2ASC_CopyLen(
+    char *          apDest,
+    char const *    apSrc,
+    UINT_PTR        aMaxLen
+    )
+{
+    char ch;
+    char *pTarg;
 
+    if ((aMaxLen == 0) || (apSrc == (char const *)apDest))
+        return 0;
 
-#endif // __CRTKERN_H
+    pTarg = apDest;
+    do
+    {
+        ch = *apSrc;
+        *pTarg = ch;
+        if (0 == ch)
+            break;
+        pTarg++;
+        apSrc++;
+    } while (--aMaxLen > 0);
+
+    return (UINT_PTR)(pTarg - apDest);
+}
+

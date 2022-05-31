@@ -29,10 +29,45 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
+#include "idlx.h"
 
-#include "..\crtkern.h"
+void
+iK2DLXSUPP_Cleanup(
+    DLX *apDlx
+    )
+{
+    Elf32_Shdr *    pSecHdr;
+    K2DLX_SECTOR *  pSector;
+    UINT32          sectionCount;
+    UINT32          secIx;
+    UINT32          segIx;
+    UINT32          usedCount;
 
+    pSecHdr = apDlx->mpSecHdr;
+    sectionCount = apDlx->mpElf->e_shnum;
+    pSector = K2_GET_CONTAINER(K2DLX_SECTOR, apDlx, Module);
+    K2MEM_Zero(&pSector->mSecAddr[3], (sectionCount - 3) * sizeof(UINT32));
 
-#endif // __CRTKERN_H
+    usedCount = 3;
+    for (secIx = 3; secIx < sectionCount; secIx++)
+    {
+        segIx = pSecHdr[secIx].sh_addralign;
+        if (segIx >= DlxSeg_Text)
+        {
+            if (apDlx->SegAlloc.Segment[segIx].mLinkAddr == 0)
+            {
+                pSector->mSecAddr[secIx] = 0;
+                pSecHdr[secIx].sh_size = 0;
+            }
+            else
+                usedCount = secIx+1;
+        }
+    }
+
+    // trim reported number of sections to highest section actually containing data
+    // at the link address, and update the linked sector address table
+    for (secIx = 1; secIx < usedCount; secIx++)
+        pSector->mSecAddr[secIx + usedCount] = pSector->mSecAddr[secIx + sectionCount];
+
+    apDlx->mpElf->e_shnum = (Elf32_Half)usedCount;
+}

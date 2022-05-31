@@ -18,11 +18,23 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\shared\inc\lib\k2asc.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\shared\lib\k2asc\ascfind.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2asc\compare.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2asc\concat.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2asc\conv.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2asc\copy.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2asc\len.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2asc\printf.c" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{77fc24ff-d117-4c9f-a3d0-4ec39f6b6826}</ProjectGuid>
-    <RootNamespace>k2parse</RootNamespace>
+    <ProjectGuid>{b4d0ce95-d3f5-4224-b95e-4ba2b4058e3d}</ProjectGuid>
+    <RootNamespace>k2asc</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -142,12 +154,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\..\shared\inc\lib\k2parse.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\..\shared\lib\k2parse\parse.c" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

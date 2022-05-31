@@ -31,27 +31,15 @@
 #
 include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
-TARGET_TYPE = DLX
-TARGET_SPECIFIC_ARCH = X32
+TARGET_TYPE = LIB
+
 K2_KERNEL := TRUE
 
-DLX_INF := ../../../k2oscrt_kern.inf
-
-SOURCES += x32entry_asm.s
-SOURCES += x32entry.c
-SOURCES += x32cache.c
-
-STATIC_LIBS += @shared/lib/k2archx32
-STATIC_LIBS += @shared/lib/k2mem
-STATIC_LIBS += @shared/lib/k2asc
-STATIC_LIBS += @shared/lib/k2list
-STATIC_LIBS += @shared/lib/k2tree
-STATIC_LIBS += @shared/lib/k2atomic
-STATIC_LIBS += @shared/lib/k2crc
-
-STATIC_KERNEL_LIBS += @$(K2_OS)/kern/crt
-STATIC_KERNEL_LIBS += @$(K2_OS)/kern/crt/bits32
+SOURCES += atexit.c
+SOURCES += main.c
 
 include $(K2_ROOT)/src/build/post.make
+
+
 
 

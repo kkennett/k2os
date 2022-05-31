@@ -29,10 +29,22 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
+#include <lib/k2asc.h>
 
-#include "..\crtkern.h"
+UINT_PTR
+K2ASC_Len(
+    char const * apStr
+    )
+{
+    char const *pEnd;
 
+    pEnd = apStr;
+    if (*pEnd == 0)
+        return 0;
+    do
+    {
+        ++pEnd;
+    } while (*pEnd != 0);
+    return ((UINT_PTR)(pEnd - apStr));
+}
 
-#endif // __CRTKERN_H

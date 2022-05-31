@@ -29,10 +29,25 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
+#ifndef __CRTKERN_H
+#define __CRTKERN_H
 
-#include "..\crtkern.h"
+#include "..\main\kernshared.h"
 
+typedef void(*__vfpv)(void *);
+
+extern K2OSKERN_SHARED gShared;
+
+void
+CrtKern_Threaded_PostInit(
+    void
+);
+
+void
+K2_CALLCONV_REGS
+k2oscrt_kern_common_entry(
+    K2OS_UEFI_LOADINFO const *  apUEFI,
+    K2_CACHEINFO const *        apCacheInfo
+);
 
 #endif // __CRTKERN_H

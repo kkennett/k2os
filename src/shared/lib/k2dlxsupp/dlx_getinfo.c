@@ -29,10 +29,59 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
+#include "idlx.h"
 
-#include "..\crtkern.h"
+K2STAT
+K2DLXSUPP_GetInfo(
+    DLX *               apDlx,
+    UINT32 *            apRetFlags,
+    DLX_pf_ENTRYPOINT * apRetEntrypoint,
+    DLX_SEGMENT_INFO *  apRetSegInfo,
+    UINT32 *            apRetPageAddr,
+    char const **       appRetFileName
+    )
+{
+    if (apRetFlags != NULL)
+        *apRetFlags = 0;
+    
+    if (apRetEntrypoint != NULL)
+        *apRetEntrypoint = 0;
+    
+    if (apRetSegInfo != NULL)
+        K2MEM_Zero(apRetSegInfo, sizeof(DLX_SEGMENT_INFO) * DlxSeg_Count);
 
+    if (apDlx == NULL)
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
 
-#endif // __CRTKERN_H
+    if (!gpK2DLXSUPP_Vars->mHandedOff)
+    {
+        if (NULL == iK2DLXSUPP_FindAndAddRef(apDlx))
+        {
+            return K2STAT_ERROR_NOT_FOUND;
+        }
+    }
+
+    if (apRetPageAddr != NULL)
+        *apRetPageAddr = (UINT32)apDlx;
+
+    if (apRetFlags != NULL)
+        *apRetFlags = apDlx->mFlags;
+    
+    if (apRetEntrypoint != NULL)
+        *apRetEntrypoint = (DLX_pf_ENTRYPOINT)apDlx->mEntrypoint;
+
+    if (appRetFileName != NULL)
+        *appRetFileName = apDlx->mpInfo->mFileName;
+
+    if (!gpK2DLXSUPP_Vars->mHandedOff)
+    {
+        if (apRetSegInfo != NULL)
+            K2MEM_Copy(apRetSegInfo, apDlx->mpInfo->SegInfo, sizeof(DLX_SEGMENT_INFO) * DlxSeg_Count);
+
+        DLX_Release(apDlx);
+    }
+
+    return K2STAT_OK;
+}

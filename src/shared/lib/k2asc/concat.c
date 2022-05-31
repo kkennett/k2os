@@ -29,10 +29,34 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __CRTKERN32_H
-#define __CRTKERN32_H
+#include <lib/k2asc.h>
 
-#include "..\crtkern.h"
+UINT_PTR
+K2ASC_ConcatLen(
+    char *          apStr,
+    char const *    apConcat,
+    UINT_PTR        aMaxLen
+    )
+{
+    char *      pSave;
+    UINT_PTR    ret;
 
+    if (aMaxLen == 0)
+        return 0;
 
-#endif // __CRTKERN_H
+    pSave = apStr;
+
+    do
+    {
+        if (*apStr == 0)
+            break;
+        apStr++;
+    } while (--aMaxLen);
+
+    // apStr points to null at end of apStr
+    // max chars to copy is in aMaxLen
+    ret = K2ASC_CopyLen(apStr, apConcat, aMaxLen);
+    
+    return (UINT_PTR)((apStr + ret) - pSave);
+}
+
