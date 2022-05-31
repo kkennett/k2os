@@ -29,53 +29,56 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
+#ifndef __K2ROFSHELP_H
+#define __K2ROFSHELP_H
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
-)
-{
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+/* --------------------------------------------------------------------------------- */
 
-    K2_ASSERT(apAnchor != NULL);
+#include <k2systype.h>
+#include <spec/k2rofs.h>
 
-    nil = &apAnchor->NilNode;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-    pCur = apAnchor->RootNode.mpLeftChild;
+#define K2ROFS_ROOTDIR(pRofs)               ((K2ROFS_DIR const *)(((UINT_PTR)(pRofs)) + (((K2ROFS *)(pRofs))->mRootDir)))
+#define K2ROFS_NAMESTR(pRofs,nameOffset)    ((char const *)(((UINT_PTR)(pRofs)) + ((UINT_PTR)(nameOffset))))
+#define K2ROFS_FILEDATA(pRofs, pFile)       (((UINT8 const *)pRofs) + ((((K2ROFS_FILE const *)(pFile))->mStartSectorOffset) * K2ROFS_SECTOR_BYTES))
+#define K2ROFS_FILESECTORS(pFile)           (K2_ROUNDUP(((K2ROFS_FILE const *)(pFile))->mSizeBytes, K2ROFS_SECTOR_BYTES) / K2ROFS_SECTOR_BYTES)
 
-    if (pCur == nil)
-        return NULL;
+K2ROFS_DIR const *
+K2ROFSHELP_SubDir(
+    K2ROFS const *      apBase,
+    K2ROFS_DIR const *  apDir,
+    char const *        apSubFilePath
+);
 
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
+K2ROFS_FILE const *
+K2ROFSHELP_SubFile(
+    K2ROFS const *      apBase,
+    K2ROFS_DIR const *  apDir,
+    char const *        apSubFilePath
+);
 
-    return NULL;
-}
+K2ROFS_DIR const *
+K2ROFSHELP_SubDirIx(
+    K2ROFS const *      apBase,
+    K2ROFS_DIR const *  apDir,
+    UINT_PTR            aSubDirIx
+);
+
+K2ROFS_FILE const *
+K2ROFSHELP_SubFileIx(
+    K2ROFS const *      apBase,
+    K2ROFS_DIR const *  apDir,
+    UINT_PTR            aSubFileIx
+);
+
+#ifdef __cplusplus
+};  // extern "C"
+#endif
+
+/* --------------------------------------------------------------------------------- */
+
+#endif  // __K2ROFSHELP_H
 

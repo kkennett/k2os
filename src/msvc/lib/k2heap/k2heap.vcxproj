@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{e25e2343-8b8d-46e2-a19f-741e5ad45c1f}</ProjectGuid>
-    <RootNamespace>k2crc</RootNamespace>
+    <ProjectGuid>{877a73e0-e41f-4158-9d55-5fc35a4094c9}</ProjectGuid>
+    <RootNamespace>k2heap</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -143,14 +143,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\shared\inc\lib\k2crc.h" />
+    <ClInclude Include="..\..\..\shared\inc\lib\k2heap.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\shared\lib\k2crc\crc16.c" />
-    <ClCompile Include="..\..\..\shared\lib\k2crc\crc32.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\..\shared\lib\k2crc\makefile" />
+    <ClCompile Include="..\..\..\shared\lib\k2heap\k2heap.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

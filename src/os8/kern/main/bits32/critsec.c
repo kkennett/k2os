@@ -29,53 +29,32 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
+#include "kern.h"
+
+BOOL 
+K2_CALLCONV_REGS 
+KernCritSec_Init(
+    K2OS_CRITSEC *apSec
 )
 {
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
-
-    K2_ASSERT(apAnchor != NULL);
-
-    nil = &apAnchor->NilNode;
-
-    pCur = apAnchor->RootNode.mpLeftChild;
-
-    if (pCur == nil)
-        return NULL;
-
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
-
-    return NULL;
+    return TRUE;
 }
 
+void 
+K2_CALLCONV_REGS 
+KernCritSec_Enter(
+    K2OS_CRITSEC *apSec
+)
+{
+
+}
+
+void 
+K2_CALLCONV_REGS 
+KernCritSec_Leave(
+    K2OS_CRITSEC *apSec
+)
+{
+
+}

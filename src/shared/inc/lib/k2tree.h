@@ -134,13 +134,13 @@ K2TREE_LastNode(
 K2TREE_NODE *
 K2TREE_Find(
     K2TREE_ANCHOR * apAnchor,
-    UINT32          aFindKey
+    UINT_PTR        aFindKey
     );
 
 K2TREE_NODE *
 K2TREE_FindOrAfter(
     K2TREE_ANCHOR * apAnchor,
-    UINT32          aFindKey
+    UINT_PTR        aFindKey
     );
 
 #ifdef __cplusplus

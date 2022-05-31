@@ -29,53 +29,44 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
-)
-{
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+#ifndef __PC_DBGSER_H
+#define __PC_DBGSER_H
 
-    K2_ASSERT(apAnchor != NULL);
+/* --------------------------------------------------------------------------------- */
 
-    nil = &apAnchor->NilNode;
+#include "..\pc.h"
 
-    pCur = apAnchor->RootNode.mpLeftChild;
+/* --------------------------------------------------------------------------------- */
 
-    if (pCur == nil)
-        return NULL;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
+void
+PC_DBGSER_Init(
+    void
+);
 
-    return NULL;
-}
+void
+PC_DBGSER_OutByte(
+    UINT8 aByte
+);
 
+BOOL
+PC_DBGSER_InAvail(
+    void
+);
+
+BOOL
+PC_DBGSER_InByte(
+    UINT8 *apRetByte
+);
+
+#ifdef __cplusplus
+};  // extern "C"
+#endif
+
+/* --------------------------------------------------------------------------------- */
+
+#endif // __PC_DBGSER_H

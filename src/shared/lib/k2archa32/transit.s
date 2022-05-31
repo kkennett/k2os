@@ -30,7 +30,7 @@
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 #include <k2asma32.inc>
-#include "..\..\..\os\inc\k2osdefs.inc"
+#include "..\..\..\os\inc\k2os_defs.inc"
 
 /* --------------------------------------------------------------------------------- */
 

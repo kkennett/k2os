@@ -29,53 +29,44 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
+#include "x32kern.h"
+
+UINT32 
+KernArch_MakePTE(
+    UINT32 aPhysAddr, 
+    UINT32 aPageMapAttr
 )
 {
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+    UINT32  pte;
 
-    K2_ASSERT(apAnchor != NULL);
+    aPhysAddr &= K2_VA32_PAGEFRAME_MASK;
+    aPageMapAttr &= K2OS_MEMPAGE_ATTR_MASK;
 
-    nil = &apAnchor->NilNode;
+    pte = X32_PTE_PRESENT | aPhysAddr;
 
-    pCur = apAnchor->RootNode.mpLeftChild;
+    if (aPageMapAttr & K2OS_MEMPAGE_ATTR_WRITEABLE)
+        pte |= X32_PTE_WRITEABLE;
 
-    if (pCur == nil)
-        return NULL;
+    if (aPageMapAttr & K2OS_MEMPAGE_ATTR_UNCACHED)
+        pte |= X32_PTE_CACHEDISABLE;
 
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
+    if (aPageMapAttr & K2OS_MEMPAGE_ATTR_WRITE_THRU)
+        pte |= X32_PTE_WRITETHROUGH;
 
-    return NULL;
+    if (aPageMapAttr & K2OS_MEMPAGE_ATTR_USER)
+        pte |= X32_PTE_USER;
+    else
+        pte |= X32_PTE_GLOBAL;
+
+    return pte;
+}
+
+BOOL    
+KernArch_PteMapsWriteable(
+    UINT32 aPTE
+)
+{
+    return (0 != (aPTE & X32_PTE_WRITEABLE)) ? TRUE : FALSE;
 }
 

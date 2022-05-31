@@ -29,53 +29,32 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
+#include "kern.h"
+
+void
+KernFileSys_Init(
+    void
 )
 {
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+    K2OSKERN_OBJ_PAGEARRAY *pPageArray;
 
-    K2_ASSERT(apAnchor != NULL);
+    //
+    // set up ROFS global
+    //
+    gData.FileSys.mpRofs = (K2ROFS const *)K2OS_KVA_BUILTIN_FS_BASE;
 
-    nil = &apAnchor->NilNode;
-
-    pCur = apAnchor->RootNode.mpLeftChild;
-
-    if (pCur == nil)
-        return NULL;
-
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
-
-    return NULL;
+    //
+    // manually set up PageArray for Built-In FileSys
+    //
+    pPageArray = &gData.FileSys.PageArray;
+    K2MEM_Zero(pPageArray, sizeof(K2OSKERN_OBJ_PAGEARRAY));
+    pPageArray->Hdr.mObjType = KernObj_PageArray;
+    pPageArray->Hdr.mObjFlags = K2OSKERN_OBJ_FLAG_PERMANENT;
+    K2LIST_Init(&pPageArray->Hdr.RefObjList);
+    pPageArray->mPageCount = ((gData.FileSys.mpRofs->mSectorCount * K2ROFS_SECTOR_BYTES) +
+        (K2_VA32_MEMPAGE_BYTES - 1)) / K2_VA32_MEMPAGE_BYTES;
+    pPageArray->mUserPermit = PF_R; // read-only for user mappings
+    pPageArray->mType = KernPageArray_PreMap;
+    pPageArray->Data.PreMap.mpPTEs = (UINT32 *)K2OS_KVA_TO_PTE_ADDR((UINT32)gData.FileSys.mpRofs);
 }
-

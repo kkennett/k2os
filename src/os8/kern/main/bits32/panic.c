@@ -29,53 +29,69 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
+#include "kern.h"
+
+void
+K2OSKERN_Panic(
+    char const *apFormat,
+    ...
 )
 {
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+    VALIST                      vList;
+    UINT32                      mask;
+    K2OSKERN_CPUCORE volatile * pThisCore;
 
-    K2_ASSERT(apAnchor != NULL);
+    K2OSKERN_SetIntr(FALSE);
 
-    nil = &apAnchor->NilNode;
+    pThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
 
-    pCur = apAnchor->RootNode.mpLeftChild;
-
-    if (pCur == nil)
-        return NULL;
-
-    do
+    if (0 != K2ATOMIC_CompareExchange((UINT32 volatile *)&gData.Debug.mCoresInPanicSpin, 1, 0))
     {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
+        K2OSKERN_Debug("--- CORE %d PANIC after CORE %d PANIC\n", pThisCore->mCoreIx, gData.Debug.mLeadPanicCore);
+        KernCpu_PanicSpin(pThisCore);
+        while (1);
+    }
+
+    K2OSKERN_Debug("\n\n\n--- CORE %d PANIC ---\n", pThisCore->mCoreIx);
+
+    KernDbg_RawDumpLockStack(pThisCore);
+    
+    gData.Debug.mLeadPanicCore = pThisCore->mCoreIx;
+    K2_CpuWriteBarrier();
+    if (gData.mCpuCoreCount > 1)
+    {
+        mask = ((1 << gData.mCpuCoreCount) - 1) & ~(1 << pThisCore->mCoreIx);
+        do
         {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
+            mask &= ~KernArch_SendIci(pThisCore, mask, KernIci_Panic, NULL);
+        } while (0 != mask);
+
+        K2OSKERN_Debug("---- WAITING FOR OTHER CORES ----\n", pThisCore->mCoreIx);
+        mask = 10000;
+        do
+        {
+            if (gData.Debug.mCoresInPanicSpin == (gData.mCpuCoreCount - 1))
+                break;
+            K2OSKERN_MicroStall(1000);
+        } while (--mask);
+        if (0 == mask)
+        {
+            K2OSKERN_Debug("!!! Some cores not responding to panic ICI (%d)!!!\n", gData.mCpuCoreCount - gData.Debug.mCoresInPanicSpin);
         }
         else
         {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
+            K2OSKERN_Debug("---- OTHER CORES IN PANIC SPIN ----\n", pThisCore->mCoreIx);
         }
-        pCur = pNext;
-    } while (pCur != nil);
+    }
 
-    return NULL;
+    if (NULL != apFormat)
+    {
+        K2_VASTART(vList, apFormat);
+        KernDbg_OutputWithArgs(apFormat, vList);
+    }
+
+    KernArch_Panic(pThisCore, TRUE);
+
+    while (1);
 }
-

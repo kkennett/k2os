@@ -29,53 +29,58 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
+#include "kern.h"
+
+K2STAT  
+KernSignalProxy_Create(
+    K2OSKERN_OBJREF *   apRetRef
 )
 {
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+    K2OSKERN_OBJ_SIGNALPROXY *pProx;
 
-    K2_ASSERT(apAnchor != NULL);
+    pProx = (K2OSKERN_OBJ_SIGNALPROXY *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_SIGNALPROXY));
+    if (NULL == pProx)
+        return K2STAT_ERROR_OUT_OF_MEMORY;
 
-    nil = &apAnchor->NilNode;
+    K2MEM_Zero(pProx, sizeof(K2OSKERN_OBJ_SIGNALPROXY));
+    
+    pProx->Hdr.mObjType = KernObj_SignalProxy;
+    K2LIST_Init(&pProx->Hdr.RefObjList);
 
-    pCur = apAnchor->RootNode.mpLeftChild;
+    pProx->SchedItem.mType = KernSchedItem_SignalProxy;
 
-    if (pCur == nil)
-        return NULL;
+    KernObj_CreateRef(apRetRef, &pProx->Hdr);
 
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
-
-    return NULL;
+    return K2STAT_NO_ERROR;
 }
 
+void    
+KernSignalProxy_Cleanup(
+    K2OSKERN_CPUCORE volatile * apThisCore,
+    K2OSKERN_OBJ_SIGNALPROXY *  apSignalProxy
+)
+{
+    if (apSignalProxy->SchedItem.ObjRef.Ptr.AsHdr != NULL)
+    {
+        KernObj_ReleaseRef(&apSignalProxy->SchedItem.ObjRef);
+    }
+
+    K2MEM_Zero(apSignalProxy, sizeof(K2OSKERN_OBJ_SIGNALPROXY));
+
+    KernHeap_Free(apSignalProxy);
+}
+
+void    
+KernSignalProxy_Fire(
+    K2OSKERN_OBJ_SIGNALPROXY *  apProxy,
+    K2OSKERN_OBJ_NOTIFY *       apTargetNotify
+)
+{
+    K2_ASSERT(apProxy->InFlightSelfRef.Ptr.AsHdr == NULL);
+    apProxy->SchedItem.mType = KernSchedItem_SignalProxy;
+    KernObj_CreateRef(&apProxy->InFlightSelfRef, &apProxy->Hdr);
+    KernObj_CreateRef(&apProxy->SchedItem.ObjRef, &apTargetNotify->Hdr);
+    KernTimer_GetHfTick(&apProxy->SchedItem.mHfTick);
+    KernSched_QueueItem(&apProxy->SchedItem);
+}

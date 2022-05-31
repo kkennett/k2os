@@ -29,53 +29,65 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
-)
-{
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+#include "x32kernasm.inc"
 
-    K2_ASSERT(apAnchor != NULL);
+.extern X32Kern_CpuLaunch
+.extern X32Kern_GDTFlush
+.extern X32Kern_IDTFlush
 
-    nil = &apAnchor->NilNode;
+.extern gX32Kern_KernelPageDirPhysAddr
 
-    pCur = apAnchor->RootNode.mpLeftChild;
+// void K2_CALLCONV_REGS X32Kern_CpuLaunchEntryPoint(void)
+BEGIN_X32_PROC(X32Kern_CpuLaunchEntryPoint)
+    // ecx holds CPU index
+    // we have no idea what GDT or page tables we are on
 
-    if (pCur == nil)
-        return NULL;
+    //
+    // put stack at proper place in core page for this core to init
+    // the core data is at the start of the page and the stacks are
+    // put at the end.  At launch there is the init stack at the end
+    // which we can overwrite 
+    //
+    mov %eax, %ecx
+    mov %ebx, K2OS_KVA_COREMEMORY_BASE
+    mov %edx, 0x4000
+    mul %edx
+    add %eax, 0x3FFC
+    add %eax, %ebx
+    mov %esp, %eax
 
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
+    mov %ebp, %esp
+    xor %eax, %eax
+    mov [%esp], %eax
+    sub %esp, 4
 
-    return NULL;
-}
+    // ok our stack is in proper usable place now at the top of the memory for this core.
+    // save the core index and load the real GDT and IDT
+    push %ecx
+    call X32Kern_GDTFlush
+    call X32Kern_IDTFlush
+    pop %ecx
+
+    // real data and stack segment descriptors loaded in GDTFlush
+    // real code segment also jumped to
+
+    // we are off the old GDT now.  Load the new page directory
+    mov %eax, [gX32Kern_KernelPageDirPhysAddr]
+    mov %cr3, %eax
+
+    // make sure WP bit is set in CR0
+    mov %eax, %cr0
+    or  %eax, X32_CR0_WRITE_PROTECT
+    wbinvd
+    mov %cr0, %eax
+    wbinvd
+
+    // we are completely onto real config structures now.  go into regular launch code
+    // ecx has the core index
+    jmp X32Kern_CpuLaunch
+           
+END_X32_PROC(X32Kern_CpuLaunchEntryPoint)
+  
+    .end
 

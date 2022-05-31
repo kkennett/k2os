@@ -29,53 +29,27 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
-)
-{
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+#include "x32kernasm.inc"
 
-    K2_ASSERT(apAnchor != NULL);
+.extern KernCpu_RunMonitor
 
-    nil = &apAnchor->NilNode;
+BEGIN_X32_PROC(X32Kern_MonitorMainLoop)
+    call KernCpu_RunMonitor
+    // if we return we are WFI on this core
+Wait_For_Interrupt:
+    sti
+    hlt 
+    // should never return but if we do keep waiting for interrupt
+    jmp Wait_For_Interrupt
+END_X32_PROC(X32Kern_MonitorMainLoop)
 
-    pCur = apAnchor->RootNode.mpLeftChild;
-
-    if (pCur == nil)
-        return NULL;
-
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
-
-    return NULL;
-}
+//void K2_CALLCONV_REGS X32Kern_EnterMonitor(UINT32 aESP);
+BEGIN_X32_PROC(X32Kern_EnterMonitor)
+    mov %esp, %ecx
+    mov %ebp, 0
+    jmp X32Kern_MonitorMainLoop
+END_X32_PROC(X32Kern_EnterMonitor)
+  
+    .end
 

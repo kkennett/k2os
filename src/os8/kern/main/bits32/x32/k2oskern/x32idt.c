@@ -29,53 +29,38 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
+#include "x32kern.h"
+
+#define SIZEOF_ONE_STUB 12
+
+extern void * const X32Kern_InterruptStubs;
+
+void X32Kern_IDTFlush(void);
+
+void 
+X32Kern_IDTSetup(
+    void
 )
 {
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+    UINT32 ix;
+    UINT32 workAddr;
 
-    K2_ASSERT(apAnchor != NULL);
-
-    nil = &apAnchor->NilNode;
-
-    pCur = apAnchor->RootNode.mpLeftChild;
-
-    if (pCur == nil)
-        return NULL;
-
-    do
+    /* init table */
+    workAddr = (UINT32)&X32Kern_InterruptStubs;
+    for(ix=0;ix<X32_NUM_IDT_ENTRIES;ix++)
     {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
+        gX32Kern_IDT[ix].mAddrLow16 = (UINT16)(workAddr & 0xFFFF);
+        gX32Kern_IDT[ix].mAddrHigh16 = (UINT16)((workAddr >> 16) & 0xFFFF);
+        gX32Kern_IDT[ix].mSelector = X32_SEGMENT_SELECTOR_KERNEL_CODE;
+        gX32Kern_IDT[ix].mFlags = 0x8E;    /* 0x8E = Present, DPL 0, NonSystem, 32-bit gate */
+        gX32Kern_IDT[ix].mAlwaysZero = 0;
+        workAddr += SIZEOF_ONE_STUB;
+    }
 
-    return NULL;
+    gX32Kern_IDTPTR.mBaseAddr = (UINT32)&gX32Kern_IDT;
+    gX32Kern_IDTPTR.mTableSize = (X32_NUM_IDT_ENTRIES * sizeof(X32_IDTENTRY)) - 1;
+    
+    X32Kern_IDTFlush();
 }
 

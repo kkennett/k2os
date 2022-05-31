@@ -29,53 +29,57 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
+#include "dbgser.h"
+
+#define TX_EMPTY_BITS (PC_SERIAL_LSR_ALLTX_EMPTY | PC_SERIAL_LSR_THR_EMPTY)
+
+void
+PC_DBGSER_Init(
+    void
 )
 {
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
-
-    K2_ASSERT(apAnchor != NULL);
-
-    nil = &apAnchor->NilNode;
-
-    pCur = apAnchor->RootNode.mpLeftChild;
-
-    if (pCur == nil)
-        return NULL;
-
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
-
-    return NULL;
+    X32_IoWrite8(0, PC_SERIAL1_IER);
+    X32_IoWrite8(PC_SERIAL_LCR_DLAB, PC_SERIAL1_LCR);
+    X32_IoWrite8(PC_SERIAL_DIV_BAUD115200, PC_SERIAL1_DLAB1_LOWDIV);
+    X32_IoWrite8(0, PC_SERIAL1_DLAB1_HIDIV);
+    X32_IoWrite8(PC_SERIAL_LCR_DATABITS_8 |
+        PC_SERIAL_LCR_PARITY_NONE |
+        PC_SERIAL_LCR_STOPBITS_1, PC_SERIAL1_LCR);
+    X32_IoWrite8(PC_SERIAL_FCR_LCR_BYTE1 |
+        PC_SERIAL_FCR_CLEAR_TX |
+        PC_SERIAL_FCR_CLEAR_RX, PC_SERIAL1_IIR_FIFOCR);
+    X32_IoWrite8(PC_SERIAL_MCR_AUX2 |
+        PC_SERIAL_MCR_RTS |
+        PC_SERIAL_MCR_DTR, PC_SERIAL1_MCR);
 }
 
+void
+PC_DBGSER_OutByte(
+    UINT8 aByte
+)
+{
+    while ((X32_IoRead8(PC_SERIAL1_LSR) & TX_EMPTY_BITS) != TX_EMPTY_BITS);
+    X32_IoWrite8(aByte, PC_SERIAL1_THR_RHR);
+}
+
+BOOL
+PC_DBGSER_InAvail(
+    void
+)
+{
+    if (0 == (X32_IoRead8(PC_SERIAL1_LSR) & PC_SERIAL_LSR_RHR_FULL))
+        return FALSE;
+    return TRUE;
+}
+
+BOOL
+PC_DBGSER_InByte(
+    UINT8 *apRetByte
+)
+{
+    if (!PC_DBGSER_InAvail())
+        return FALSE;
+    *apRetByte = X32_IoRead8(PC_SERIAL1_THR_RHR);
+    return TRUE;
+}

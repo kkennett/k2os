@@ -29,53 +29,57 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <lib/k2tree.h>
+#ifndef __K2RING_H
+#define __K2RING_H
 
-K2TREE_NODE * 
-K2TREE_FindOrAfter(
-    K2TREE_ANCHOR * apAnchor,
-    UINT_PTR        aFindKey
-)
+#include <k2systype.h>
+
+//
+//------------------------------------------------------------------------
+//
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct _K2RING_STATE_FIELDS K2RING_STATE_FIELDS;
+struct _K2RING_STATE_FIELDS
 {
-    K2TREE_NODE *   pCur;
-    K2TREE_NODE *   pNext;
-    K2TREE_NODE *   nil;
+    UINT32  mReadIx     : 15;
+    UINT32  mSpare      : 1;
+    UINT32  mWriteIx    : 15;
+    UINT32  mHasGap     : 1;
+};
 
-    K2_ASSERT(apAnchor != NULL);
+typedef union _K2RING_STATE K2RING_STATE;
+union _K2RING_STATE
+{
+    K2RING_STATE_FIELDS Fields;
+    UINT32 volatile     mAsUINT32;
+};
 
-    nil = &apAnchor->NilNode;
+typedef struct _K2RING K2RING;
+struct _K2RING
+{
+    K2RING_STATE    State;
+    UINT32          mWriterGap;
+    UINT32          mSize;
+};
 
-    pCur = apAnchor->RootNode.mpLeftChild;
+void   K2RING_Init(K2RING *apRing, UINT32 aSize);
+UINT32 K2RING_Reader_GetAvail(K2RING *apRing, UINT32 *apRetOffset, BOOL aSetSpareOnEmpty);
+K2STAT K2RING_Reader_Consumed(K2RING *apRing, UINT32 aCount);
+BOOL   K2RING_Writer_GetOffset(K2RING *apRing, UINT32 aCount, UINT32 *apRetOffset);
+K2STAT K2RING_Writer_Wrote(K2RING *apRing, UINT32 aWroteAtOffset, UINT32 aCount);
+void   K2RING_ClearSpareBit(K2RING *apRing);
 
-    if (pCur == nil)
-        return NULL;
+#ifdef __cplusplus
+};  // extern "C"
+#endif
 
-    do
-    {
-        int rc = apAnchor->mfCompareKeyToNode(aFindKey, pCur);
-        if (rc == 0)
-            return pCur;
-        if (rc < 0)
-        {
-            /* looking for key before current key.
-               if there isn't one then there isn't a node "at or after"
-               the key we are searching for */
-            pNext = pCur->mpLeftChild;
-            if (pNext == nil)
-                return pCur;
-        }
-        else
-        {
-            pNext = pCur->mpRightChild;
-            if (pNext == nil)
-            {
-                /* return successor to pCur */
-                return K2TREE_NextNode(apAnchor, pCur);
-            }
-        }
-        pCur = pNext;
-    } while (pCur != nil);
+//
+//------------------------------------------------------------------------
+//
 
-    return NULL;
-}
+#endif  // __K2RING_H
 
