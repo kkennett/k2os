@@ -76,7 +76,7 @@ typedef struct _DLX DLX;
 #define DLX_SECTOR_BYTES                (1 << DLX_SECTOR_BITS)
 #define DLX_SECTOROFFSET_MASK           (DLX_SECTOR_BYTES - 1)
 #define DLX_SECTORINDEX_MASK            (~DLX_SECTOROFFSET_MASK)
-#define DLX_SECTORS_PER_PAGE            (K2_VA32_MEMPAGE_BYTES / DLX_SECTOR_BYTES)
+#define DLX_SECTORS_PER_PAGE            (K2_VA_MEMPAGE_BYTES / DLX_SECTOR_BYTES)
 
 enum _DLXSegmentIndex
 {

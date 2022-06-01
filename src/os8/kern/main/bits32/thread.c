@@ -155,7 +155,7 @@ KernThread_Create(
             stat = K2STAT_ERROR_OUT_OF_MEMORY;
             break;
         }
-        stat = KernPhys_AllocPow2Bytes(&res, K2_VA32_MEMPAGE_BYTES, &pTrack);
+        stat = KernPhys_AllocPow2Bytes(&res, K2_VA_MEMPAGE_BYTES, &pTrack);
         if (K2STAT_IS_ERROR(stat))
         {
             KernPhys_Reserve_Release(&res);
@@ -185,7 +185,7 @@ KernThread_Create(
         pThreadPtrs[newThreadIx] = (UINT32)pNewThread;
 
         pNewThread->mpKernRwViewOfUserThreadPage = (K2OS_USER_THREAD_PAGE *)
-            (K2OS_KVA_TLSAREA_BASE + (newThreadIx * K2_VA32_MEMPAGE_BYTES));
+            (K2OS_KVA_TLSAREA_BASE + (newThreadIx * K2_VA_MEMPAGE_BYTES));
 
         disp = K2OSKERN_SeqLock(&apProc->PageList.SeqLock);
         K2_ASSERT(pTrack->Flags.Field.PageListIx == KernPhysPageList_None);
@@ -196,7 +196,7 @@ KernThread_Create(
         pNewThread->mTlsPagePhys = physPageAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack);
         KernPhys_ZeroPage(physPageAddr);
 
-        KernPte_MakePageMap(apProc, K2OS_UVA_TLSAREA_BASE + (newThreadIx * K2_VA32_MEMPAGE_BYTES), physPageAddr, K2OS_MAPTYPE_USER_DATA);
+        KernPte_MakePageMap(apProc, K2OS_UVA_TLSAREA_BASE + (newThreadIx * K2_VA_MEMPAGE_BYTES), physPageAddr, K2OS_MAPTYPE_USER_DATA);
         KernPte_MakePageMap(NULL, (UINT32)pNewThread->mpKernRwViewOfUserThreadPage, physPageAddr, K2OS_MAPTYPE_KERN_DATA);
 
         K2MEM_Copy(&pNewThread->UserConfig, apConfig, sizeof(K2OS_USER_THREAD_CONFIG));
@@ -452,8 +452,8 @@ KernThread_CoW_Dpc_Copy(
         K2LIST_AddAtTail(&pProc->PageList.Locked.Working, &pTrack->ListLink);
     K2OSKERN_SeqUnlock(&pProc->PageList.SeqLock, disp);
 
-    virtAddrSrc = K2OS_KVA_PERCOREWORKPAGES_BASE + ((K2OSKERN_GetCpuIndex() * K2OS_PERCOREWORKPAGES_PERCORE) *  K2_VA32_MEMPAGE_BYTES);
-    virtAddrDst = virtAddrSrc + K2_VA32_MEMPAGE_BYTES;
+    virtAddrSrc = K2OS_KVA_PERCOREWORKPAGES_BASE + ((K2OSKERN_GetCpuIndex() * K2OS_PERCOREWORKPAGES_PERCORE) *  K2_VA_MEMPAGE_BYTES);
+    virtAddrDst = virtAddrSrc + K2_VA_MEMPAGE_BYTES;
 
     physAddr = KernPageArray_PagePhys(pMap->PageArrayRef.Ptr.AsPageArray, pMap->mPageArrayStartPageIx + pEx->mMapPageIx);
     KernPte_MakePageMap(NULL, virtAddrSrc, physAddr, K2OS_MAPTYPE_KERN_READ);
@@ -461,8 +461,8 @@ KernThread_CoW_Dpc_Copy(
     physAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack);
     KernPte_MakePageMap(NULL, virtAddrDst, physAddr, K2OS_MAPTYPE_KERN_DATA);
 
-    K2MEM_Copy((void *)virtAddrDst, (void *)virtAddrSrc, K2_VA32_MEMPAGE_BYTES);
-    K2OS_CacheOperation(K2OS_CACHEOP_FlushData, virtAddrDst, K2_VA32_MEMPAGE_BYTES);
+    K2MEM_Copy((void *)virtAddrDst, (void *)virtAddrSrc, K2_VA_MEMPAGE_BYTES);
+    K2OS_CacheOperation(K2OS_CACHEOP_FlushData, virtAddrDst, K2_VA_MEMPAGE_BYTES);
 
     KernPte_BreakPageMap(NULL, virtAddrSrc, 0);
     KernArch_InvalidateTlbPageOnCurrentCore(virtAddrSrc);
@@ -473,7 +473,7 @@ KernThread_CoW_Dpc_Copy(
     //
     // update PTE and do TLB shoot down across cores
     //
-    virtAddrDst = pEx->mFaultAddr & K2_VA32_PAGEFRAME_MASK;
+    virtAddrDst = pEx->mFaultAddr & K2_VA_PAGEFRAME_MASK;
     disp = K2OSKERN_SeqLock(&pProc->Virt.SeqLock);
     KernPte_MakePageMap(pProc, virtAddrDst, physAddr, K2OS_MAPTYPE_USER_DATA);
     K2OSKERN_SeqUnlock(&pProc->Virt.SeqLock, disp);
@@ -537,7 +537,7 @@ KernThread_OnException_Access(
             // mark PTE as NP and start copy-on-write processing for the thread
             //
             isCow = TRUE;
-            KernPte_BreakPageMap(apCurThread->ProcRef.Ptr.AsProc, apEx->mFaultAddr & K2_VA32_PAGEFRAME_MASK, K2OSKERN_PTE_ACTIVE_COW);
+            KernPte_BreakPageMap(apCurThread->ProcRef.Ptr.AsProc, apEx->mFaultAddr & K2_VA_PAGEFRAME_MASK, K2OSKERN_PTE_ACTIVE_COW);
             apCurThread->CoW.DpcSimple.Func = KernThread_CoW_Dpc_Copy;
             KernCpu_QueueDpc(&apCurThread->CoW.DpcSimple.Dpc, &apCurThread->CoW.DpcSimple.Func, KernDpcPrio_Med);
         }
@@ -724,7 +724,7 @@ KernThread_SysCall_Create(
         {
             if ((mapRef.Ptr.AsMap->mUserMapType != K2OS_MapType_Thread_Stack) ||
                 (pageIx != 0) ||
-                (mapRef.Ptr.AsMap->mpProcHeapNode->HeapNode.AddrTreeNode.mUserVal != (stackTop - K2_VA32_MEMPAGE_BYTES)))
+                (mapRef.Ptr.AsMap->mpProcHeapNode->HeapNode.AddrTreeNode.mUserVal != (stackTop - K2_VA_MEMPAGE_BYTES)))
             {
                 stat = K2STAT_ERROR_BAD_ARGUMENT;
                 break;
@@ -741,7 +741,7 @@ KernThread_SysCall_Create(
             mapRef.Ptr.AsMap->mpProcHeapNode->mUserOwned = 0;
 
             stackPtr = mapRef.Ptr.AsMap->mpProcHeapNode->HeapNode.AddrTreeNode.mUserVal;
-            stackPtr += (mapRef.Ptr.AsMap->mPageCount * K2_VA32_MEMPAGE_BYTES) - 4;
+            stackPtr += (mapRef.Ptr.AsMap->mPageCount * K2_VA_MEMPAGE_BYTES) - 4;
             KernArch_UserThreadPrep(
                 pNewThread, 
                 crtEntry, 
@@ -1025,7 +1025,7 @@ KernThread_Cleanup(
     K2LIST_Remove(&pProc->Thread.Locked.DeadList, &apThread->ProcThreadListLink);
     K2OSKERN_SeqUnlock(&pProc->Thread.SeqLock, disp);
 
-    userPageVirt = K2OS_UVA_TLSAREA_BASE + (apThread->mGlobalIx * K2_VA32_MEMPAGE_BYTES);
+    userPageVirt = K2OS_UVA_TLSAREA_BASE + (apThread->mGlobalIx * K2_VA_MEMPAGE_BYTES);
     if (NULL != apThread->StackMapRef.Ptr.AsHdr)
     {
         KernObj_ReleaseRef(&apThread->StackMapRef);

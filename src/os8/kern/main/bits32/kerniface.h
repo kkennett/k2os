@@ -60,7 +60,7 @@ struct _K2OS_USER_THREAD_PAGE
     UINT8               mMiscBuffer[K2OS_THREAD_PAGE_BUFFER_BYTES];
     // process' initial thread's stack is at end of page until it gets its normal stack
 };
-K2_STATIC_ASSERT(sizeof(K2OS_USER_THREAD_PAGE) < K2_VA32_MEMPAGE_BYTES);
+K2_STATIC_ASSERT(sizeof(K2OS_USER_THREAD_PAGE) < K2_VA_MEMPAGE_BYTES);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -149,7 +149,7 @@ struct _CRT_LAUNCH_INFO
 #define K2OS_MAILBOX_OWNER_SENTINEL_2    K2_MAKEID4('X','O','B','m')
 
 #define K2OS_MAILBOX_OWNER_FLAG_DWORDS   8
-K2_STATIC_ASSERT((K2OS_MAILBOX_OWNER_FLAG_DWORDS * 32 * sizeof(K2OS_MSG)) == K2_VA32_MEMPAGE_BYTES);
+K2_STATIC_ASSERT((K2OS_MAILBOX_OWNER_FLAG_DWORDS * 32 * sizeof(K2OS_MSG)) == K2_VA_MEMPAGE_BYTES);
 
 typedef K2OS_WAITABLE_TOKEN K2OS_MAILBOX_TOKEN;
 typedef K2OS_TOKEN          K2OS_IPCEND_TOKEN;

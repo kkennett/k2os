@@ -49,7 +49,7 @@ KernUser_AllocStockPageArray(
     BOOL                    ok;
 
     K2_ASSERT(aPageCount > 0);
-    K2_ASSERT(aInitDataBytes <= (aPageCount * K2_VA32_MEMPAGE_BYTES));
+    K2_ASSERT(aInitDataBytes <= (aPageCount * K2_VA_MEMPAGE_BYTES));
 
     rangeBytes = sizeof(K2OSKERN_OBJ_PAGEARRAY) + ((aPageCount - 1) * sizeof(UINT32));
     pPageArray = (K2OSKERN_OBJ_PAGEARRAY *)KernHeap_Alloc(rangeBytes);
@@ -81,7 +81,7 @@ KernUser_AllocStockPageArray(
     //
     for (ixPage = 0; ixPage < pPageArray->mPageCount; ixPage++)
     {
-        KernPte_MakePageMap(NULL, virtAddr + (ixPage * K2_VA32_MEMPAGE_BYTES), KernPageArray_PagePhys(pPageArray, ixPage), K2OS_MAPTYPE_KERN_DATA);
+        KernPte_MakePageMap(NULL, virtAddr + (ixPage * K2_VA_MEMPAGE_BYTES), KernPageArray_PagePhys(pPageArray, ixPage), K2OS_MAPTYPE_KERN_DATA);
     }
 
     //
@@ -95,8 +95,8 @@ KernUser_AllocStockPageArray(
     //
     for (ixPage = 0; ixPage < pPageArray->mPageCount; ixPage++)
     {
-        KernPte_BreakPageMap(NULL, virtAddr + (ixPage * K2_VA32_MEMPAGE_BYTES), 0);
-        KernArch_InvalidateTlbPageOnCurrentCore(virtAddr + (ixPage * K2_VA32_MEMPAGE_BYTES));
+        KernPte_BreakPageMap(NULL, virtAddr + (ixPage * K2_VA_MEMPAGE_BYTES), 0);
+        KernArch_InvalidateTlbPageOnCurrentCore(virtAddr + (ixPage * K2_VA_MEMPAGE_BYTES));
     }
 
     //
@@ -153,14 +153,14 @@ KernUser_Init(
     // map the publicApi page into the kernel as r/w data, clear it out, flush it
     //
     KernPte_MakePageMap(NULL, K2OS_KVA_PUBLICAPI_BASE, pPageArray->Data.Sparse.mPages[0], K2OS_MAPTYPE_KERN_DATA);
-    K2MEM_Zero((void *)K2OS_KVA_PUBLICAPI_BASE, K2_VA32_MEMPAGE_BYTES);
-    K2OS_CacheOperation(K2OS_CACHEOP_FlushData, K2OS_KVA_PUBLICAPI_BASE, K2_VA32_MEMPAGE_BYTES);
+    K2MEM_Zero((void *)K2OS_KVA_PUBLICAPI_BASE, K2_VA_MEMPAGE_BYTES);
+    K2OS_CacheOperation(K2OS_CACHEOP_FlushData, K2OS_KVA_PUBLICAPI_BASE, K2_VA_MEMPAGE_BYTES);
 
     //
     // set the timer fields in the publicapi page
     //
     *((UINT32 *)K2OS_KVA_PUBLICAPI_TIMER_FREQ) = gData.Timer.mFreq;
-    *((UINT32 *)K2OS_KVA_PUBLICAPI_TIMER_ADDR) = K2OS_UVA_TIMER_IOPAGE_BASE + (gData.Timer.mIoPhys & K2_VA32_MEMPAGE_OFFSET_MASK);
+    *((UINT32 *)K2OS_KVA_PUBLICAPI_TIMER_ADDR) = K2OS_UVA_TIMER_IOPAGE_BASE + (gData.Timer.mIoPhys & K2_VA_MEMPAGE_OFFSET_MASK);
 
     //
     // Create timerio range
@@ -173,7 +173,7 @@ KernUser_Init(
     pPageArray->mType = KernPageArray_Sparse;
     pPageArray->mPageCount = 1;
     pPageArray->mUserPermit = K2OS_MEMPAGE_ATTR_READABLE | K2OS_MEMPAGE_ATTR_DEVICEIO;
-    pPageArray->Data.Sparse.mPages[0] = (gData.Timer.mIoPhys & K2_VA32_PAGEFRAME_MASK);
+    pPageArray->Data.Sparse.mPages[0] = (gData.Timer.mIoPhys & K2_VA_PAGEFRAME_MASK);
 //    K2OSKERN_Debug("Create PageArray %08X (TimerIo)\n", pPageArray);
 
     //
@@ -184,7 +184,7 @@ KernUser_Init(
     //
     // ROFS is mapped right under the timer io page
     //
-    gData.User.mTopInitVirtBar = K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.PageArray.mPageCount * K2_VA32_MEMPAGE_BYTES);
+    gData.User.mTopInitVirtBar = K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.PageArray.mPageCount * K2_VA_MEMPAGE_BYTES);
 
     //
     // "load" k2oscrt.dlx segments
@@ -222,23 +222,23 @@ KernUser_Init(
     //
     // calculate sizes of ranges for text, read, data, sym segments
     // 
-    memBytes = (pDlxInfo->SegInfo[DlxSeg_Text].mMemActualBytes + (K2_VA32_MEMPAGE_BYTES - 1)) & K2_VA32_PAGEFRAME_MASK;
-    gData.User.mCrtTextPagesCount = memBytes / K2_VA32_MEMPAGE_BYTES;
+    memBytes = (pDlxInfo->SegInfo[DlxSeg_Text].mMemActualBytes + (K2_VA_MEMPAGE_BYTES - 1)) & K2_VA_PAGEFRAME_MASK;
+    gData.User.mCrtTextPagesCount = memBytes / K2_VA_MEMPAGE_BYTES;
     segAddr = pDlxInfo->SegInfo[DlxSeg_Text].mLinkAddr + memBytes;
     K2_ASSERT(segAddr == pDlxInfo->SegInfo[DlxSeg_Read].mLinkAddr);
 
-    memBytes = (pDlxInfo->SegInfo[DlxSeg_Read].mMemActualBytes + (K2_VA32_MEMPAGE_BYTES - 1)) & K2_VA32_PAGEFRAME_MASK;
-    gData.User.mCrtReadPagesCount = memBytes / K2_VA32_MEMPAGE_BYTES;
+    memBytes = (pDlxInfo->SegInfo[DlxSeg_Read].mMemActualBytes + (K2_VA_MEMPAGE_BYTES - 1)) & K2_VA_PAGEFRAME_MASK;
+    gData.User.mCrtReadPagesCount = memBytes / K2_VA_MEMPAGE_BYTES;
     segAddr = pDlxInfo->SegInfo[DlxSeg_Read].mLinkAddr + memBytes;
     K2_ASSERT(segAddr == pDlxInfo->SegInfo[DlxSeg_Data].mLinkAddr);
 
-    memBytes = (pDlxInfo->SegInfo[DlxSeg_Data].mMemActualBytes + (K2_VA32_MEMPAGE_BYTES - 1)) & K2_VA32_PAGEFRAME_MASK;
-    gData.User.mCrtDataPagesCount = memBytes / K2_VA32_MEMPAGE_BYTES;
+    memBytes = (pDlxInfo->SegInfo[DlxSeg_Data].mMemActualBytes + (K2_VA_MEMPAGE_BYTES - 1)) & K2_VA_PAGEFRAME_MASK;
+    gData.User.mCrtDataPagesCount = memBytes / K2_VA_MEMPAGE_BYTES;
     segAddr = pDlxInfo->SegInfo[DlxSeg_Data].mLinkAddr + memBytes;
     K2_ASSERT(segAddr == pDlxInfo->SegInfo[DlxSeg_Sym].mLinkAddr);
 
-    memBytes = (pDlxInfo->SegInfo[DlxSeg_Sym].mMemActualBytes + (K2_VA32_MEMPAGE_BYTES - 1)) & K2_VA32_PAGEFRAME_MASK;
-    gData.User.mCrtSymPagesCount = memBytes / K2_VA32_MEMPAGE_BYTES;
+    memBytes = (pDlxInfo->SegInfo[DlxSeg_Sym].mMemActualBytes + (K2_VA_MEMPAGE_BYTES - 1)) & K2_VA_PAGEFRAME_MASK;
+    gData.User.mCrtSymPagesCount = memBytes / K2_VA_MEMPAGE_BYTES;
     segAddr = pDlxInfo->SegInfo[DlxSeg_Sym].mLinkAddr + memBytes;
 
     //

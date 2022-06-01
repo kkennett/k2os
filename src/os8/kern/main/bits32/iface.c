@@ -309,7 +309,7 @@ KernIfEnum_CopyOut(
 
     userBufferBytes = (*apIoUserCount) * sizeof(K2OS_IFENUM_ENTRY);
 
-    lockMapCount = (userBufferBytes + (K2_VA32_MEMPAGE_BYTES - 1)) / K2_VA32_MEMPAGE_BYTES;
+    lockMapCount = (userBufferBytes + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES;
 
     pLockedMapRefs = (K2OSKERN_OBJREF *)KernHeap_Alloc(lockMapCount * sizeof(K2OSKERN_OBJREF));
     if (NULL == pLockedMapRefs)

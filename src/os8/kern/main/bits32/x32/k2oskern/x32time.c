@@ -87,7 +87,7 @@ X32Kern_InitTiming(
     //
     K2_ASSERT(NULL != gpX32Kern_HPET);
 
-    v = ((UINT32)gpX32Kern_HPET->Address.Address) & K2_VA32_MEMPAGE_OFFSET_MASK;
+    v = ((UINT32)gpX32Kern_HPET->Address.Address) & K2_VA_MEMPAGE_OFFSET_MASK;
     sgHPET = K2OS_KVA_X32_HPET | v;
 
     //

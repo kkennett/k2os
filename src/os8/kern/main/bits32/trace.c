@@ -108,7 +108,7 @@ static char const * const sgEvtName[] =
 #define POS_MASK        0x0000FFFF
 
 K2_STATIC_ASSERT(POS_MASK >= 0x00000FFF);
-#define TRACE_PAGES     ((POS_MASK+1) / K2_VA32_MEMPAGE_BYTES)
+#define TRACE_PAGES     ((POS_MASK+1) / K2_VA_MEMPAGE_BYTES)
 
 static UINT32           sgBufferBase;
 static UINT32           sgBufferEnd;
@@ -144,11 +144,11 @@ KernTrace_Init(
     do {
         physAddr = KernPhys_ScanIter(&scan);
         KernPte_MakePageMap(NULL, virtAddr, physAddr, K2OS_MAPTYPE_KERN_DATA);
-        virtAddr += K2_VA32_MEMPAGE_BYTES;
+        virtAddr += K2_VA_MEMPAGE_BYTES;
     } while (--left);
 
-    K2MEM_Zero((void *)sgBufferBase, TRACE_PAGES * K2_VA32_MEMPAGE_BYTES);
-    sgBufferEnd = sgBufferBase + TRACE_PAGES * K2_VA32_MEMPAGE_BYTES;
+    K2MEM_Zero((void *)sgBufferBase, TRACE_PAGES * K2_VA_MEMPAGE_BYTES);
+    sgBufferEnd = sgBufferBase + TRACE_PAGES * K2_VA_MEMPAGE_BYTES;
 
     sgNext = 0;
 

@@ -451,6 +451,84 @@
 //------------------------------------------------------------------------
 //
 
+// CR4.PCIDE     = 0
+// IA32_EFER.NXE = 1
+// CR4.PKE       = 0
+// CPUID.80000001:EDX.LM:20000000 must be 1
+// CPUID.80000008:EAX:0x000000FF is MAXPHYADDR (at most 52)
+
+#define X64_CR3_WRITETHROUGH            0x0000000000000008
+#define X64_CR3_CACHEDISABLE            0x0000000000000010
+#define X64_CR3_PML4E_PHYS_MASK         0x000FFFFFFFFFF000
+
+#define X64_PML4E_PRESENT               0x0000000000000001
+#define X64_PML4E_WRITEABLE             0x0000000000000002
+#define X64_PML4E_USER                  0x0000000000000004
+#define X64_PML4E_WRITETHROUGH          0x0000000000000008
+#define X64_PML4E_CACHEDISABLE          0x0000000000000010
+#define X64_PML4E_ACCESSED              0x0000000000000020
+#define X64_PML4E_AVAIL_040             0x0000000000000040
+#define X64_PML4E_MUST_BE_ZERO          0x0000000000000080
+#define X64_PML4E_AVAIL_100             0x0000000000000100
+#define X64_PML4E_AVAIL_200             0x0000000000000200
+#define X64_PML4E_AVAIL_400             0x0000000000000400
+#define X64_PML4E_AVAIL_800             0x0000000000000800
+#define X64_PML4E_PDPTE_PHYS_MASK       0x000FFFFFFFFFF000
+#define X64_PML4E_XD                    0x8000000000000000
+
+#define X64_PDPTE_PRESENT               0x0000000000000001
+#define X64_PDPTE_WRITEABLE             0x0000000000000002
+#define X64_PDPTE_USER                  0x0000000000000004
+#define X64_PDPTE_WRITETHROUGH          0x0000000000000008
+#define X64_PDPTE_CACHEDISABLE          0x0000000000000010
+#define X64_PDPTE_ACCESSED              0x0000000000000020
+#define X64_PDPTE_AVAIL_040             0x0000000000000040
+#define X64_PDPTE_PS                    0x0000000000000080
+#define X64_PDPTE_AVAIL_100             0x0000000000000100
+#define X64_PDPTE_AVAIL_200             0x0000000000000200
+#define X64_PDPTE_AVAIL_400             0x0000000000000400
+#define X64_PDPTE_AVAIL_800             0x0000000000000800
+#define X64_PDPTE_PD_PHYS_MASK          0x000FFFFFFFFFF000
+#define X64_PDPTE_XD                    0x8000000000000000
+
+#define X64_PDE_PRESENT                 0x0000000000000001
+#define X64_PDE_WRITEABLE               0x0000000000000002
+#define X64_PDE_USER                    0x0000000000000004
+#define X64_PDE_WRITETHROUGH            0x0000000000000008
+#define X64_PDE_CACHEDISABLE            0x0000000000000010
+#define X64_PDE_ACCESSED                0x0000000000000020
+#define X64_PDE_AVAIL_040               0x0000000000000040
+#define X64_PDE_PS                      0x0000000000000080
+#define X64_PDE_AVAIL_100               0x0000000000000100
+#define X64_PDE_AVAIL_200               0x0000000000000200
+#define X64_PDE_AVAIL_400               0x0000000000000400
+#define X64_PDE_AVAIL_800               0x0000000000000800
+#define X64_PDE_PTPHYS_MASK             0x000FFFFFFFFFF000
+#define X64_PDE_XD                      0x8000000000000000
+
+#define X64_KERN_PAGETABLE_PROTO        (X64_PDE_PRESENT | X64_PDE_WRITEABLE)
+#define X64_USER_PAGETABLE_PROTO        (X64_PDE_PRESENT | X64_PDE_WRITEABLE | X64_PDE_USER)
+
+#define X64_PTE_PRESENT                 0x0000000000000001
+#define X64_PTE_WRITEABLE               0x0000000000000002
+#define X64_PTE_USER                    0x0000000000000004
+#define X64_PTE_WRITETHROUGH            0x0000000000000008
+#define X64_PTE_CACHEDISABLE            0x0000000000000010
+#define X64_PTE_ACCESSED                0x0000000000000020
+#define X64_PTE_DIRTY                   0x0000000000000040
+#define X64_PTE_PAT                     0x0000000000000080
+#define X64_PTE_GLOBAL                  0x0000000000000100
+#define X64_PTE_AVAIL_200               0x0000000000000200
+#define X64_PTE_AVAIL_400               0x0000000000000400
+#define X64_PTE_AVAIL_800               0x0000000000000800
+#define X64_PTE_PAGEPHYS_MASK           0x000FFFFFFFFFF000
+#define X64_PTE_XD                      0x8000000000000000
+
+
+//
+//------------------------------------------------------------------------
+//
+
 #define A32_HIGH_VECTORS_ADDRESS                    0xFFFF0000
 
 #define A32_VECTOR_OFFSET_RESET                     0x0  
@@ -738,21 +816,23 @@
 #define A32_PERIF_GICD_PPISTATUS_nFIQ                   0x00001000
 #define A32_PERIF_GICD_PPISTATUS_GTIMER                 0x00008000
 
-
 //
 //------------------------------------------------------------------------
 //
 
+#define K2_VA_MEMPAGE_BYTES_POW2                    12
+#define K2_VA_MEMPAGE_BYTES                         (1 << K2_VA_MEMPAGE_BYTES_POW2)
+#define K2_VA_MEMPAGE_OFFSET_MASK                   (K2_VA_MEMPAGE_BYTES - 1)
+#define K2_VA_PAGEFRAME_MASK                        (~K2_VA_MEMPAGE_OFFSET_MASK)
+
+/* --------------------------------------------------------------------------------- */
+
 #define K2_VA32_PAGEDIR_PAGETABLES_POW2             10
 #define K2_VA32_PAGETABLE_PAGES_POW2                10
-#define K2_VA32_MEMPAGE_BYTES_POW2                  12
 
 #define K2_VA32_PAGEFRAMES_POW2                     (K2_VA32_PAGEDIR_PAGETABLES_POW2 + K2_VA32_PAGETABLE_PAGES_POW2)
-#define K2_VA32_PAGETABLE_MAP_BYTES_POW2            (K2_VA32_PAGETABLE_PAGES_POW2 + K2_VA32_MEMPAGE_BYTES_POW2)
+#define K2_VA32_PAGETABLE_MAP_BYTES_POW2            (K2_VA32_PAGETABLE_PAGES_POW2 + K2_VA_MEMPAGE_BYTES_POW2)
 
-#define K2_VA32_MEMPAGE_BYTES                       (1 << K2_VA32_MEMPAGE_BYTES_POW2)
-#define K2_VA32_MEMPAGE_OFFSET_MASK                 (K2_VA32_MEMPAGE_BYTES - 1)
-#define K2_VA32_PAGEFRAME_MASK                      (~K2_VA32_MEMPAGE_OFFSET_MASK)
 #define K2_VA32_PAGEFRAMES_FOR_4G                   (1 << K2_VA32_PAGEFRAMES_POW2)
 #define K2_VA32_PAGEFRAMES_FOR_2G                   (1 << (K2_VA32_PAGEFRAMES_POW2-1))
 #define K2_VA32_PAGETABLE_MAP_BYTES                 (1 << K2_VA32_PAGETABLE_MAP_BYTES_POW2)
@@ -760,20 +840,14 @@
 #define K2_VA32_PAGETABLES_FOR_4G                   (1 << K2_VA32_PAGEDIR_PAGETABLES_POW2)
 #define K2_VA32_PAGETABLES_FOR_2G                   (1 << (K2_VA32_PAGEDIR_PAGETABLES_POW2-1))
 
-#define K2_VA32_TO_PTE_ADDR(vamap_base, x)          ((vamap_base) + (((x) >> (K2_VA32_MEMPAGE_BYTES_POW2 - 2)) & ~3))
-#define K2_VA32_TO_PT_ADDR(vamap_base, x)           ((vamap_base) + (((x) >> (K2_VA32_MEMPAGE_BYTES_POW2 - 2)) & K2_VA32_PAGEFRAME_MASK))
+#define K2_VA32_TO_PTE_ADDR(vamap_base, x)          ((vamap_base) + (((x) >> (K2_VA_MEMPAGE_BYTES_POW2 - 2)) & ~3))
+#define K2_VA32_TO_PT_ADDR(vamap_base, x)           ((vamap_base) + (((x) >> (K2_VA_MEMPAGE_BYTES_POW2 - 2)) & K2_VA_PAGEFRAME_MASK))
 
 #if K2_TARGET_ARCH_IS_INTEL
 #define K2_VA32_TRANSTAB_SIZE   X32_PAGEDIR_PHYS_SIZE
 #else
 #define K2_VA32_TRANSTAB_SIZE   A32_TTBASE_PHYS_SIZE
 #endif
-
-/* --------------------------------------------------------------------------------- */
-
-#define K2_VA64_MEMPAGE_BYTES_POW2                  12
-
-#define K2_VA64_MEMPAGE_BYTES                       (1 << K2_VA64_MEMPAGE_BYTES_POW2)
 
 /* --------------------------------------------------------------------------------- */
 

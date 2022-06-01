@@ -110,9 +110,9 @@ K2VMAP32_Init(
 
     if ((aTransBasePhys & (K2_VA32_TRANSTAB_SIZE - 1)) != 0)
         return K2STAT_ERROR_BAD_ARGUMENT;
-    if ((aTransBaseVirt & K2_VA32_MEMPAGE_OFFSET_MASK) != 0)
+    if ((aTransBaseVirt & K2_VA_MEMPAGE_OFFSET_MASK) != 0)
         return K2STAT_ERROR_BAD_ARGUMENT;
-    if ((aVirtMapBase & K2_VA32_MEMPAGE_OFFSET_MASK) != 0)
+    if ((aVirtMapBase & K2_VA_MEMPAGE_OFFSET_MASK) != 0)
         return K2STAT_ERROR_BAD_ARGUMENT;
 
     if ((afPT_Alloc == NULL) ||
@@ -136,8 +136,8 @@ K2VMAP32_Init(
         status = K2VMAP32_MapPage(apContext, virtWork, physWork, K2OS_MAPTYPE_KERN_PAGEDIR);
         if (K2STAT_IS_ERROR(status))
             return status;
-        virtWork += K2_VA32_MEMPAGE_BYTES;
-        physWork += K2_VA32_MEMPAGE_BYTES;
+        virtWork += K2_VA_MEMPAGE_BYTES;
+        physWork += K2_VA_MEMPAGE_BYTES;
     } while (physWork != physEnd);
 
     return 0;
@@ -167,7 +167,7 @@ K2VMAP32_VirtToPTE(
 
     *apRetFaultPDE = FALSE;
 
-    ixEntry = (aVirtAddr / K2_VA32_MEMPAGE_BYTES) & ((1 << K2_VA32_PAGETABLE_PAGES_POW2) - 1);
+    ixEntry = (aVirtAddr / K2_VA_MEMPAGE_BYTES) & ((1 << K2_VA32_PAGETABLE_PAGES_POW2) - 1);
     entry = *((UINT32 *)((entry & K2VMAP32_PAGEPHYS_MASK) + (ixEntry * sizeof(UINT32))));
     if ((entry & K2VMAP32_FLAG_PRESENT) == 0)
         return 0;
@@ -209,7 +209,7 @@ K2VMAP32_MapPage(
             if (K2STAT_IS_ERROR(status))
                 return status;
 
-            K2MEM_Zero((void *)physPT, K2_VA32_MEMPAGE_BYTES);
+            K2MEM_Zero((void *)physPT, K2_VA_MEMPAGE_BYTES);
 
             status = K2VMAP32_MapPage(apContext, virtPT, physPT, K2OS_MAPTYPE_KERN_PAGETABLE);
             if (K2STAT_IS_ERROR(status))
@@ -226,7 +226,7 @@ K2VMAP32_MapPage(
         K2VMAP32_WritePDE(apContext, ixEntry, entry);
     }
 
-    ixEntry = (aVirtAddr / K2_VA32_MEMPAGE_BYTES) & ((1 << K2_VA32_PAGETABLE_PAGES_POW2) - 1);
+    ixEntry = (aVirtAddr / K2_VA_MEMPAGE_BYTES) & ((1 << K2_VA32_PAGETABLE_PAGES_POW2) - 1);
 
     pPTE = (UINT32 *)((entry & K2VMAP32_PAGEPHYS_MASK) + (ixEntry * sizeof(UINT32)));
     if (((*pPTE) & K2VMAP32_FLAG_PRESENT) != 0)
@@ -263,7 +263,7 @@ K2VMAP32_VerifyOrMapPageTableForAddr(
     if (K2STAT_IS_ERROR(status))
         return status;
 
-    K2MEM_Zero((void *)physPT, K2_VA32_MEMPAGE_BYTES);
+    K2MEM_Zero((void *)physPT, K2_VA_MEMPAGE_BYTES);
 
     aVirtAddr = K2_VA32_TO_PT_ADDR(apContext->mVirtMapBase, aVirtAddr);
 
@@ -294,8 +294,8 @@ K2VMAP32_FindUnmappedVirtualPage(
     if (apContext->mFlags & K2VMAP32_FLAG_REALIZED)
         return K2STAT_ERROR_API_ORDER;
 
-    *apVirtAddr = (*apVirtAddr) & K2_VA32_PAGEFRAME_MASK;
-    aVirtEnd &= K2_VA32_PAGEFRAME_MASK;
+    *apVirtAddr = (*apVirtAddr) & K2_VA_PAGEFRAME_MASK;
+    aVirtEnd &= K2_VA_PAGEFRAME_MASK;
 
     do
     {
@@ -303,7 +303,7 @@ K2VMAP32_FindUnmappedVirtualPage(
         if ((faultPDE) || (faultPTE))
             return 0;
 
-        (*apVirtAddr) += K2_VA32_MEMPAGE_BYTES;
+        (*apVirtAddr) += K2_VA_MEMPAGE_BYTES;
 
     } while ((*apVirtAddr) != aVirtEnd);
 

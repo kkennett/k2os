@@ -40,7 +40,7 @@ KernArch_MakePTE(
 {
     UINT32  pte;
 
-    aPhysAddr &= K2_VA32_PAGEFRAME_MASK;
+    aPhysAddr &= K2_VA_PAGEFRAME_MASK;
     aPageMapAttr &= K2OS_MEMPAGE_ATTR_MASK;
 
     pte = X32_PTE_PRESENT | aPhysAddr;

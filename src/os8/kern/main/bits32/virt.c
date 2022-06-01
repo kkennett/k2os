@@ -62,7 +62,7 @@ At initialization:
 
 */
 
-#define HEAPNODES_PER_PAGE (K2_VA32_MEMPAGE_BYTES / sizeof(K2HEAP_NODE))
+#define HEAPNODES_PER_PAGE (K2_VA_MEMPAGE_BYTES / sizeof(K2HEAP_NODE))
 
 K2HEAP_NODE * KernVirt_HeapAcqNode(K2HEAP_ANCHOR *apHeap);
 void          KernVirt_HeapRelNode(K2HEAP_ANCHOR *apHeap, K2HEAP_NODE *apNode);
@@ -105,7 +105,7 @@ KernVirt_Init(
             // verify this page is not mapped
             K2_ASSERT(0 == ((*pPTE) & K2OSKERN_PTE_PRESENT_BIT));
             pPTE++;
-            chk += K2_VA32_MEMPAGE_BYTES;
+            chk += K2_VA_MEMPAGE_BYTES;
         } while (0 != (chk & (K2_VA32_PAGETABLE_MAP_BYTES - 1)));
         gData.Virt.mBotPt = chk;
     }
@@ -122,7 +122,7 @@ KernVirt_Init(
         do
         {
             // verify this page is not mapped
-            chk -= K2_VA32_MEMPAGE_BYTES;
+            chk -= K2_VA_MEMPAGE_BYTES;
             pPTE--;
             K2_ASSERT(0 == ((*pPTE) & K2OSKERN_PTE_PRESENT_BIT));
         } while (0 != (chk & (K2_VA32_PAGETABLE_MAP_BYTES - 1)));
@@ -244,7 +244,7 @@ KernVirt_RamHeapCreateRange(
 
                 KernPte_MakePageMap(NULL, virtPageAddr, K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack), K2OS_MAPTYPE_KERN_DATA);
 
-                virtPageAddr += K2_VA32_MEMPAGE_BYTES;
+                virtPageAddr += K2_VA_MEMPAGE_BYTES;
             } while (pListLink != NULL);
 
             K2LIST_AppendToTail(&gData.Virt.PhysTrackList, &trackList);
@@ -304,7 +304,7 @@ KernVirt_RamHeapCommitPages(
 
         KernPte_MakePageMap(NULL, virtPageAddr, K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack), K2OS_MAPTYPE_KERN_DATA);
 
-        virtPageAddr += K2_VA32_MEMPAGE_BYTES;
+        virtPageAddr += K2_VA_MEMPAGE_BYTES;
     } while (pListLink != NULL);
 
     K2LIST_AppendToTail(&gData.Virt.PhysTrackList, &trackList);
@@ -431,7 +431,7 @@ KernVirt_ReplenishTracking(
         //        K2OSKERN_Debug("Install PT for va %08X\n", gData.Virt.mTopPt - K2_VA32_PAGETABLE_MAP_BYTES);
         KernArch_InstallPageTable(NULL, gData.Virt.mTopPt - K2_VA32_PAGETABLE_MAP_BYTES, physPageAddr);
 
-        pHeapNode = (K2HEAP_NODE *)(gData.Virt.mTopPt - K2_VA32_MEMPAGE_BYTES);
+        pHeapNode = (K2HEAP_NODE *)(gData.Virt.mTopPt - K2_VA_MEMPAGE_BYTES);
         //        K2OSKERN_Debug("pHeapNode = %08X\n", pHeapNode);
 
         gData.Virt.mTopPt -= K2_VA32_PAGETABLE_MAP_BYTES;
@@ -458,8 +458,8 @@ KernVirt_ReplenishTracking(
         stat = K2HEAP_AddFreeSpaceNode(&gData.Virt.Heap, gData.Virt.mTopPt, K2_VA32_PAGETABLE_MAP_BYTES, NULL);
         K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
-        //        K2OSKERN_Debug("AllocAt(%08X,%08X)\n", (UINT32)pHeapNode, K2_VA32_MEMPAGE_BYTES);
-        stat = K2HEAP_AllocAt(&gData.Virt.Heap, (UINT32)pHeapNode, K2_VA32_MEMPAGE_BYTES);
+        //        K2OSKERN_Debug("AllocAt(%08X,%08X)\n", (UINT32)pHeapNode, K2_VA_MEMPAGE_BYTES);
+        stat = K2HEAP_AllocAt(&gData.Virt.Heap, (UINT32)pHeapNode, K2_VA_MEMPAGE_BYTES);
         K2_ASSERT(!K2STAT_IS_ERROR(stat));
     }
     else
@@ -467,7 +467,7 @@ KernVirt_ReplenishTracking(
         ok = KernPhys_Reserve_Init(&res, 1);
         if (!ok)
             return K2STAT_ERROR_OUT_OF_MEMORY;
-        stat = KernPhys_AllocPow2Bytes(&res, K2_VA32_MEMPAGE_BYTES, &pTrack);
+        stat = KernPhys_AllocPow2Bytes(&res, K2_VA_MEMPAGE_BYTES, &pTrack);
         if (K2STAT_IS_ERROR(stat))
         {
             KernPhys_Reserve_Release(&res);
@@ -494,8 +494,8 @@ KernVirt_ReplenishTracking(
             K2LIST_AddAtTail(&gData.Virt.HeapFreeNodeList, (K2LIST_LINK *)&pHeapNode[ix]);
         }
 
-        //        K2OSKERN_Debug("AllocAt(%08X,%08X)\n", (UINT32)pHeapNode, K2_VA32_MEMPAGE_BYTES);
-        stat = K2HEAP_AllocAt(&gData.Virt.Heap, (UINT32)pHeapNode, K2_VA32_MEMPAGE_BYTES);
+        //        K2OSKERN_Debug("AllocAt(%08X,%08X)\n", (UINT32)pHeapNode, K2_VA_MEMPAGE_BYTES);
+        stat = K2HEAP_AllocAt(&gData.Virt.Heap, (UINT32)pHeapNode, K2_VA_MEMPAGE_BYTES);
         K2_ASSERT(!K2STAT_IS_ERROR(stat));
     }
     //
@@ -531,7 +531,7 @@ KernVirt_Locked_Alloc(
         }
     }
 
-    byteCount = aPagesCount * K2_VA32_MEMPAGE_BYTES;
+    byteCount = aPagesCount * K2_VA_MEMPAGE_BYTES;
 
     virtAddr = K2HEAP_Alloc(&gData.Virt.Heap, byteCount);
     if (virtAddr != 0)
@@ -608,7 +608,7 @@ KernVirt_Locked_Alloc(
     do
     {
         pTrack = K2_GET_CONTAINER(K2OSKERN_PHYSTRACK, trackList.mpHead, ListLink);
-        K2_ASSERT(pTrack->Flags.Field.BlockSize == K2_VA32_MEMPAGE_BYTES_POW2);
+        K2_ASSERT(pTrack->Flags.Field.BlockSize == K2_VA_MEMPAGE_BYTES_POW2);
         K2LIST_Remove(&trackList, &pTrack->ListLink);
         K2LIST_AddAtTail(&gData.Virt.PhysTrackList, &pTrack->ListLink);
 
@@ -669,7 +669,7 @@ KernVirt_FreePages(
 {
     BOOL disp;
 
-    K2_ASSERT(0 == (aPagesAddr & K2_VA32_MEMPAGE_OFFSET_MASK));
+    K2_ASSERT(0 == (aPagesAddr & K2_VA_MEMPAGE_OFFSET_MASK));
 
     disp = K2OSKERN_SeqLock(&gData.Virt.HeapSeqLock);
 

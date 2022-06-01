@@ -128,7 +128,7 @@ KernPageArray_CreateSpec(
     K2OSKERN_OBJ_PAGEARRAY * pPageArray;
 
     if ((0 == aPageCount) ||
-        (0 != (aPhysAddr & K2_VA32_MEMPAGE_OFFSET_MASK)))
+        (0 != (aPhysAddr & K2_VA_MEMPAGE_OFFSET_MASK)))
     {
         return K2STAT_ERROR_BAD_ARGUMENT;
     }
@@ -167,11 +167,11 @@ KernPageArray_PagePhys(
     {
     case KernPageArray_Contig:
         result = K2OS_PHYSTRACK_TO_PHYS32((UINT32)apPageArray->Data.Contig.mpTrack);
-        result += aPageIx * K2_VA32_MEMPAGE_BYTES;
+        result += aPageIx * K2_VA_MEMPAGE_BYTES;
         break;
     case KernPageArray_Spec:
         result = apPageArray->Data.Spec.mBasePhys;
-        result += aPageIx * K2_VA32_MEMPAGE_BYTES;
+        result += aPageIx * K2_VA_MEMPAGE_BYTES;
         break;
     case KernPageArray_PreMap:
         result = apPageArray->Data.PreMap.mpPTEs[aPageIx];
@@ -184,7 +184,7 @@ KernPageArray_PagePhys(
         break;
     }
 
-    return result & K2_VA32_PAGEFRAME_MASK;
+    return result & K2_VA_PAGEFRAME_MASK;
 }
 
 void

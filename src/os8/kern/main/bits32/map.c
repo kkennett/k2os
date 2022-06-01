@@ -63,7 +63,7 @@ KernMap_Create(
         return K2STAT_ERROR_BAD_ARGUMENT;
     }
 
-    aProcVirtAddr &= K2_VA32_PAGEFRAME_MASK;
+    aProcVirtAddr &= K2_VA_PAGEFRAME_MASK;
 
     switch (aUserMapType)
     {
@@ -121,7 +121,7 @@ KernMap_Create(
     {
         K2_ASSERT(aProcVirtAddr >= pHeapNode->AddrTreeNode.mUserVal);
 
-        pagesLeft = (pHeapNode->SizeTreeNode.mUserVal - (aProcVirtAddr - pHeapNode->AddrTreeNode.mUserVal)) / K2_VA32_MEMPAGE_BYTES;
+        pagesLeft = (pHeapNode->SizeTreeNode.mUserVal - (aProcVirtAddr - pHeapNode->AddrTreeNode.mUserVal)) / K2_VA_MEMPAGE_BYTES;
         if (pagesLeft < aPageCount)
         {
             stat = K2STAT_ERROR_BAD_ARGUMENT;
@@ -177,7 +177,7 @@ KernMap_Create(
                     for (ixPage = 0; ixPage < aPageCount; ixPage++)
                     {
                         KernPte_MakePageMap(apProc, aProcVirtAddr, KernPageArray_PagePhys(apPageArray, aStartPageOffset + ixPage), mapAttr);
-                        aProcVirtAddr += K2_VA32_MEMPAGE_BYTES;
+                        aProcVirtAddr += K2_VA_MEMPAGE_BYTES;
                     }
 
                     KernObj_CreateRef(apRetMapRef, &pMap->Hdr);
@@ -240,7 +240,7 @@ KernMap_SysCall_Create(
                 pProc,
                 pageArrayRef.Ptr.AsPageArray,
                 pThreadPage->mSysCall_Arg1,
-                pThreadPage->mSysCall_Arg3 & K2_VA32_PAGEFRAME_MASK,
+                pThreadPage->mSysCall_Arg3 & K2_VA_PAGEFRAME_MASK,
                 pThreadPage->mSysCall_Arg2,
                 pThreadPage->mSysCall_Arg4_Result3,
                 &mapRef);
@@ -530,7 +530,7 @@ KernMap_Cleanup_VirtLocked_StartShootDown(
     for (ix = 0; ix < apMap->mPageCount; ix++)
     {
         KernArch_InvalidateTlbPageOnCurrentCore(workAddr);
-        workAddr += K2_VA32_MEMPAGE_BYTES;
+        workAddr += K2_VA_MEMPAGE_BYTES;
     }
 
     if (gData.mCpuCoreCount == 1)
@@ -576,7 +576,7 @@ KernMap_Cleanup(
         {
             pagePhys = KernPte_BreakPageMap(pProc, userVirtAddr, 0);
             K2_ASSERT(pagePhys == KernPageArray_PagePhys(pPageArray, apMap->mPageArrayStartPageIx + ixPage));
-            userVirtAddr += K2_VA32_MEMPAGE_BYTES;
+            userVirtAddr += K2_VA_MEMPAGE_BYTES;
         }
 
         //

@@ -288,7 +288,7 @@ KernCpu_TlbInvalidate(
     do
     {
         KernArch_InvalidateTlbPageOnCurrentCore(virtWork);
-        virtWork += K2_VA32_MEMPAGE_BYTES;
+        virtWork += K2_VA_MEMPAGE_BYTES;
     } while (--pagesLeft);
 
     K2ATOMIC_And(&apShoot->mCoresRemaining, ~(1 << apThisCore->mCoreIx));

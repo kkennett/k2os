@@ -104,6 +104,6 @@ KernPte_BreakPageMap(
 
     K2_CpuWriteBarrier();
 
-    return pteOld & K2_VA32_PAGEFRAME_MASK;
+    return pteOld & K2_VA_PAGEFRAME_MASK;
 }
 

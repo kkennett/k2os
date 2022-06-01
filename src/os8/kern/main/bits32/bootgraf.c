@@ -153,9 +153,9 @@ KernBootGraf_Init(
     // map the display buffer
     //
     physAddr = (UINT32)pGraf->mFrameBufferPhys;
-    physAddr &= K2_VA32_PAGEFRAME_MASK;
-    bufferMapPages = (UINT32)(((pGraf->mFrameBufferPhys + pGraf->mFrameBufferBytes) + (K2_VA32_MEMPAGE_BYTES - 1)) / K2_VA32_MEMPAGE_BYTES) * K2_VA32_MEMPAGE_BYTES;
-    bufferMapPages = (bufferMapPages - physAddr) / K2_VA32_MEMPAGE_BYTES;
+    physAddr &= K2_VA_PAGEFRAME_MASK;
+    bufferMapPages = (UINT32)(((pGraf->mFrameBufferPhys + pGraf->mFrameBufferBytes) + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
+    bufferMapPages = (bufferMapPages - physAddr) / K2_VA_MEMPAGE_BYTES;
     virtAddr = KernVirt_AllocPages(bufferMapPages);
     if (0 != virtAddr)
     {
@@ -167,8 +167,8 @@ KernBootGraf_Init(
         pageCount = bufferMapPages;
         do {
             KernPte_MakePageMap(NULL, vWork, physAddr, mapAttr);
-            vWork += K2_VA32_MEMPAGE_BYTES;
-            physAddr += K2_VA32_MEMPAGE_BYTES;
+            vWork += K2_VA_MEMPAGE_BYTES;
+            physAddr += K2_VA_MEMPAGE_BYTES;
         } while (--pageCount);
 
         //
@@ -202,7 +202,7 @@ KernBootGraf_Init(
         do {
             KernPte_BreakPageMap(NULL, vWork, 0);
             KernArch_InvalidateTlbPageOnCurrentCore(vWork);
-            vWork += K2_VA32_MEMPAGE_BYTES;
+            vWork += K2_VA_MEMPAGE_BYTES;
         } while (--pageCount);
 
         KernVirt_FreePages(virtAddr);

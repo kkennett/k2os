@@ -150,7 +150,7 @@ X32Kern_CpuLaunch(
     UINT32                          stackPtr;
 
     /* we are on our own core stack */
-    pCoreMem = (K2OSKERN_COREMEMORY volatile *)(K2OS_KVA_COREMEMORY_BASE + ((aThisCpuCoreIndex) * (4 * K2_VA32_MEMPAGE_BYTES)));
+    pCoreMem = (K2OSKERN_COREMEMORY volatile *)(K2OS_KVA_COREMEMORY_BASE + ((aThisCpuCoreIndex) * (4 * K2_VA_MEMPAGE_BYTES)));
 
     K2_ASSERT(pCoreMem->CpuCore.mCoreIx == aThisCpuCoreIndex);
 
@@ -165,7 +165,7 @@ X32Kern_CpuLaunch(
     pTSSEntry->mBaseHigh8 = (UINT8)((((UINT32)pTSS) & 0xFF000000) >> 24);
 
     /* set up the TSS itself along with the proper ring 0 stack pointer address */
-    stackPtr = ((UINT32)pCoreMem) + ((K2_VA32_MEMPAGE_BYTES * 4) - 4);
+    stackPtr = ((UINT32)pCoreMem) + ((K2_VA_MEMPAGE_BYTES * 4) - 4);
     *((UINT32 *)stackPtr) = 0;
     stackPtr -= sizeof(UINT32);
     *((UINT32 *)stackPtr) = 0;
@@ -305,14 +305,14 @@ KernArch_LaunchCpuCores(
         //
         KernPte_MakePageMap(NULL, K2OS_KVA_X32_AP_PAGEDIR, K2OS_X32_APSTART_PAGEDIR_ADDR, K2OS_MAPTYPE_KERN_DATA);
         pPageDir = (X32_PAGEDIR *)K2OS_KVA_X32_AP_PAGEDIR;
-        K2MEM_Zero(pPageDir, K2_VA32_MEMPAGE_BYTES);
+        K2MEM_Zero(pPageDir, K2_VA_MEMPAGE_BYTES);
 
         //
         // map the AP processors' startup page table so we can write to it.
         //
         KernPte_MakePageMap(NULL, K2OS_KVA_X32_AP_PAGETABLE, K2OS_X32_APSTART_PAGETABLE_ADDR, K2OS_MAPTYPE_KERN_DATA);
         pPageTable = (X32_PAGETABLE *)K2OS_KVA_X32_AP_PAGETABLE;
-        K2MEM_Zero(pPageTable, K2_VA32_MEMPAGE_BYTES);
+        K2MEM_Zero(pPageTable, K2_VA_MEMPAGE_BYTES);
 
         //
         // put the AP processors' startup pagetable into its page directory
@@ -322,9 +322,9 @@ KernArch_LaunchCpuCores(
         //
         // put the page directory and the pagetable into the pagetable
         //
-        pPageTable->Entry[K2OS_X32_APSTART_PAGEDIR_ADDR / K2_VA32_MEMPAGE_BYTES].mAsUINT32 =
+        pPageTable->Entry[K2OS_X32_APSTART_PAGEDIR_ADDR / K2_VA_MEMPAGE_BYTES].mAsUINT32 =
             K2OS_X32_APSTART_PAGEDIR_ADDR | X32_PTE_GLOBAL | X32_PTE_PRESENT | X32_PTE_WRITEABLE | X32_PTE_WRITETHROUGH | X32_PTE_CACHEDISABLE;
-        pPageTable->Entry[K2OS_X32_APSTART_PAGETABLE_ADDR / K2_VA32_MEMPAGE_BYTES].mAsUINT32 =
+        pPageTable->Entry[K2OS_X32_APSTART_PAGETABLE_ADDR / K2_VA_MEMPAGE_BYTES].mAsUINT32 =
             K2OS_X32_APSTART_PAGETABLE_ADDR | X32_PTE_GLOBAL | X32_PTE_PRESENT | X32_PTE_WRITEABLE | X32_PTE_WRITETHROUGH | X32_PTE_CACHEDISABLE;
 
         //
@@ -335,7 +335,7 @@ KernArch_LaunchCpuCores(
         //
         // put the transition page into the AP processors' pagetable
         //
-        pPageTable->Entry[K2OS_X32_APSTART_TRANSIT_PAGE_ADDR / K2_VA32_MEMPAGE_BYTES].mAsUINT32 =
+        pPageTable->Entry[K2OS_X32_APSTART_TRANSIT_PAGE_ADDR / K2_VA_MEMPAGE_BYTES].mAsUINT32 =
             K2OS_X32_APSTART_TRANSIT_PAGE_ADDR | X32_PTE_GLOBAL | X32_PTE_PRESENT | X32_PTE_WRITEABLE | X32_PTE_WRITETHROUGH | X32_PTE_CACHEDISABLE;
 
         //

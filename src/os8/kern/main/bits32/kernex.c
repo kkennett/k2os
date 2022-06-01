@@ -209,7 +209,7 @@ KernEx_PanicDump(
                 K2OSKERN_Debug("  %08X-%08X %8d ----\n",
                     ix,
                     pHeapNode->AddrTreeNode.mUserVal - 1,
-                    (pHeapNode->AddrTreeNode.mUserVal - ix) / K2_VA32_MEMPAGE_BYTES
+                    (pHeapNode->AddrTreeNode.mUserVal - ix) / K2_VA_MEMPAGE_BYTES
                 );
             }
             ix = pHeapNode->AddrTreeNode.mUserVal + pHeapNode->SizeTreeNode.mUserVal;
@@ -220,7 +220,7 @@ KernEx_PanicDump(
             K2OSKERN_Debug("  %08X-%08X %8d %s\n",
                 pHeapNode->AddrTreeNode.mUserVal,
                 ix - 1,
-                pHeapNode->SizeTreeNode.mUserVal / K2_VA32_MEMPAGE_BYTES,
+                pHeapNode->SizeTreeNode.mUserVal / K2_VA_MEMPAGE_BYTES,
                 pNodeType);
             pTreeNode = K2TREE_NextNode(&gData.Virt.Heap.AddrTree, pTreeNode);
         } while (NULL != pTreeNode);
@@ -228,7 +228,7 @@ KernEx_PanicDump(
         {
             K2OSKERN_Debug("  %08X-FFFFFFFF %8d ----\n",
                 ix,
-                ((~ix)+1) / K2_VA32_MEMPAGE_BYTES
+                ((~ix)+1) / K2_VA_MEMPAGE_BYTES
             );
         }
     }

@@ -89,7 +89,7 @@ iK2DLXSUPP_LoadSegments(
             {
                 // take care of zeroing out BSS
                 count *= DLX_SECTOR_BYTES;
-                totalSpace = K2_ROUNDUP(pInfo->SegInfo[DlxSeg_Data].mMemActualBytes, K2_VA32_MEMPAGE_BYTES);
+                totalSpace = K2_ROUNDUP(pInfo->SegInfo[DlxSeg_Data].mMemActualBytes, K2_VA_MEMPAGE_BYTES);
                 totalSpace -= count;
                 if (totalSpace > 0)
                     K2MEM_Zero((void *)(apDlx->SegAlloc.Segment[segIx].mDataAddr + count), totalSpace);

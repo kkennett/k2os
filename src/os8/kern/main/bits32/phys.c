@@ -36,7 +36,7 @@
 
 #define DESC_BUFFER_BYTES   (((sizeof(K2EFI_MEMORY_DESCRIPTOR) * 2) + 4) & ~3)
 
-#define FIRST_BUCKET_INDEX  K2_VA32_MEMPAGE_BYTES_POW2
+#define FIRST_BUCKET_INDEX  K2_VA_MEMPAGE_BYTES_POW2
 #define BUDDY_BUCKET_COUNT  (31 - FIRST_BUCKET_INDEX)
 
 static K2LIST_ANCHOR sgPhysFreeList[BUDDY_BUCKET_COUNT];
@@ -121,7 +121,7 @@ KernPhys_PrintDesc(
     K2OSKERN_Debug(": p%08X v%08X z%08X (%6d) a%08X%08X %c\n",
         (UINT32)(((UINT64)apDesc->PhysicalStart) & 0x00000000FFFFFFFFull),
         (UINT32)(((UINT64)apDesc->VirtualStart) & 0x00000000FFFFFFFFull),
-        (UINT32)(apDesc->NumberOfPages * K2_VA32_MEMPAGE_BYTES),
+        (UINT32)(apDesc->NumberOfPages * K2_VA_MEMPAGE_BYTES),
         (UINT32)apDesc->NumberOfPages,
         (UINT32)(((UINT64)apDesc->Attribute) >> 32), (UINT32)(((UINT64)apDesc->Attribute) & 0x00000000FFFFFFFFull),
         aIsFree ? '*' : ' ');
@@ -156,10 +156,10 @@ KernPhys_DumpEfiMap(
             K2OSKERN_Debug("---:  HOLE             : p%08X           z%08X (%6d)\n",
                 lastEnd,
                 (physStart - lastEnd),
-                (physStart - lastEnd) / K2_VA32_MEMPAGE_BYTES);
+                (physStart - lastEnd) / K2_VA_MEMPAGE_BYTES);
         }
 
-        lastEnd = physStart + (desc.NumberOfPages * K2_VA32_MEMPAGE_BYTES);
+        lastEnd = physStart + (desc.NumberOfPages * K2_VA_MEMPAGE_BYTES);
 
         if (desc.Attribute & K2EFI_MEMORYFLAG_RUNTIME)
             reuse = FALSE;
@@ -213,7 +213,7 @@ KernPhys_DumpInitPhysTrack(
     lastType = (UINT32)pTrack->mpOwnerProc;
     pageCount = 1;
     pTrack++;
-    thisAddr += K2_VA32_MEMPAGE_BYTES;
+    thisAddr += K2_VA_MEMPAGE_BYTES;
     pagesLeft--;
 
     do
@@ -223,7 +223,7 @@ KernPhys_DumpInitPhysTrack(
         if ((thisProp != lastProp) ||
             (thisType != lastType))
         {
-            K2OSKERN_Debug("%08X - %08X %08X z %08X\n", lastAddr, lastProp, lastType, pageCount * K2_VA32_MEMPAGE_BYTES);
+            K2OSKERN_Debug("%08X - %08X %08X z %08X\n", lastAddr, lastProp, lastType, pageCount * K2_VA_MEMPAGE_BYTES);
             lastAddr = thisAddr;
             lastProp = thisProp;
             lastType = thisType;
@@ -231,12 +231,12 @@ KernPhys_DumpInitPhysTrack(
         }
         else
             pageCount++;
-        thisAddr += K2_VA32_MEMPAGE_BYTES;
+        thisAddr += K2_VA_MEMPAGE_BYTES;
         pTrack++;
     } while (--pagesLeft > 0);
     if (pageCount > 0)
     {
-       K2OSKERN_Debug("%08X - %08X %08X z %08X\n", lastAddr, lastProp, lastType, pageCount * K2_VA32_MEMPAGE_BYTES);
+       K2OSKERN_Debug("%08X - %08X %08X z %08X\n", lastAddr, lastProp, lastType, pageCount * K2_VA_MEMPAGE_BYTES);
     }
 }
 
@@ -262,7 +262,7 @@ KernPhys_DumpPhysTrack(
         if (pTrack->Flags.Field.Exists)
         {
             blockBytes = 1 << pTrack->Flags.Field.BlockSize;
-            pageCount = blockBytes / K2_VA32_MEMPAGE_BYTES;
+            pageCount = blockBytes / K2_VA_MEMPAGE_BYTES;
             K2_ASSERT(pagesLeft >= pageCount);
 
             K2OSKERN_Debug("%08X %08X %s\n", 
@@ -283,8 +283,8 @@ KernPhys_DumpPhysTrack(
                 pageCount++;
             } while ((--pagesLeft) && (0 == pTrack->Flags.Field.Exists));
 
-            K2OSKERN_Debug("%08X %08X NOT EXIST\n", physAddr, pageCount * K2_VA32_MEMPAGE_BYTES);
-            physAddr += pageCount * K2_VA32_MEMPAGE_BYTES;
+            K2OSKERN_Debug("%08X %08X NOT EXIST\n", physAddr, pageCount * K2_VA_MEMPAGE_BYTES);
+            physAddr += pageCount * K2_VA_MEMPAGE_BYTES;
         }
 
     } while (pagesLeft > 0);
@@ -354,7 +354,7 @@ KernPhys_CompactEfiMap(
             K2MEM_Copy(pInDesc, pIn, gData.mpShared->LoadInfo.mEfiMemDescSize);
 
             physStart = (UINT32)(UINT64)pInDesc->PhysicalStart;
-            physEnd = physStart + (pInDesc->NumberOfPages * K2_VA32_MEMPAGE_BYTES);
+            physEnd = physStart + (pInDesc->NumberOfPages * K2_VA_MEMPAGE_BYTES);
             if (physStart != lastEnd)
             {
                 //
@@ -423,7 +423,7 @@ KernPhys_CompactEfiMap(
                 }
 
                 pOutDesc->NumberOfPages += pInDesc->NumberOfPages;
-                physEnd = physStart + (pInDesc->NumberOfPages * K2_VA32_MEMPAGE_BYTES);
+                physEnd = physStart + (pInDesc->NumberOfPages * K2_VA_MEMPAGE_BYTES);
 
                 //
                 // convert indesc range of phystrack to conventional memory type
@@ -464,7 +464,7 @@ KernPhys_InitFreeBlock(
 
 
     // add to global free page count
-    gData.Phys.mPagesLeft += aChunkBytes / K2_VA32_MEMPAGE_BYTES;
+    gData.Phys.mPagesLeft += aChunkBytes / K2_VA_MEMPAGE_BYTES;
 
     blockSizeBitIndex = KernBit_LowestSet_Index(aChunkBytes);
 
@@ -500,7 +500,7 @@ KernPhys_InitAddFreeChunkToBuddyHeap(
     if (0 == aPageCount)
         return;
 
-    chunkBytes = aPageCount * K2_VA32_MEMPAGE_BYTES;
+    chunkBytes = aPageCount * K2_VA_MEMPAGE_BYTES;
 
     if (aPhysAddr == 0)
     {
@@ -563,7 +563,7 @@ KernPhys_InitPhysTrack(
         {
 //            K2OSKERN_Debug("FREE %08X [%08X]\n",
 //                (UINT32)(pDesc->PhysicalStart & 0xFFFFFFFFull),
-//                pageCount * K2_VA32_MEMPAGE_BYTES);
+//                pageCount * K2_VA_MEMPAGE_BYTES);
 
             do
             {
@@ -585,7 +585,7 @@ KernPhys_InitPhysTrack(
             do
             {
                 pTrackPage->Flags.mAsUINT32 = memProp;
-                pTrackPage->Flags.Field.BlockSize = K2_VA32_MEMPAGE_BYTES_POW2;
+                pTrackPage->Flags.Field.BlockSize = K2_VA_MEMPAGE_BYTES_POW2;
                 pTrackPage->mpOwnerProc = NULL;
                 pTrackPage++;
             } while (--pageCount);
@@ -754,7 +754,7 @@ KernPhys_Locked_AllocSparsePages(
 
     K2LIST_Init(apRetList);
 
-    bytesLeft = aPageCount * K2_VA32_MEMPAGE_BYTES;
+    bytesLeft = aPageCount * K2_VA_MEMPAGE_BYTES;
 
     pList = &sgPhysFreeList[0];
     for (scanBit = FIRST_BUCKET_INDEX; scanBit < 31; scanBit++)
@@ -893,7 +893,7 @@ KernPhys_AllocPow2Bytes(
         return K2STAT_ERROR_BAD_ARGUMENT;
 
     // take away from reservation
-    pageCount = aPow2Bytes / K2_VA32_MEMPAGE_BYTES;
+    pageCount = aPow2Bytes / K2_VA_MEMPAGE_BYTES;
     do
     {
         r = apRes->mPageCount;
@@ -1019,7 +1019,7 @@ KernPhys_ScanInit(
         KernPhys_ScanSet(apScan, K2_GET_CONTAINER(K2OSKERN_PHYSTRACK, apTrackList->mpHead, ListLink));
         if (aStartOffset > 0)
         {
-            aStartOffset *= K2_VA32_MEMPAGE_BYTES;
+            aStartOffset *= K2_VA_MEMPAGE_BYTES;
 
             do
             {
@@ -1053,7 +1053,7 @@ KernPhys_ScanIter(
 
     result = apScan->mPhysAddr;
 
-    apScan->mTrackLeft -= K2_VA32_MEMPAGE_BYTES;
+    apScan->mTrackLeft -= K2_VA_MEMPAGE_BYTES;
 
     if (0 == apScan->mTrackLeft)
     {
@@ -1064,7 +1064,7 @@ KernPhys_ScanIter(
         }
     }
     else
-        apScan->mPhysAddr += K2_VA32_MEMPAGE_BYTES;
+        apScan->mPhysAddr += K2_VA_MEMPAGE_BYTES;
 
     return result;
 }
@@ -1076,7 +1076,7 @@ KernPhys_ScanToPhysPageArray(
     UINT32 *            apArray
 )
 {
-    aSetLowBits &= K2_VA32_MEMPAGE_OFFSET_MASK;
+    aSetLowBits &= K2_VA_MEMPAGE_OFFSET_MASK;
     while (apScan->mTrackLeft > 0)
     {
         *apArray = KernPhys_ScanIter(apScan) | aSetLowBits;
@@ -1091,13 +1091,13 @@ KernPhys_ZeroPage(
 {
     UINT32 virtAddr;
 
-    virtAddr = K2OS_KVA_PERCOREWORKPAGES_BASE + ((K2OSKERN_GetCpuIndex() * K2OS_PERCOREWORKPAGES_PERCORE) *  K2_VA32_MEMPAGE_BYTES);
+    virtAddr = K2OS_KVA_PERCOREWORKPAGES_BASE + ((K2OSKERN_GetCpuIndex() * K2OS_PERCOREWORKPAGES_PERCORE) *  K2_VA_MEMPAGE_BYTES);
 
     KernPte_MakePageMap(NULL, virtAddr, aPhysAddr, K2OS_MAPTYPE_KERN_DATA);
 
-    K2MEM_Zero((void *)virtAddr, K2_VA32_MEMPAGE_BYTES);
+    K2MEM_Zero((void *)virtAddr, K2_VA_MEMPAGE_BYTES);
 
-    K2OS_CacheOperation(K2OS_CACHEOP_FlushData, virtAddr, K2_VA32_MEMPAGE_BYTES);
+    K2OS_CacheOperation(K2OS_CACHEOP_FlushData, virtAddr, K2_VA_MEMPAGE_BYTES);
 
     KernPte_BreakPageMap(NULL, virtAddr, 0);
 
@@ -1136,12 +1136,12 @@ KernPhys_CutTrackListIntoPages(
 
         bytesLeft = 1 << pTrack->Flags.Field.BlockSize;
 
-        pTrack->Flags.Field.BlockSize = K2_VA32_MEMPAGE_BYTES_POW2;
+        pTrack->Flags.Field.BlockSize = K2_VA_MEMPAGE_BYTES_POW2;
         if (aSetList)
             pTrack->Flags.Field.PageListIx = aList;
         if (aSetProc)
             pTrack->mpOwnerProc = apProc;
-        bytesLeft -= K2_VA32_MEMPAGE_BYTES;
+        bytesLeft -= K2_VA_MEMPAGE_BYTES;
         K2LIST_AddAtTail(&outList, &pTrack->ListLink);
 
         pPageTrack = pTrack + 1;
@@ -1151,7 +1151,7 @@ KernPhys_CutTrackListIntoPages(
             pPageTrack->mpOwnerProc = pTrack->mpOwnerProc;  // always copied from first page in range
             K2LIST_AddAtTail(&outList, &pPageTrack->ListLink);
             pPageTrack++;
-            bytesLeft -= K2_VA32_MEMPAGE_BYTES;
+            bytesLeft -= K2_VA_MEMPAGE_BYTES;
         }
 
     } while (NULL != pListLink);
@@ -1247,7 +1247,7 @@ KernPhys_InAllocatableRange(
 
     K2_ASSERT(aPageCount > 0);
 
-    endAddr = aPhysBase + (aPageCount * K2_VA32_MEMPAGE_BYTES) - 1;
+    endAddr = aPhysBase + (aPageCount * K2_VA_MEMPAGE_BYTES) - 1;
 
     K2_ASSERT(aPhysBase < endAddr);
 
@@ -1272,7 +1272,7 @@ KernPhys_InAllocatableRange(
 
             if (endAddr > descBase)
             {
-                descEnd = descBase + (((UINT32)pDesc->NumberOfPages) * K2_VA32_MEMPAGE_BYTES) - 1;
+                descEnd = descBase + (((UINT32)pDesc->NumberOfPages) * K2_VA_MEMPAGE_BYTES) - 1;
                 if (aPhysBase < descEnd)
                 {
                     return TRUE;
@@ -1307,14 +1307,14 @@ KernPhys_GetEfiChunk(
     descBase = (UINT32)pDesc->PhysicalStart;
 
     do {
-        descEnd = descBase + (pDesc->NumberOfPages * K2_VA32_MEMPAGE_BYTES);
+        descEnd = descBase + (pDesc->NumberOfPages * K2_VA_MEMPAGE_BYTES);
         do {
             pWork += gData.mpShared->LoadInfo.mEfiMemDescSize;
             K2MEM_Copy(pDesc, pWork, gData.mpShared->LoadInfo.mEfiMemDescSize);
             nextStart = ((UINT32)pDesc->PhysicalStart);
             if ((0 == nextStart) || (descEnd != nextStart))
                 break;
-            descEnd += (pDesc->NumberOfPages * K2_VA32_MEMPAGE_BYTES);
+            descEnd += (pDesc->NumberOfPages * K2_VA_MEMPAGE_BYTES);
         } while (0 != --entCount);
 
         if (0 == aInfoIx)

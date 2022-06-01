@@ -120,7 +120,7 @@ KernProc_CreateRawProc(
     {
         stat = K2STAT_NO_ERROR;
 
-        virtMapKVA = KernVirt_AllocPages((K2_VA32_PAGEFRAMES_FOR_2G * sizeof(UINT32)) / K2_VA32_MEMPAGE_BYTES);
+        virtMapKVA = KernVirt_AllocPages((K2_VA32_PAGEFRAMES_FOR_2G * sizeof(UINT32)) / K2_VA_MEMPAGE_BYTES);
         if (0 == virtMapKVA)
         {
             stat = K2STAT_ERROR_OUT_OF_MEMORY;
@@ -620,7 +620,7 @@ KernProc_UserVirtHeapAlloc_Internal(
     BOOL                            triedOnce;
 
     K2_ASSERT(0 != aPageCount);
-    bytesRequested = aPageCount * K2_VA32_MEMPAGE_BYTES;
+    bytesRequested = aPageCount * K2_VA_MEMPAGE_BYTES;
 
     pBlock = NULL;
     triedOnce = FALSE;
@@ -712,7 +712,7 @@ KernProc_UserVirtHeapAllocAt(
     K2OSKERN_PROCHEAP_NODE **   apRetProcHeapNode
 )
 {
-    K2_ASSERT(0 == (K2_VA32_MEMPAGE_OFFSET_MASK & aVirtAddr));
+    K2_ASSERT(0 == (K2_VA_MEMPAGE_OFFSET_MASK & aVirtAddr));
     K2_ASSERT(aVirtAddr < K2OS_KVA_KERN_BASE);
     K2_ASSERT(aPageCount > 0);
     return KernProc_UserVirtHeapAlloc_Internal(apProc, aVirtAddr, aPageCount, apRetProcHeapNode);
@@ -731,7 +731,7 @@ KernProc_UserVirtHeapFree(
     K2HEAP_NODE *                   pHeapNode;
     K2OSKERN_PROCHEAP_NODE *        pProcHeapNode;
 
-    K2_ASSERT(0 == (K2_VA32_MEMPAGE_OFFSET_MASK & aVirtAddr));
+    K2_ASSERT(0 == (K2_VA_MEMPAGE_OFFSET_MASK & aVirtAddr));
     K2_ASSERT(aVirtAddr < K2OS_KVA_KERN_BASE);
 
     pBlock = NULL;
@@ -911,11 +911,11 @@ KernProc_BuildProcess(
         // rofs range
         //
 //        K2OSKERN_Debug("Create FileSys Map\n");
-        K2_ASSERT((K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.PageArray.mPageCount * K2_VA32_MEMPAGE_BYTES)) == gData.User.mTopInitVirtBar);
+        K2_ASSERT((K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.PageArray.mPageCount * K2_VA_MEMPAGE_BYTES)) == gData.User.mTopInitVirtBar);
         stat = KernProc_CreateDefaultMap(
             apProc,
             &gData.FileSys.PageArray,
-            K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.PageArray.mPageCount * K2_VA32_MEMPAGE_BYTES),
+            K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.PageArray.mPageCount * K2_VA_MEMPAGE_BYTES),
             K2OS_MapType_Data_ReadOnly,
             &apProc->FileSysMapRef
         );
@@ -938,7 +938,7 @@ KernProc_BuildProcess(
         K2_ASSERT(!K2STAT_IS_ERROR(stat));
         if (K2STAT_IS_ERROR(stat))
             break;
-        bar += (apProc->CrtMapRef[0].Ptr.AsMap->mPageCount * K2_VA32_MEMPAGE_BYTES);
+        bar += (apProc->CrtMapRef[0].Ptr.AsMap->mPageCount * K2_VA_MEMPAGE_BYTES);
 
         //
         // crt readonly
@@ -954,7 +954,7 @@ KernProc_BuildProcess(
         K2_ASSERT(!K2STAT_IS_ERROR(stat));
         if (K2STAT_IS_ERROR(stat))
             break;
-        bar += (apProc->CrtMapRef[1].Ptr.AsMap->mPageCount * K2_VA32_MEMPAGE_BYTES);
+        bar += (apProc->CrtMapRef[1].Ptr.AsMap->mPageCount * K2_VA_MEMPAGE_BYTES);
 
         //
         // crt data
@@ -970,7 +970,7 @@ KernProc_BuildProcess(
         K2_ASSERT(!K2STAT_IS_ERROR(stat));
         if (K2STAT_IS_ERROR(stat))
             break;
-        bar += (apProc->CrtMapRef[2].Ptr.AsMap->mPageCount * K2_VA32_MEMPAGE_BYTES);
+        bar += (apProc->CrtMapRef[2].Ptr.AsMap->mPageCount * K2_VA_MEMPAGE_BYTES);
 
         //
         // crt symbols
@@ -986,7 +986,7 @@ KernProc_BuildProcess(
         K2_ASSERT(!K2STAT_IS_ERROR(stat));
         if (K2STAT_IS_ERROR(stat))
             break;
-        bar += (apProc->CrtMapRef[3].Ptr.AsMap->mPageCount * K2_VA32_MEMPAGE_BYTES);
+        bar += (apProc->CrtMapRef[3].Ptr.AsMap->mPageCount * K2_VA_MEMPAGE_BYTES);
         K2_ASSERT(bar == gData.User.mBotInitVirtBar);
 
     } while (0);
@@ -1024,7 +1024,7 @@ KernProc_OneTimeInitInMonitor(
     //
     ok = KernPhys_Reserve_Init(&res, 1);
     K2_ASSERT(ok);
-    stat = KernPhys_AllocPow2Bytes(&res, K2_VA32_MEMPAGE_BYTES, &pTrack);
+    stat = KernPhys_AllocPow2Bytes(&res, K2_VA_MEMPAGE_BYTES, &pTrack);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
     physPageAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack);
 
@@ -1088,7 +1088,7 @@ KernProc_Init(
     //
     // make sure threadptrs page is clear
     //
-    K2MEM_Zero((void *)K2OS_KVA_THREADPTRS_BASE, K2_VA32_MEMPAGE_BYTES);
+    K2MEM_Zero((void *)K2OS_KVA_THREADPTRS_BASE, K2_VA_MEMPAGE_BYTES);
 
     //
     // init threadptrs list to a free list.  thread 0 is never used. thread 0x3FF is never used
@@ -1146,7 +1146,7 @@ KernProc_FindCreateMapRef(
         pMap = K2_GET_CONTAINER(K2OSKERN_OBJ_MAP, pTreeNode, ProcMapTreeNode);
         if (0 == (pMap->Hdr.mObjFlags & K2OSKERN_OBJ_FLAG_REFS_DEC_TO_ZERO))
         {
-            pageIx = (aProcVirtAddr - pTreeNode->mUserVal) / K2_VA32_MEMPAGE_BYTES;
+            pageIx = (aProcVirtAddr - pTreeNode->mUserVal) / K2_VA_MEMPAGE_BYTES;
             if (pageIx < pMap->mPageCount)
             {
                 stat = K2STAT_NO_ERROR;
@@ -1288,7 +1288,7 @@ KernProc_TokenCreate(
             }
             else
             {
-                stat = KernPhys_AllocPow2Bytes(&res, K2_VA32_MEMPAGE_BYTES, &pTrack);
+                stat = KernPhys_AllocPow2Bytes(&res, K2_VA_MEMPAGE_BYTES, &pTrack);
                 if (K2STAT_IS_ERROR(stat))
                 {
                     KernPhys_Reserve_Release(&res);
@@ -1336,7 +1336,7 @@ KernProc_TokenCreate(
         //
         // get the page of free token we just took
         //
-        pTokenPage = (K2OSKERN_TOKEN_PAGE *)(((UINT32)pToken) & ~K2_VA32_MEMPAGE_OFFSET_MASK);
+        pTokenPage = (K2OSKERN_TOKEN_PAGE *)(((UINT32)pToken) & ~K2_VA_MEMPAGE_OFFSET_MASK);
 
         //
         // create the token value. low bit is ALWAYS set in a valid token
@@ -1650,9 +1650,9 @@ KernProc_AcqMaps(
     // convert data size to # of pages
     //
     aDataSize = 
-        ((aProcVirtAddr & K2_VA32_MEMPAGE_OFFSET_MASK) +
-         (aDataSize + (K2_VA32_MEMPAGE_BYTES - 1)))
-        / K2_VA32_MEMPAGE_BYTES;
+        ((aProcVirtAddr & K2_VA_MEMPAGE_OFFSET_MASK) +
+         (aDataSize + (K2_VA_MEMPAGE_BYTES - 1)))
+        / K2_VA_MEMPAGE_BYTES;
 
     pagesLeft = pMap->mPageCount - pageIx;
 
@@ -1668,7 +1668,7 @@ KernProc_AcqMaps(
     //
     mapCount = 1;
 
-    aProcVirtAddr += pagesLeft * K2_VA32_MEMPAGE_BYTES;
+    aProcVirtAddr += pagesLeft * K2_VA_MEMPAGE_BYTES;
     aDataSize -= pagesLeft;
 
     stat = K2STAT_NO_ERROR;
@@ -1701,7 +1701,7 @@ KernProc_AcqMaps(
         if (aDataSize <= pagesLeft)
             break;
 
-        aProcVirtAddr += pagesLeft * K2_VA32_MEMPAGE_BYTES;
+        aProcVirtAddr += pagesLeft * K2_VA_MEMPAGE_BYTES;
         aDataSize -= pagesLeft;
 
     } while (1);
@@ -1789,7 +1789,7 @@ KernProc_SysCall_VirtGet(
     if (NULL != pHeapNode)
     {
         apCurThread->mSysCall_Result = pHeapNode->AddrTreeNode.mUserVal;
-        apCurThread->mpKernRwViewOfUserThreadPage->mSysCall_Arg7_Result0 = pHeapNode->SizeTreeNode.mUserVal / K2_VA32_MEMPAGE_BYTES;
+        apCurThread->mpKernRwViewOfUserThreadPage->mSysCall_Arg7_Result0 = pHeapNode->SizeTreeNode.mUserVal / K2_VA_MEMPAGE_BYTES;
     }
     else
     {
@@ -2025,7 +2025,7 @@ KernProc_SysCall_AtStart(
     stat = KernProc_FindCreateMapRef(pProc, mapAddr, &apCurThread->StackMapRef, &pageIx);
     if ((K2STAT_IS_ERROR(stat)) ||
         (pageIx != 0) ||
-        (apCurThread->StackMapRef.Ptr.AsMap->mpProcHeapNode->HeapNode.AddrTreeNode.mUserVal != (mapAddr - K2_VA32_MEMPAGE_BYTES)) ||
+        (apCurThread->StackMapRef.Ptr.AsMap->mpProcHeapNode->HeapNode.AddrTreeNode.mUserVal != (mapAddr - K2_VA_MEMPAGE_BYTES)) ||
         (apCurThread->StackMapRef.Ptr.AsMap->mUserMapType != K2OS_MapType_Thread_Stack))
     {
         //
@@ -2381,14 +2381,14 @@ KernProc_Clean_HighVirtDone(
     //
     // break map of the translation base page(s) (apProc->mVirtTransBase);
     //
-    pageCount = K2_VA32_TRANSTAB_SIZE / K2_VA32_MEMPAGE_BYTES;
+    pageCount = K2_VA32_TRANSTAB_SIZE / K2_VA_MEMPAGE_BYTES;
     
     workVirt = apProc->mVirtTransBase;
     pagesLeft = pageCount;
     do
     {
         KernPte_BreakPageMap(NULL, workVirt, 0);
-        workVirt += K2_VA32_MEMPAGE_BYTES;
+        workVirt += K2_VA_MEMPAGE_BYTES;
     } while (--pagesLeft);
 
     if (gData.mCpuCoreCount > 1)
@@ -2406,7 +2406,7 @@ KernProc_Clean_HighVirtDone(
     do
     {
         KernArch_InvalidateTlbPageOnCurrentCore(workVirt);
-        workVirt += K2_VA32_MEMPAGE_BYTES;
+        workVirt += K2_VA_MEMPAGE_BYTES;
     } while (--pagesLeft);
 
     if (gData.mCpuCoreCount == 1)
@@ -2501,7 +2501,7 @@ KernProc_Clean_LowVirtDone(
         do
         {
             KernPte_BreakPageMap(NULL, workVirt, 0);
-            workVirt += K2_VA32_MEMPAGE_BYTES;
+            workVirt += K2_VA_MEMPAGE_BYTES;
         } while (--pagesLeft);
 
         if (gData.mCpuCoreCount > 1)
@@ -2519,7 +2519,7 @@ KernProc_Clean_LowVirtDone(
         do
         {
             KernArch_InvalidateTlbPageOnCurrentCore(workVirt);
-            workVirt += K2_VA32_MEMPAGE_BYTES;
+            workVirt += K2_VA_MEMPAGE_BYTES;
         } while (--pagesLeft);
 
         if (gData.mCpuCoreCount == 1)
@@ -2622,7 +2622,7 @@ KernProc_Clean_TokenDone(
         do
         {
             KernPte_BreakPageMap(NULL, workVirt, 0);
-            workVirt += K2_VA32_MEMPAGE_BYTES;
+            workVirt += K2_VA_MEMPAGE_BYTES;
         } while (--pagesLeft);
 
         if (gData.mCpuCoreCount > 1)
@@ -2640,7 +2640,7 @@ KernProc_Clean_TokenDone(
         do
         {
             KernArch_InvalidateTlbPageOnCurrentCore(workVirt);
-            workVirt += K2_VA32_MEMPAGE_BYTES;
+            workVirt += K2_VA_MEMPAGE_BYTES;
         } while (--pagesLeft);
 
         if (gData.mCpuCoreCount == 1)

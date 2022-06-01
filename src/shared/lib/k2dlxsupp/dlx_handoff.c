@@ -175,7 +175,7 @@ K2DLXSUPP_Handoff(
     do
     {
         pPage = K2_GET_CONTAINER(K2DLX_PAGE, pLink, ModuleSector.Module.ListLink);
-        K2_ASSERT((((UINT32)pPage) & K2_VA32_MEMPAGE_OFFSET_MASK) == 0);
+        K2_ASSERT((((UINT32)pPage) & K2_VA_MEMPAGE_OFFSET_MASK) == 0);
         
         pLink = pPage->ModuleSector.Module.ListLink.mpNext;
 

@@ -67,22 +67,22 @@ sPrepPreload(
     // set up apDlx->SegAlloc
     K2_ASSERT(aBaseAddr == pInfo->SegInfo[DlxSeg_Text].mLinkAddr);
     apDlx->SegAlloc.Segment[DlxSeg_Text].mDataAddr = apDlx->SegAlloc.Segment[DlxSeg_Text].mLinkAddr = aBaseAddr;
-    segBytes = (pInfo->SegInfo[DlxSeg_Text].mMemActualBytes + (K2_VA32_MEMPAGE_BYTES - 1)) & K2_VA32_PAGEFRAME_MASK;
+    segBytes = (pInfo->SegInfo[DlxSeg_Text].mMemActualBytes + (K2_VA_MEMPAGE_BYTES - 1)) & K2_VA_PAGEFRAME_MASK;
     linkAddr = pInfo->SegInfo[DlxSeg_Text].mLinkAddr + segBytes;
     K2_ASSERT(linkAddr == pInfo->SegInfo[DlxSeg_Read].mLinkAddr);
 
     apDlx->SegAlloc.Segment[DlxSeg_Read].mDataAddr = apDlx->SegAlloc.Segment[DlxSeg_Read].mLinkAddr = linkAddr;
-    segBytes = (pInfo->SegInfo[DlxSeg_Read].mMemActualBytes + (K2_VA32_MEMPAGE_BYTES - 1)) & K2_VA32_PAGEFRAME_MASK;
+    segBytes = (pInfo->SegInfo[DlxSeg_Read].mMemActualBytes + (K2_VA_MEMPAGE_BYTES - 1)) & K2_VA_PAGEFRAME_MASK;
     linkAddr = pInfo->SegInfo[DlxSeg_Read].mLinkAddr + segBytes;
     K2_ASSERT(linkAddr == pInfo->SegInfo[DlxSeg_Data].mLinkAddr);
 
     apDlx->SegAlloc.Segment[DlxSeg_Data].mDataAddr = apDlx->SegAlloc.Segment[DlxSeg_Data].mLinkAddr = linkAddr;
-    segBytes = (pInfo->SegInfo[DlxSeg_Data].mMemActualBytes + (K2_VA32_MEMPAGE_BYTES - 1)) & K2_VA32_PAGEFRAME_MASK;
+    segBytes = (pInfo->SegInfo[DlxSeg_Data].mMemActualBytes + (K2_VA_MEMPAGE_BYTES - 1)) & K2_VA_PAGEFRAME_MASK;
     linkAddr = pInfo->SegInfo[DlxSeg_Data].mLinkAddr + segBytes;
     K2_ASSERT(linkAddr == pInfo->SegInfo[DlxSeg_Sym].mLinkAddr);
 
     apDlx->SegAlloc.Segment[DlxSeg_Sym].mDataAddr = apDlx->SegAlloc.Segment[DlxSeg_Sym].mLinkAddr = linkAddr;
-    segBytes = (pInfo->SegInfo[DlxSeg_Sym].mMemActualBytes + (K2_VA32_MEMPAGE_BYTES - 1)) & K2_VA32_PAGEFRAME_MASK;
+    segBytes = (pInfo->SegInfo[DlxSeg_Sym].mMemActualBytes + (K2_VA_MEMPAGE_BYTES - 1)) & K2_VA_PAGEFRAME_MASK;
     *apRetEndAddr = pInfo->SegInfo[DlxSeg_Sym].mLinkAddr + segBytes;
 
     // update exports DATA addresses now 

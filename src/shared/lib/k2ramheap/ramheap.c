@@ -472,7 +472,7 @@ sPushBreak(
     stat = apHeap->Supp.fCommitPages(
         apChunk->mRange,
         apChunk->mBreak, 
-        aPushAmount / K2_VA32_MEMPAGE_BYTES);
+        aPushAmount / K2_VA_MEMPAGE_BYTES);
     if (K2STAT_IS_ERROR(stat))
     {
         return stat;
@@ -547,7 +547,7 @@ sGrowHeapChunk(
 
     spaceLeft = apChunk->mTop - apChunk->mBreak;
 
-    breakPushAmount = K2_ROUNDUP(aByteCount + K2RAMHEAP_NODE_OVERHEAD, K2_VA32_MEMPAGE_BYTES);
+    breakPushAmount = K2_ROUNDUP(aByteCount + K2RAMHEAP_NODE_OVERHEAD, K2_VA_MEMPAGE_BYTES);
 
     K2_ASSERT(spaceLeft >= breakPushAmount); // caller will have validated this before call
 
@@ -666,9 +666,9 @@ K2RAMHEAP_AddAndAllocFromChunk(
         (aByteCount == 0) || 
         (aByteCount & (sizeof(UINT_PTR) - 1)) || 
         (apRetAllocAddr == NULL) ||
-        (aChunkBase & K2_VA32_MEMPAGE_OFFSET_MASK) ||
-        (aChunkInit & K2_VA32_MEMPAGE_OFFSET_MASK) ||
-        (aChunkFull & K2_VA32_MEMPAGE_OFFSET_MASK) ||
+        (aChunkBase & K2_VA_MEMPAGE_OFFSET_MASK) ||
+        (aChunkInit & K2_VA_MEMPAGE_OFFSET_MASK) ||
+        (aChunkFull & K2_VA_MEMPAGE_OFFSET_MASK) ||
         (aChunkFull < K2RAMHEAP_CHUNK_MIN) ||
         (aChunkInit > aChunkFull) || 
         (aChunkBase + aChunkFull < aChunkBase))
@@ -700,15 +700,15 @@ sNewHeapChunk(
     void *      chunkRange;
 
     heapChunkInit = aByteCount + K2RAMHEAP_NODE_OVERHEAD + sizeof(K2RAMHEAP_CHUNK);
-    heapChunkInit = K2_ROUNDUP(heapChunkInit, K2_VA32_MEMPAGE_BYTES);
+    heapChunkInit = K2_ROUNDUP(heapChunkInit, K2_VA_MEMPAGE_BYTES);
 
     heapChunkBytes = heapChunkInit;
     if (heapChunkBytes < K2RAMHEAP_CHUNK_MIN)
         heapChunkBytes = K2RAMHEAP_CHUNK_MIN;
 
     stat = apHeap->Supp.fCreateRange(
-        heapChunkBytes / K2_VA32_MEMPAGE_BYTES, 
-        heapChunkInit / K2_VA32_MEMPAGE_BYTES, 
+        heapChunkBytes / K2_VA_MEMPAGE_BYTES, 
+        heapChunkInit / K2_VA_MEMPAGE_BYTES, 
         &chunkRange,
         &chunkBase);
     if (K2STAT_IS_ERROR(stat))
@@ -945,7 +945,7 @@ sFreeNode(
         K2LIST_Remove(&apHeap->ChunkList, &apChunk->ChunkListLink);
         K2MEM_Zero(apChunk, sizeof(K2RAMHEAP_CHUNK) + sizeof(K2RAMHEAP_NODE));
 
-        stat = apHeap->Supp.fDecommitPages(chunkRange, chunkStart, chunkBytes / K2_VA32_MEMPAGE_BYTES);
+        stat = apHeap->Supp.fDecommitPages(chunkRange, chunkStart, chunkBytes / K2_VA_MEMPAGE_BYTES);
         // cant do anything about failure here except stop if we are in debug config
         K2_ASSERT(!K2STAT_IS_ERROR(stat));
 

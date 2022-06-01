@@ -254,7 +254,7 @@ K2DLXSUPP_Init(
 
     gpK2DLXSUPP_Vars = (K2DLXSUPP_VARS *)apMemoryPage;
     if (!aReInit)
-        K2MEM_Zero(apMemoryPage, K2_VA32_MEMPAGE_BYTES);
+        K2MEM_Zero(apMemoryPage, K2_VA_MEMPAGE_BYTES);
 
     if (apSupp != NULL)
     {

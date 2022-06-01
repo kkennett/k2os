@@ -47,7 +47,7 @@ KernPlat_MapOne(
     apInit->mVirtAddr = virtAddr = KernVirt_AllocPages(apInit->mPageCount);
     K2_ASSERT(0 != virtAddr);
 
-    physAddr = apInit->mPhysAddr & K2_VA32_PAGEFRAME_MASK;
+    physAddr = apInit->mPhysAddr & K2_VA_PAGEFRAME_MASK;
     pageCount = apInit->mPageCount;
     mapAttr = apInit->mMapAttr &
         (K2OS_MEMPAGE_ATTR_READWRITE |
@@ -57,8 +57,8 @@ KernPlat_MapOne(
 
     do {
         KernPte_MakePageMap(NULL, virtAddr, physAddr, mapAttr);
-        virtAddr += K2_VA32_MEMPAGE_BYTES;
-        physAddr += K2_VA32_MEMPAGE_BYTES;
+        virtAddr += K2_VA_MEMPAGE_BYTES;
+        physAddr += K2_VA_MEMPAGE_BYTES;
     } while (--pageCount);
 }
 
@@ -579,11 +579,11 @@ KernPlat_SysCall_Root_AddRes(
 
                         // get end byte of range and round that up to the next page boundary
                         endAddr = pThreadPage->mSysCall_Arg2 + pThreadPage->mSysCall_Arg3 - 1;
-                        endAddr = ((endAddr + (K2_VA32_MEMPAGE_BYTES - 1)) / K2_VA32_MEMPAGE_BYTES) * K2_VA32_MEMPAGE_BYTES;
+                        endAddr = ((endAddr + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
 
                         stat = KernPageArray_CreateSpec(
-                            pThreadPage->mSysCall_Arg2 & K2_VA32_PAGEFRAME_MASK,
-                            (endAddr - (pThreadPage->mSysCall_Arg2 & K2_VA32_PAGEFRAME_MASK)) / K2_VA32_MEMPAGE_BYTES,
+                            pThreadPage->mSysCall_Arg2 & K2_VA_PAGEFRAME_MASK,
+                            (endAddr - (pThreadPage->mSysCall_Arg2 & K2_VA_PAGEFRAME_MASK)) / K2_VA_MEMPAGE_BYTES,
                             K2OS_MEMPAGE_ATTR_READWRITE | K2OS_MEMPAGE_ATTR_DEVICEIO | K2OS_MEMPAGE_ATTR_WRITE_THRU | K2OS_MEMPAGE_ATTR_UNCACHED,
                             &pPlatMap->PageArrayRef);
                         if (K2STAT_IS_ERROR(stat))

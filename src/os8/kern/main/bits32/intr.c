@@ -110,7 +110,7 @@ KernIntr_OnIci(
             do
             {
                 KernArch_InvalidateTlbPageOnCurrentCore(virtAddr);
-                virtAddr += K2_VA32_MEMPAGE_BYTES;
+                virtAddr += K2_VA_MEMPAGE_BYTES;
             } while (--pagesLeft);
             pIci->mIciType = KernIci_None;
             K2ATOMIC_And(&pTlbShoot->mCoresRemaining, ~(1 << apThisCore->mCoreIx));

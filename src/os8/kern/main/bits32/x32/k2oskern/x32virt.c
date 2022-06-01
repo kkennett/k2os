@@ -68,25 +68,25 @@ KernArch_VirtInit(void)
                 if (0 != pte)
                 {
                     *pPTE = 0;  // KernPte_BreakPageMap does checks we dont want it to
-                    pTrack = (K2OSKERN_PHYSTRACK *)K2OS_PHYS32_TO_PHYSTRACK(pte & K2_VA32_PAGEFRAME_MASK);
+                    pTrack = (K2OSKERN_PHYSTRACK *)K2OS_PHYS32_TO_PHYSTRACK(pte & K2_VA_PAGEFRAME_MASK);
                     K2_ASSERT(0 != pTrack->Flags.Field.Exists);
                     K2_ASSERT(0 == pTrack->Flags.Field.Free);
-                    K2_ASSERT(pTrack->Flags.Field.BlockSize == K2_VA32_MEMPAGE_BYTES_POW2);
+                    K2_ASSERT(pTrack->Flags.Field.BlockSize == K2_VA_MEMPAGE_BYTES_POW2);
                     X32_TLBInvalidatePage(workAddr);
                     KernPhys_FreeTrack(pTrack);
                 }
                 pPTE++;
-                workAddr += K2_VA32_MEMPAGE_BYTES;
+                workAddr += K2_VA_MEMPAGE_BYTES;
             } while (--pteLeft);
 
             pte = *pPtPTE;
-            K2_ASSERT((pde & K2_VA32_PAGEFRAME_MASK) == (pte & K2_VA32_PAGEFRAME_MASK));
+            K2_ASSERT((pde & K2_VA_PAGEFRAME_MASK) == (pte & K2_VA_PAGEFRAME_MASK));
             *pPtPTE = 0;
 
-            pTrack = (K2OSKERN_PHYSTRACK *)K2OS_PHYS32_TO_PHYSTRACK(pte & K2_VA32_PAGEFRAME_MASK);
+            pTrack = (K2OSKERN_PHYSTRACK *)K2OS_PHYS32_TO_PHYSTRACK(pte & K2_VA_PAGEFRAME_MASK);
             K2_ASSERT(0 != pTrack->Flags.Field.Exists);
             K2_ASSERT(0 == pTrack->Flags.Field.Free);
-            K2_ASSERT(pTrack->Flags.Field.BlockSize == K2_VA32_MEMPAGE_BYTES_POW2);
+            K2_ASSERT(pTrack->Flags.Field.BlockSize == K2_VA_MEMPAGE_BYTES_POW2);
             KernPhys_FreeTrack(pTrack);
 
             *pPDE = 0;
@@ -150,7 +150,7 @@ KernArch_InstallPageTable(
     //
     // now install the PDE that points to this new pagetable
     //
-    pde = (aPhysPageAddr & K2_VA32_PAGEFRAME_MASK) | mapAttr;
+    pde = (aPhysPageAddr & K2_VA_PAGEFRAME_MASK) | mapAttr;
 
     // these should be optimized out by the compiler as they are not variable comparisons
     if (K2OS_MAPTYPE_KERN_PAGEDIR & K2OS_MEMPAGE_ATTR_UNCACHED)

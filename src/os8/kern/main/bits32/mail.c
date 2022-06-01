@@ -599,8 +599,8 @@ KernMailbox_Create(
 
     do
     {
-        if (((aUserMailboxOwnerAddr + (sizeof(K2OS_MAILBOX_OWNER) - 1)) & K2_VA32_PAGEFRAME_MASK) ==
-            (aUserMailboxOwnerAddr & K2_VA32_PAGEFRAME_MASK))
+        if (((aUserMailboxOwnerAddr + (sizeof(K2OS_MAILBOX_OWNER) - 1)) & K2_VA_PAGEFRAME_MASK) ==
+            (aUserMailboxOwnerAddr & K2_VA_PAGEFRAME_MASK))
             mailboxUserPageCount = 0;
         else
             mailboxUserPageCount = 1;
@@ -704,7 +704,7 @@ KernMailbox_Create(
 
                             pMailbox->Common.KernelSpace.mVirtBase = kernVirtAddr;
                             pMailbox->Common.KernelSpace.mpMailboxOwner = (K2OS_MAILBOX_OWNER *)
-                                (kernVirtAddr + K2_VA32_MEMPAGE_BYTES + (aUserMailboxOwnerAddr & K2_VA32_MEMPAGE_OFFSET_MASK));
+                                (kernVirtAddr + K2_VA_MEMPAGE_BYTES + (aUserMailboxOwnerAddr & K2_VA_MEMPAGE_OFFSET_MASK));
 
                             pMailbox->Common.KernelSpace.mIxProducer = 0;
 
@@ -727,7 +727,7 @@ KernMailbox_Create(
                             // map the user mailbox owner structure first page into the kernel R/W
                             //
                             KernPte_MakePageMap(NULL,
-                                kernVirtAddr + K2_VA32_MEMPAGE_BYTES,
+                                kernVirtAddr + K2_VA_MEMPAGE_BYTES,
                                 KernPageArray_PagePhys(mapRef.Ptr.AsMap->PageArrayRef.Ptr.AsPageArray, mapRef.Ptr.AsMap->mPageArrayStartPageIx + mapPageIx),
                                 K2OS_MAPTYPE_KERN_DATA);
 
@@ -737,7 +737,7 @@ KernMailbox_Create(
                                 // map the user mailbox owner structure second page into the kernel R/W
                                 //
                                 KernPte_MakePageMap(NULL,
-                                    kernVirtAddr + (K2_VA32_MEMPAGE_BYTES * 2),
+                                    kernVirtAddr + (K2_VA_MEMPAGE_BYTES * 2),
                                     KernPageArray_PagePhys(mapRef.Ptr.AsMap->PageArrayRef.Ptr.AsPageArray, mapRef.Ptr.AsMap->mPageArrayStartPageIx + mapPageIx + 1),
                                     K2OS_MAPTYPE_KERN_DATA);
                             }
@@ -1113,10 +1113,10 @@ KernMailbox_PostCloseDpc(
     K2MEM_Zero(pMailbox->Common.KernelSpace.mpMailboxOwner, sizeof(K2OS_MAILBOX_OWNER));
     pMailbox->Common.KernelSpace.mHoldTokenOnClose = tokMailbox;
     KernPte_BreakPageMap(NULL, pMailbox->Common.KernelSpace.mVirtBase, 0);
-    KernPte_BreakPageMap(NULL, pMailbox->Common.KernelSpace.mVirtBase + K2_VA32_MEMPAGE_BYTES, 0);
+    KernPte_BreakPageMap(NULL, pMailbox->Common.KernelSpace.mVirtBase + K2_VA_MEMPAGE_BYTES, 0);
     if (pMailbox->KernelSpace.mClientPageCount > 1)
     {
-        KernPte_BreakPageMap(NULL, pMailbox->Common.KernelSpace.mVirtBase + (2 * K2_VA32_MEMPAGE_BYTES), 0);
+        KernPte_BreakPageMap(NULL, pMailbox->Common.KernelSpace.mVirtBase + (2 * K2_VA_MEMPAGE_BYTES), 0);
     }
 
     //
@@ -1133,10 +1133,10 @@ KernMailbox_PostCloseDpc(
     }
 
     KernArch_InvalidateTlbPageOnCurrentCore(pMailbox->Common.KernelSpace.mVirtBase);
-    KernArch_InvalidateTlbPageOnCurrentCore(pMailbox->Common.KernelSpace.mVirtBase + K2_VA32_MEMPAGE_BYTES);
+    KernArch_InvalidateTlbPageOnCurrentCore(pMailbox->Common.KernelSpace.mVirtBase + K2_VA_MEMPAGE_BYTES);
     if (pMailbox->KernelSpace.mClientPageCount > 1)
     {
-        KernArch_InvalidateTlbPageOnCurrentCore(pMailbox->Common.KernelSpace.mVirtBase + (2 * K2_VA32_MEMPAGE_BYTES));
+        KernArch_InvalidateTlbPageOnCurrentCore(pMailbox->Common.KernelSpace.mVirtBase + (2 * K2_VA_MEMPAGE_BYTES));
     }
 
     if (gData.mCpuCoreCount == 1)

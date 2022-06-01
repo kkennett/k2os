@@ -227,11 +227,11 @@ KernArch_AtDlxEntry(
         }
         ixCpu = (UINT32)gpX32Kern_HPET->Address.Address;
         gData.Timer.mIoPhys = ixCpu + HPET_OFFSET_COUNT_LO32;
-        ixCpu &= K2_VA32_PAGEFRAME_MASK;
+        ixCpu &= K2_VA_PAGEFRAME_MASK;
         KernPte_MakePageMap(NULL, K2OS_KVA_X32_HPET, ixCpu, K2OS_MAPTYPE_KERN_DEVICEIO);
 
         gX32Kern_PhysTable[gX32Kern_PhysTableCount].mBaseAddr = ixCpu;
-        gX32Kern_PhysTable[gX32Kern_PhysTableCount].mSizeBytes = K2_VA32_MEMPAGE_BYTES;
+        gX32Kern_PhysTable[gX32Kern_PhysTableCount].mSizeBytes = K2_VA_MEMPAGE_BYTES;
         gX32Kern_PhysTableCount++;
         K2_ASSERT(gX32Kern_PhysTableCount <= X32KERN_PHYSTABLE_MAX_ENTRIES);
 
@@ -336,7 +336,7 @@ KernArch_AtDlxEntry(
     KernPte_MakePageMap(NULL, K2OS_KVA_X32_LOCAPIC, localApicAddress, K2OS_MAPTYPE_KERN_DEVICEIO);
 
     gX32Kern_PhysTable[gX32Kern_PhysTableCount].mBaseAddr = localApicAddress;
-    gX32Kern_PhysTable[gX32Kern_PhysTableCount].mSizeBytes = K2_VA32_MEMPAGE_BYTES;
+    gX32Kern_PhysTable[gX32Kern_PhysTableCount].mSizeBytes = K2_VA_MEMPAGE_BYTES;
     gX32Kern_PhysTableCount++;
     K2_ASSERT(gX32Kern_PhysTableCount <= X32KERN_PHYSTABLE_MAX_ENTRIES);
 
@@ -362,13 +362,13 @@ KernArch_AtDlxEntry(
         //
         KernPte_MakePageMap(
             NULL, 
-            K2OS_KVA_X32_IOAPICS + (left * K2_VA32_MEMPAGE_BYTES), 
+            K2OS_KVA_X32_IOAPICS + (left * K2_VA_MEMPAGE_BYTES), 
             gpX32Kern_MADT_IoApic[left]->IoApicAddress, 
             K2OS_MAPTYPE_KERN_DEVICEIO);
         X32Kern_IoApicInit(left);
 
         gX32Kern_PhysTable[gX32Kern_PhysTableCount].mBaseAddr = gpX32Kern_MADT_IoApic[left]->IoApicAddress;
-        gX32Kern_PhysTable[gX32Kern_PhysTableCount].mSizeBytes = K2_VA32_MEMPAGE_BYTES;
+        gX32Kern_PhysTable[gX32Kern_PhysTableCount].mSizeBytes = K2_VA_MEMPAGE_BYTES;
         gX32Kern_PhysTableCount++;
         K2_ASSERT(gX32Kern_PhysTableCount <= X32KERN_PHYSTABLE_MAX_ENTRIES);
     }

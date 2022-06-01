@@ -65,7 +65,7 @@ KernInfo_Get(
             return K2STAT_ERROR_TOO_SMALL;
         }
         ((K2OS_FWINFO *)apRetUserBuffer)->mFwBasePhys = gData.mpShared->LoadInfo.mFwTabPagesPhys;
-        ((K2OS_FWINFO *)apRetUserBuffer)->mFwSizeBytes = gData.mpShared->LoadInfo.mFwTabPageCount * K2_VA32_MEMPAGE_BYTES;
+        ((K2OS_FWINFO *)apRetUserBuffer)->mFwSizeBytes = gData.mpShared->LoadInfo.mFwTabPageCount * K2_VA_MEMPAGE_BYTES;
         ((K2OS_FWINFO *)apRetUserBuffer)->mFacsPhys = gData.mpShared->LoadInfo.mFwFacsPhys;
         ((K2OS_FWINFO *)apRetUserBuffer)->mXFacsPhys = gData.mpShared->LoadInfo.mFwXFacsPhys;
         return K2STAT_NO_ERROR;
@@ -159,7 +159,7 @@ KernInfo_SysCall_Get(
     }
     else
     {
-        lockMapCount = (userBufferBytes + (K2_VA32_MEMPAGE_BYTES - 1)) / K2_VA32_MEMPAGE_BYTES;
+        lockMapCount = (userBufferBytes + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES;
         pLockedMapRefs = NULL;
         if (0 != lockMapCount)
         {

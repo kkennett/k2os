@@ -68,7 +68,7 @@ struct _K2DLX_PAGE
     K2DLX_SECTOR    ModuleSector;    // must be first thing in page
     UINT8           mHdrSectorsBuffer[K2DLX_PAGE_HDRSECTORS_BYTES];
 };
-K2_STATIC_ASSERT(sizeof(K2DLX_PAGE) == K2_VA32_MEMPAGE_BYTES);
+K2_STATIC_ASSERT(sizeof(K2DLX_PAGE) == K2_VA_MEMPAGE_BYTES);
 
 typedef struct _K2DLXSUPP_VARS K2DLXSUPP_VARS;
 struct _K2DLXSUPP_VARS

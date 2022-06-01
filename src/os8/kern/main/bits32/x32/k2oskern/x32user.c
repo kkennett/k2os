@@ -80,7 +80,7 @@ KernArch_UserProcPrep(
 
     KernPte_MakePageMap(NULL, apProc->mVirtTransBase, apProc->mPhysTransBase, K2OS_MAPTYPE_KERN_PAGEDIR);
 
-    K2MEM_Zero((void *)apProc->mVirtTransBase, K2_VA32_MEMPAGE_BYTES);
+    K2MEM_Zero((void *)apProc->mVirtTransBase, K2_VA_MEMPAGE_BYTES);
 
     return TRUE;
 }
@@ -99,7 +99,7 @@ KernArch_UserCrtPrep(
 
     apInitThread->ArchExecContext.DS = (X32_SEGMENT_SELECTOR_USER_DATA | X32_SELECTOR_RPL_USER);
 
-    apInitThread->ArchExecContext.REGS.ECX = K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.PageArray.mPageCount * K2_VA32_MEMPAGE_BYTES);
+    apInitThread->ArchExecContext.REGS.ECX = K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.PageArray.mPageCount * K2_VA_MEMPAGE_BYTES);
     apInitThread->ArchExecContext.REGS.EDX = apProc->mId; // second arg to entry point
     apInitThread->ArchExecContext.EIP = gData.User.mEntrypoint;
     apInitThread->ArchExecContext.CS = (X32_SEGMENT_SELECTOR_USER_CODE | X32_SELECTOR_RPL_USER);
@@ -109,7 +109,7 @@ KernArch_UserCrtPrep(
     // put first thread initial stack at end of TLS page for that thread
     // process is not mapped, so can't write into tls page at its proc address
     //
-    stackPtr = K2OS_KVA_TLSAREA_BASE + (apInitThread->mGlobalIx * K2_VA32_MEMPAGE_BYTES) + 0xFFC;
+    stackPtr = K2OS_KVA_TLSAREA_BASE + (apInitThread->mGlobalIx * K2_VA_MEMPAGE_BYTES) + 0xFFC;
     *((UINT32 *)stackPtr) = 0;
     stackPtr -= sizeof(UINT32);
     *((UINT32 *)stackPtr) = 0;

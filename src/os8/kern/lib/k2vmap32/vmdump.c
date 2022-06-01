@@ -66,7 +66,7 @@ K2VMAP32_Dump(
 
     pdeIx = aStartVirt / K2_VA32_PAGETABLE_MAP_BYTES;
 
-    pteIx = (aStartVirt - (pdeIx * K2_VA32_PAGETABLE_MAP_BYTES)) / K2_VA32_MEMPAGE_BYTES;
+    pteIx = (aStartVirt - (pdeIx * K2_VA32_PAGETABLE_MAP_BYTES)) / K2_VA_MEMPAGE_BYTES;
 
     do
     {
@@ -84,7 +84,7 @@ K2VMAP32_Dump(
                 if ((pte & pteFlagPresent) != 0)
                     afDump(FALSE, aStartVirt, pte);
 
-                aStartVirt += K2_VA32_MEMPAGE_BYTES;
+                aStartVirt += K2_VA_MEMPAGE_BYTES;
 
                 pteIx++;
 

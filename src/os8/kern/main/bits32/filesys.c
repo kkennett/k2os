@@ -53,7 +53,7 @@ KernFileSys_Init(
     pPageArray->Hdr.mObjFlags = K2OSKERN_OBJ_FLAG_PERMANENT;
     K2LIST_Init(&pPageArray->Hdr.RefObjList);
     pPageArray->mPageCount = ((gData.FileSys.mpRofs->mSectorCount * K2ROFS_SECTOR_BYTES) +
-        (K2_VA32_MEMPAGE_BYTES - 1)) / K2_VA32_MEMPAGE_BYTES;
+        (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES;
     pPageArray->mUserPermit = PF_R; // read-only for user mappings
     pPageArray->mType = KernPageArray_PreMap;
     pPageArray->Data.PreMap.mpPTEs = (UINT32 *)K2OS_KVA_TO_PTE_ADDR((UINT32)gData.FileSys.mpRofs);
