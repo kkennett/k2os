@@ -74,6 +74,32 @@ K2VMAP64_Init(
     );
 
 UINT64
+K2VMAP64_ReadPML4E(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex
+);
+
+void
+K2VMAP64_WritePML4E(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex,
+    UINT64              aPML4E
+);
+
+UINT64
+K2VMAP64_ReadPDPTE(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex
+);
+
+void
+K2VMAP64_WritePDPTE(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex,
+    UINT64              aPDPTE
+);
+
+UINT64
 K2VMAP64_ReadPDE(
     K2VMAP64_CONTEXT *  apContext,
     UINT64              aIndex

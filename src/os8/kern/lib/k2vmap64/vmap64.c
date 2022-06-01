@@ -36,6 +36,44 @@
 #if K2_TARGET_ARCH_IS_ARM
 
 UINT64
+K2VMAP64_ReadPML4E(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex
+)
+{
+    return 0;
+}
+
+void
+K2VMAP64_WritePML4E(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex,
+    UINT64              aPML4E
+)
+{
+
+}
+
+UINT64
+K2VMAP64_ReadPDPTE(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex
+)
+{
+    return 0;
+}
+
+void
+K2VMAP64_WritePDPTE(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex,
+    UINT64              aPDPTE
+)
+{
+
+}
+
+UINT64
 K2VMAP64_ReadPDE(
     K2VMAP64_CONTEXT *  apContext,
     UINT64              aIndex
@@ -66,12 +104,56 @@ K2VMAP64_WritePDE(
 #else
 
 UINT64
+K2VMAP64_ReadPML4E(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex
+)
+{
+    return *(((UINT64 *)apContext->mTransBasePhys) + (aIndex & 0x1FF));
+}
+
+void
+K2VMAP64_WritePML4E(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex,
+    UINT64              aPML4E
+)
+{
+    if (apContext->mFlags & K2VMAP64_FLAG_REALIZED)
+        return;
+    if (aPML4E & K2VMAP64_FLAG_PRESENT)
+    {
+        K2_ASSERT((aPML4E & K2OS_MAPTYPE_KERN_PAGEDIR) == K2OS_MAPTYPE_KERN_PAGEDIR);
+    }
+    *(((UINT64 *)apContext->mTransBasePhys) + (aIndex & 0x1FF)) = aPML4E;
+}
+
+UINT64
+K2VMAP64_ReadPDPTE(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex
+)
+{
+    return 0;
+}
+
+void
+K2VMAP64_WritePDPTE(
+    K2VMAP64_CONTEXT *  apContext,
+    UINT64              aIndex,
+    UINT64              aPDPTE
+)
+{
+
+}
+
+UINT64
 K2VMAP64_ReadPDE(
     K2VMAP64_CONTEXT *  apContext,
     UINT64              aIndex
     )
 {
-    return *(((UINT64 *)apContext->mTransBasePhys) + (aIndex & 0x1FF));
+    return 0;
 }
 
 void
@@ -81,13 +163,7 @@ K2VMAP64_WritePDE(
     UINT64              aPDE
     )
 {
-    if (apContext->mFlags & K2VMAP64_FLAG_REALIZED)
-        return;
-    if (aPDE & K2VMAP64_FLAG_PRESENT)
-    {
-        K2_ASSERT((aPDE & K2OS_MAPTYPE_KERN_PAGEDIR) == K2OS_MAPTYPE_KERN_PAGEDIR);
-    }
-    *(((UINT64 *)apContext->mTransBasePhys) + (aIndex & 0x1FF)) = aPDE;
+
 }
 
 #endif
@@ -197,6 +273,30 @@ K2VMAP64_MapPage(
 
     if ((aPageMapAttr & K2OS_MEMPAGE_ATTR_MASK) == K2OS_MEMPAGE_ATTR_NONE)
         return K2STAT_ERROR_BAD_ARGUMENT;
+
+    ixEntry = aVirtAddr / K2_VA64_PML4_MAP_BYTES;
+    entry = K2VMAP64_ReadPML4(apContext, ixEntry);
+    if ((entry & K2VMAP64_FLAG_PRESENT) == 0)
+    {
+        virtPML4 = K2_VA64_TO_PML4_ADDR(apContext->mVirtMapBase, aVirtAddr);
+
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000111111111111111111111111111111111111111111111111111
+and
+
+0x0000800000000000
+
+0x1000000000    == 64GB of virtmap space for kernel, 64GB of virtmap space per process 
+
+0x2000000000    == 128GB of virtual map space per process
+
+0xFFF8000000000000
+0x0000001000000000
+
+1111111111111000000000000000000000000000000000000000000000000000
+1111111111111111111111111111111111111111111111111111111111111111
+
+
 
     ixEntry = aVirtAddr / K2_VA64_PAGETABLE_MAP_BYTES;
     entry = K2VMAP64_ReadPDE(apContext, ixEntry);
