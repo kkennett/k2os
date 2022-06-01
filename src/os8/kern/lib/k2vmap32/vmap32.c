@@ -30,7 +30,7 @@
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#include <kern/lib/k2vmap32.h>
+#include <kern/lib/k2vmap64.h>
 #include <lib/k2mem.h>
 
 #if K2_TARGET_ARCH_IS_ARM

@@ -34,7 +34,7 @@ include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
 TARGET_TYPE = LIB
 
-SOURCES += vmap32.c
+SOURCES += vmap64.c
 SOURCES += vmdump.c
 
 include $(K2_ROOT)/src/build/post.make

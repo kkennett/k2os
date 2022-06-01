@@ -461,6 +461,8 @@
 #define X64_CR3_CACHEDISABLE            0x0000000000000010
 #define X64_CR3_PML4E_PHYS_MASK         0x000FFFFFFFFFF000
 
+#define X64_PML4E_PHYS_SIZE             0x00001000
+
 #define X64_PML4E_PRESENT               0x0000000000000001
 #define X64_PML4E_WRITEABLE             0x0000000000000002
 #define X64_PML4E_USER                  0x0000000000000004
@@ -820,6 +822,12 @@
 //------------------------------------------------------------------------
 //
 
+#define A64_PML4E_PHYS_SIZE                             0x00008000
+
+//
+//------------------------------------------------------------------------
+//
+
 #define K2_VA_MEMPAGE_BYTES_POW2                    12
 #define K2_VA_MEMPAGE_BYTES                         (1 << K2_VA_MEMPAGE_BYTES_POW2)
 #define K2_VA_MEMPAGE_OFFSET_MASK                   (K2_VA_MEMPAGE_BYTES - 1)
@@ -847,6 +855,27 @@
 #define K2_VA32_TRANSTAB_SIZE   X32_PAGEDIR_PHYS_SIZE
 #else
 #define K2_VA32_TRANSTAB_SIZE   A32_TTBASE_PHYS_SIZE
+#endif
+
+/* --------------------------------------------------------------------------------- */
+
+#define K2_VA64_PML4E_PDPTES_POW2                   9
+#define K2_VA64_PDPTE_PAGEDIRS_POW2                 9
+#define K2_VA64_PAGEDIR_PAGETABLES_POW2             9
+#define K2_VA64_PAGETABLE_PAGES_POW2                9
+
+#define K2_VA64_PAGETABLE_MAP_BYTES_POW2            (K2_VA64_PAGETABLE_PAGES_POW2 + K2_VA_MEMPAGE_BYTES_POW2)
+#define K2_VA64_PAGETABLE_MAP_BYTES                 (1 << K2_VA64_PAGETABLE_MAP_BYTES_POW2)
+
+#define K2_VA64_ENTRIES_PER_PAGETABLE               (1 << K2_VA64_PAGETABLE_PAGES_POW2)
+
+#define K2_VA64_TO_PTE_ADDR(vamap_base, x)          ((vamap_base) + (((x) >> (K2_VA_MEMPAGE_BYTES_POW2 - 3)) & ~7))
+#define K2_VA64_TO_PT_ADDR(vamap_base, x)           ((vamap_base) + (((x) >> (K2_VA_MEMPAGE_BYTES_POW2 - 3)) & K2_VA_PAGEFRAME_MASK))
+
+#if K2_TARGET_ARCH_IS_INTEL
+#define K2_VA64_TRANSTAB_SIZE   X64_PML4E_PHYS_SIZE
+#else
+#define K2_VA64_TRANSTAB_SIZE   A64_PML4E_PHYS_SIZE
 #endif
 
 /* --------------------------------------------------------------------------------- */

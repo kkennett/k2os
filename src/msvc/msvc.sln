@@ -64,6 +64,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2graph", "lib\k2graph\k2gr
 		{DCC979AB-AB96-4FA2-861D-1E6D7518CA07} = {DCC979AB-AB96-4FA2-861D-1E6D7518CA07}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2vmap32", "lib\k2vmap32\k2vmap32.vcxproj", "{06E641A5-1C22-4BE5-9BCC-F561C0BD7697}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2vmap64", "lib\k2vmap64\k2vmap64.vcxproj", "{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -216,6 +220,19 @@ Global
 		{FE86AF2A-3458-4507-9062-9C4B7DB8A6AE}.Release|x64.Build.0 = Release|x64
 		{FE86AF2A-3458-4507-9062-9C4B7DB8A6AE}.Release|x86.ActiveCfg = Release|Win32
 		{FE86AF2A-3458-4507-9062-9C4B7DB8A6AE}.Release|x86.Build.0 = Release|Win32
+		{06E641A5-1C22-4BE5-9BCC-F561C0BD7697}.Debug|x64.ActiveCfg = Debug|Win32
+		{06E641A5-1C22-4BE5-9BCC-F561C0BD7697}.Debug|x86.ActiveCfg = Debug|Win32
+		{06E641A5-1C22-4BE5-9BCC-F561C0BD7697}.Debug|x86.Build.0 = Debug|Win32
+		{06E641A5-1C22-4BE5-9BCC-F561C0BD7697}.Release|x64.ActiveCfg = Release|Win32
+		{06E641A5-1C22-4BE5-9BCC-F561C0BD7697}.Release|x86.ActiveCfg = Release|Win32
+		{06E641A5-1C22-4BE5-9BCC-F561C0BD7697}.Release|x86.Build.0 = Release|Win32
+		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Debug|x64.ActiveCfg = Debug|x64
+		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Debug|x64.Build.0 = Debug|x64
+		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Debug|x86.ActiveCfg = Debug|x64
+		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Release|x64.ActiveCfg = Release|x64
+		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Release|x64.Build.0 = Release|x64
+		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Release|x86.ActiveCfg = Release|Win32
+		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
