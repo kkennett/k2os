@@ -1,0 +1,7 @@
+
+
+#string STR_MODULE_ABSTRACT             #language en-US "A HII resource driver"
+
+#string STR_MODULE_DESCRIPTION          #language en-US "This driver shows how a HII driver retrieve HII data using HII Package List protocol\n"
+                                                        "and publish the HII data."
+

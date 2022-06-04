@@ -59,7 +59,6 @@
 	ArmPlatformLib
     SerialPortLib
     BaseMemoryLib
-    SynchronizationLib
 
 [Pcd]
     gArmTokenSpaceGuid.PcdGicDistributorBase

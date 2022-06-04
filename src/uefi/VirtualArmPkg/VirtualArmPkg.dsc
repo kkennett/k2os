@@ -78,7 +78,9 @@
 
     BaseMemoryLib               |MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
 
-    TimerLib                    |ArmPkg/Library/ArmGenericTimerPhyCounterLib/ArmGenericTimerPhyCounterLib.inf
+    ArmGenericTimerCounterLib   |ArmPkg/Library/ArmGenericTimerPhyCounterLib/ArmGenericTimerPhyCounterLib.inf
+    TimerLib                    |ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
+
     ArmPlatformLib              |VirtualArmPkg/Library/ArmPlatformLib/ArmPlatformLib.inf
 
     NULL                        |ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
@@ -95,8 +97,8 @@
     gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase     | 0x00A00100          #0                  |UINT32                  
     gArmTokenSpaceGuid.PcdVFPEnabled                    | 1                   #0                  |UINT32                                  
     gArmTokenSpaceGuid.PcdL2x0ControllerBase            | 0x00A02000          #0                  |UINT32                          
-    gArmTokenSpaceGuid.PcdSystemMemoryBase              | 0x0000000010000000  #0                  |UINT64                           
-    gArmTokenSpaceGuid.PcdSystemMemorySize              | 0x0000000040000000  #0                  |UINT64                           
+    gArmTokenSpaceGuid.PcdSystemMemoryBase              | 0x0000000080000000  #0                  |UINT64                           
+    gArmTokenSpaceGuid.PcdSystemMemorySize              | 0x0000000004000000  #0                  |UINT64                           
 
 
 ###################################################################################################
@@ -185,14 +187,13 @@
 [Components]
     VirtualArmPkg/Sec/Sec.inf {
         <LibraryClasses>
-        ArmGicLib                   |ArmPkg/Drivers/ArmGic/ArmGicLib.inf
+        ArmGicLib                   |VirtualArmPkg/Drivers/ArmPkg/ArmGic/ArmGicSecLib.inf
         ArmGicArchLib               |ArmPkg/Library/ArmGicArchSecLib/ArmGicArchSecLib.inf
-        SynchronizationLib          |MdePkg/Library/BaseSynchronizationLib/BaseSynchronizationLib.inf
     }
 
     ArmPlatformPkg/PrePi/PeiMPCore.inf {
         <LibraryClasses>
-        ArmGicLib                   |ArmPkg/Drivers/ArmGic/ArmGicLib.inf
+        ArmGicLib                   |VirtualArmPkg/Drivers/ArmPkg/ArmGic/ArmGicSecLib.inf
         ArmGicArchLib               |ArmPkg/Library/ArmGicArchSecLib/ArmGicArchSecLib.inf
         ArmMmuLib                   |ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
         ArmPlatformStackLib         |ArmPlatformPkg/Library/ArmPlatformStackLib/ArmPlatformStackLib.inf

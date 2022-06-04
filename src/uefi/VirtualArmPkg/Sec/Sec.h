@@ -36,6 +36,7 @@
 #include <Uefi.h>
 #include <Library/BaseLib.h>
 #include <Library/ArmLib.h>
+#include <Library/ArmGicLib.h>
 #include <Chipset/ArmCortexA9.h>
 #include <Library/ArmGicLib.h>
 #include <Library/IoLib.h>

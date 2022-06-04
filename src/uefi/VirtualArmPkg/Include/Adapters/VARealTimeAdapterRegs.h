@@ -23,6 +23,7 @@
   --------------------------------------------*/
 
 #include "virtarm.h"
+#include "VARealTimeAdapterRegs.inc"
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,20 +64,6 @@ typedef struct _VIRTARM_REALTIMEADAPTER_REGS
 /* 0x5C */ _REG32 mSetDeltaMatch2;      /* wo: interrupt on match delta set register 2 */
 
 } VIRTARM_REALTIMEADAPTER_REGS;
-
-#define VIRTARM_REALTIMEADAPTER_VID                     0x0000045E
-#define VIRTARM_REALTIMEADAPTER_PID                     0x00000202
-
-#define VIRTARM_REALTIMEADAPTER_COMMAND_GET             1
-#define VIRTARM_REALTIMEADAPTER_COMMAND_SET             2
-#define VIRTARM_REALTIMEADAPTER_COMMAND_SETALARM        3
-#define VIRTARM_REALTIMEADAPTER_COMMAND_GETALARM        4
-
-#define VIRTARM_REALTIMEADAPTER_INT_COUNTER_MATCH_0     0x00000001
-#define VIRTARM_REALTIMEADAPTER_INT_COUNTER_MATCH_1     0x00000002
-#define VIRTARM_REALTIMEADAPTER_INT_COUNTER_MATCH_2     0x00000004
-#define VIRTARM_REALTIMEADAPTER_INT_ALARM               0x80000000
-#define VIRTARM_REALTIMEADAPTER_INT_ALL                 0x80000007
 
 // ---------------------------------------------------------------------
 #ifdef __cplusplus

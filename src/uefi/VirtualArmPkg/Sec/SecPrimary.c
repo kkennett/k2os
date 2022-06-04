@@ -61,13 +61,8 @@ VirtualArmPrimaryCoreSecStart(
     UINT32 Reg32;
     UINT32 BaseAddress;
 
-    DebugPrint(0xFFFFFFFF, "\r\nUdoo Quad Secure Init\r\n");
+    DebugPrint(0xFFFFFFFF, "\r\nVirtualArm Secure Init\r\n");
     DebugPrint(0xFFFFFFFF, "Built " __DATE__ " " __TIME__ "\r\n");
-
-    //
-    // init trustzone spinlock
-    //
-    InitializeSpinLock(&gTzSpinLock);
 
     //
     // confirm we are in secure state (sanity check)

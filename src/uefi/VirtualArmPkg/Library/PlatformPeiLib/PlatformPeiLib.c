@@ -37,15 +37,15 @@
 #include <Library/PcdLib.h>
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
-#include <VirtualArm.h>
+#include <VAGeneric.h>
 
 //
 // sanity
 //
 #define STATIC_ASSERT(x) \
 typedef int check ## __COUNTER__ [ (x) ? 1 : -1 ];
-STATIC_ASSERT(((UINT32)FixedPcdGet64(PcdSystemMemoryBase)) == UDOOQUAD_MAINRAM_PHYSICAL_BASE);
-STATIC_ASSERT(((UINT32)FixedPcdGet64(PcdSystemMemorySize)) == UDOOQUAD_MAINRAM_PHYSICAL_LENGTH);
+STATIC_ASSERT(((UINT32)FixedPcdGet64(PcdSystemMemoryBase)) == VAGENERIC_MAINRAM_PHYSICAL_BASE);
+STATIC_ASSERT(((UINT32)FixedPcdGet64(PcdSystemMemorySize)) == VAGENERIC_MAINRAM_PHYSICAL_LENGTH);
 
 EFI_STATUS
 EFIAPI

@@ -35,9 +35,8 @@
 
 #include "VAGenericDef.inc"
 
-//
-// C definitions go here
-//
+#include "Adapters/VADebugAdapterRegs.h"
+#include "Adapters/VARealTimeAdapterRegs.h"
 
 
 #endif

@@ -55,7 +55,7 @@ SerialPortWrite(
     IN  UINTN   NumberOfBytes
 )
 {
-
+    return NumberOfBytes;
 }
 
 UINTN
