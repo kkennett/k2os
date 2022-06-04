@@ -106,8 +106,8 @@ FV = FV_UNCOMPRESSED
     #
     # PEI
     #
-    INF ArmPlatformPkg/PrePeiCore/PrePeiCoreMPCore.inf
-    #INF ArmPlatformPkg/PrePi/PeiMPCore.inf
+    #INF ArmPlatformPkg/PrePeiCore/PrePeiCoreMPCore.inf
+    INF ArmPlatformPkg/PrePi/PeiMPCore.inf
 
     #
     # Compressed other stuff

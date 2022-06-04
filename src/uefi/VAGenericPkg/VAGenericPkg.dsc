@@ -196,8 +196,8 @@
 #
 ###################################################################################################
 [Components]
-#    ArmPlatformPkg/PrePi/PeiMPCore.inf {
-    ArmPlatformPkg/PrePeiCore/PrePeiCoreMPCore.inf {
+    ArmPlatformPkg/PrePi/PeiMPCore.inf {
+#    ArmPlatformPkg/PrePeiCore/PrePeiCoreMPCore.inf {
         <LibraryClasses>
         ArmGicLib                   |VirtualArmPkg/Drivers/ArmPkg/ArmGic/ArmGicSecLib.inf
         ArmGicArchLib               |ArmPkg/Library/ArmGicArchSecLib/ArmGicArchSecLib.inf
