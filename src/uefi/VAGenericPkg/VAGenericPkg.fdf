@@ -42,7 +42,10 @@
     BlockSize     = 0x1
     NumBlocks     = 0x00040000
 
-0x00000000|0x00040000
+0x00000000|0x00000200
+FILE = VirtualArmPkg/Binary/imghdr.bin
+
+0x00000200|0x0003FE00
 gArmTokenSpaceGuid.PcdFvBaseAddress|gArmTokenSpaceGuid.PcdFvSize
 FV = FV_UNCOMPRESSED
 
