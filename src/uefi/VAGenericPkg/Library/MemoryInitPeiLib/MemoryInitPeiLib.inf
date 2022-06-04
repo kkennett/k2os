@@ -29,6 +29,8 @@
   EmbeddedPkg/EmbeddedPkg.dec
   ArmPkg/ArmPkg.dec
   ArmPlatformPkg/ArmPlatformPkg.dec
+  VirtualArmPkg/VirtualArmPkg.dec
+  VAGenericPkg/VAGenericPkg.dec
 
 [LibraryClasses]
   DebugLib

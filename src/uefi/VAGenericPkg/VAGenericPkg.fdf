@@ -32,10 +32,10 @@
 
 ################################################################################
 #
-# FD.VIRTUALARM
+# FD.VAGENERIC
 #
 ################################################################################
-[FD.VIRTUALARM]
+[FD.VAGENERIC]
     BaseAddress   = 0x00000000|gArmTokenSpaceGuid.PcdFdBaseAddress
     Size          = 0x00080000|gArmTokenSpaceGuid.PcdFdSize
     ErasePolarity = 1
@@ -73,7 +73,7 @@ FV = FV_UNCOMPRESSED
     READ_LOCK_CAP      = TRUE
     READ_LOCK_STATUS   = TRUE
 
-    INF VirtualArmPkg/Sec/Sec.inf
+    INF VAGenericPkg/Sec/Sec.inf
 
 
 ################################################################################

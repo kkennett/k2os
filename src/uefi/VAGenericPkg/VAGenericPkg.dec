@@ -31,49 +31,14 @@
 #
 
 [Defines]
-    INF_VERSION                    = 0x00010005
-    BASE_NAME                      = VirtualArmPlatformPeiLib
-    FILE_GUID                      = C7E27699-80EA-4BA7-BB71-16B4B1CE870C
-    MODULE_TYPE                    = SEC
-    VERSION_STRING                 = 1.0
-    LIBRARY_CLASS                  = PlatformPeiLib
+    DEC_SPECIFICATION     = 0x00010005
+    PACKAGE_NAME          = VAGenericPkg
+    PACKAGE_GUID          = F8190040-6BB9-42BF-8018-12DA175D8B16
+    PACKAGE_VERSION       = 0.1
 
-[Sources]
-    PlatformPeiLib.c
-
-[Packages]
-    MdePkg/MdePkg.dec
-    MdeModulePkg/MdeModulePkg.dec
-    EmbeddedPkg/EmbeddedPkg.dec
-    ArmPkg/ArmPkg.dec
-    ArmPlatformPkg/ArmPlatformPkg.dec
-    VirtualArmPkg/VirtualArmPkg.dec
-
-[LibraryClasses]
-    DebugLib
-    HobLib
-    ArmPlatformLib
-    PcdLib
-    IoLib
-    BaseMemoryLib
-
-[Ppis]
-    gEfiPeiMasterBootModePpiGuid                  # PPI ALWAYS_PRODUCED
-    gEfiPeiBootInRecoveryModePpiGuid              # PPI SOMETIMES_PRODUCED
+[Includes]
+    Include
 
 [Guids]
-    gEfiHobMemoryAllocStackGuid
+    gVAGenericTokenSpaceGuid =   { 0xf8190040, 0x6bb9, 0x42bf, { 0x80, 0x18, 0x12, 0xda, 0x17, 0x5d, 0x8b, 0x16 } }
 
-[FixedPcd]
-    gArmTokenSpaceGuid.PcdFdBaseAddress
-    gArmTokenSpaceGuid.PcdFdSize
-    gArmTokenSpaceGuid.PcdFvBaseAddress
-    gArmTokenSpaceGuid.PcdFvSize
-    gArmTokenSpaceGuid.PcdSecureFvBaseAddress
-    gEmbeddedTokenSpaceGuid.PcdPrePiCpuMemorySize
-    gEmbeddedTokenSpaceGuid.PcdPrePiCpuIoSize
-    gArmTokenSpaceGuid.PcdSystemMemoryBase
-    gArmTokenSpaceGuid.PcdSystemMemorySize
-
-[depex]
-    TRUE

@@ -30,13 +30,85 @@
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#ifndef __VAGENERIC_H__
-#define __VAGENERIC_H__
+#include "VAGeneric.h"
+#include <Library/SerialPortLib.h>
 
-#include "VAGenericDef.inc"
+RETURN_STATUS
+EFIAPI
+SerialPortInitialize(
+    VOID
+)
+{
+    //
+    // pad configuration and intiialization of UART is done elsewhere,
+    // usually in SEC when the platform first executes code.
+    // this library is used by multiple modules and reinitializing for
+    // each one is dumb
+    //
+    return EFI_SUCCESS;
+}
 
-#include "Adapters/VADebugAdapterRegs.h"
-#include "Adapters/VARealTimeAdapterRegs.h"
+UINTN
+EFIAPI
+SerialPortWrite(
+    IN  UINT8 * Buffer,
+    IN  UINTN   NumberOfBytes
+)
+{
+    return NumberOfBytes;
+}
+
+UINTN
+EFIAPI
+SerialPortRead(
+    OUT UINT8 * Buffer,
+    IN  UINTN   NumberOfBytes
+)
+{
+    return 0;
+}
+
+BOOLEAN
+EFIAPI
+SerialPortPoll(
+    VOID
+)
+{
+    return FALSE;
+}
 
 
-#endif
+RETURN_STATUS
+EFIAPI
+SerialPortSetControl(
+    IN UINT32 Control
+)
+{
+    return RETURN_UNSUPPORTED;
+}
+
+RETURN_STATUS
+EFIAPI
+SerialPortGetControl(
+    OUT UINT32 *Control
+)
+{
+    return RETURN_UNSUPPORTED;
+}
+
+RETURN_STATUS
+EFIAPI
+SerialPortSetAttributes(
+    IN OUT UINT64             *BaudRate,
+    IN OUT UINT32             *ReceiveFifoDepth,
+    IN OUT UINT32             *Timeout,
+    IN OUT EFI_PARITY_TYPE    *Parity,
+    IN OUT UINT8              *DataBits,
+    IN OUT EFI_STOP_BITS_TYPE *StopBits
+)
+{
+    // 
+    // ignore this call but dont fail it.
+    //
+    return EFI_SUCCESS;
+}
