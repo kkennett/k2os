@@ -32,20 +32,21 @@
 
 [Defines]
     INF_VERSION         = 0x00010005
-    BASE_NAME           = VirtualArmSerialPortLibOutOnly
+    BASE_NAME           = VirtualArmDebugAdapterLib
     FILE_GUID           = 5FA1A218-C450-4A7A-867A-E6A9903372BF
     MODULE_TYPE         = BASE
     VERSION_STRING      = 1.0
-    LIBRARY_CLASS       = SerialPortLib
+    LIBRARY_CLASS       = VADebugAdapterLib
 
 [Sources]
-    SerialPortLibOutOnly.c
+    VADebugAdapterLib.c
+    transport.c
 
 [LibraryClasses]
-    IoLib
+    BaseLib
+    BaseMemoryLib
 
 [Packages]
     MdePkg/MdePkg.dec
     VirtualArmPkg/VirtualArmPkg.dec
-    VAGenericPkg/VAGenericPkg.dec
 

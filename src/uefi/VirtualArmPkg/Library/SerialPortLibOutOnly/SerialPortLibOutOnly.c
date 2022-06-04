@@ -30,8 +30,11 @@
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#include "VAGeneric.h"
+#include <virtarm.h>
 #include <Library/SerialPortLib.h>
+#include <Library/VADebugAdapterLib.h>
+
+#define PHYS_REGS_ADDR      VIRTARM_PHYSADDR_ADAPTER_REGS(PcdGet32(PcdDebugAdapterSlotNumber))
 
 RETURN_STATUS
 EFIAPI
@@ -39,12 +42,7 @@ SerialPortInitialize(
     VOID
 )
 {
-    //
-    // pad configuration and intiialization of UART is done elsewhere,
-    // usually in SEC when the platform first executes code.
-    // this library is used by multiple modules and reinitializing for
-    // each one is dumb
-    //
+    VIRTARMDEBUG_Init((volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR, FALSE, FALSE);
     return EFI_SUCCESS;
 }
 
@@ -55,6 +53,18 @@ SerialPortWrite(
     IN  UINTN   NumberOfBytes
 )
 {
+    CHAR16 char16[2];
+
+    if (0 == NumberOfBytes)
+        return 0;
+
+    char16[1] = 0;
+    do {
+        char16[0] = *Buffer;
+        VIRTARMDEBUG_OutputString((volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR, char16, 1);
+        Buffer++;
+    } while (--NumberOfBytes);
+
     return NumberOfBytes;
 }
 

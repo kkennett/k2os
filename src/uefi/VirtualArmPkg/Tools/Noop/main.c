@@ -30,24 +30,7 @@
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#ifndef __SEC_H
-#define __SEC_H
-
-#include <Uefi.h>
-#include <Library/BaseLib.h>
-#include <Library/ArmLib.h>
-#include <Library/ArmGicLib.h>
-#include <Chipset/ArmCortexA9.h>
-#include <Library/ArmGicLib.h>
-#include <Library/IoLib.h>
-#include <Library/DebugLib.h>
-#include <Library/SerialPortLib.h>
-#include <Library/SynchronizationLib.h>
-#include <Library/BaseMemoryLib.h>
-
-
-#define SLOW_SECONDARY_CORE_STARTUP 0
-
-#define A9_SCU_POWER_STATUS_OFFSET  0x8
-
-#endif // __SEC_H
+int main(int argc, char **argv)
+{
+	return 0;
+}

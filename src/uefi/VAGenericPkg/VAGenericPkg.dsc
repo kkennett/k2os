@@ -72,6 +72,8 @@
     UefiDriverEntryPoint        |MdePkg/Library/UefiDriverEntryPoint/UefiDriverEntryPoint.inf
     ReportStatusCodeLib         |IntelFrameworkModulePkg/Library/DxeReportStatusCodeLibFramework/DxeReportStatusCodeLib.inf
 
+    VADebugAdapterLib           |VirtualArmPkg/Library/VADebugAdapterLib/VADebugAdapterLib.inf
+
 [LibraryClasses.ARM]
     ArmLib                      |ArmPkg/Library/ArmLib/ArmBaseLib.inf
     CacheMaintenanceLib         |ArmPkg/Library/ArmCacheMaintenanceLib/ArmCacheMaintenanceLib.inf
@@ -93,10 +95,9 @@
 #
 ###################################################################################################
 [PcdsFixedAtBuild]
-    gArmTokenSpaceGuid.PcdGicDistributorBase            | 0x00A01000          #0                  |UINT32                         
-    gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase     | 0x00A00100          #0                  |UINT32                  
+    gArmTokenSpaceGuid.PcdGicDistributorBase            | 0x0F001000          #0                  |UINT32                         
+    gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase     | 0x0F000100          #0                  |UINT32                  
     gArmTokenSpaceGuid.PcdVFPEnabled                    | 1                   #0                  |UINT32                                  
-    gArmTokenSpaceGuid.PcdL2x0ControllerBase            | 0x00A02000          #0                  |UINT32                          
     gArmTokenSpaceGuid.PcdSystemMemoryBase              | 0x0000000080000000  #0                  |UINT64                           
     gArmTokenSpaceGuid.PcdSystemMemorySize              | 0x0000000004000000  #0                  |UINT64                           
 
@@ -178,6 +179,16 @@
 #     gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel           | 0x80080403  #0x80000000         |UINT32
 
 
+###################################################################################################
+#
+# VirtualArmPkg Pcd Override
+#
+###################################################################################################
+[PcdsFixedAtBuild]
+    gVirtualArmTokenSpaceGuid.PcdRamPartSize                            | 0x04000000
+    gVirtualArmTokenSpaceGuid.PcdDebugAdapterSlotNumber                 | 0
+    gVirtualArmTokenSpaceGuid.PcdRealTimeAdapterSlotNumber              | 1
+
 
 ###################################################################################################
 #
@@ -185,21 +196,16 @@
 #
 ###################################################################################################
 [Components]
-    VAGenericPkg/Sec/Sec.inf {
+#    ArmPlatformPkg/PrePi/PeiMPCore.inf {
+    ArmPlatformPkg/PrePeiCore/PrePeiCoreMPCore.inf {
         <LibraryClasses>
-        ArmGicLib                   |VAGenericPkg/Drivers/ArmPkg/ArmGic/ArmGicSecLib.inf
-        ArmGicArchLib               |ArmPkg/Library/ArmGicArchSecLib/ArmGicArchSecLib.inf
-    }
-
-    ArmPlatformPkg/PrePi/PeiMPCore.inf {
-        <LibraryClasses>
-        ArmGicLib                   |VAGenericPkg/Drivers/ArmPkg/ArmGic/ArmGicSecLib.inf
+        ArmGicLib                   |VirtualArmPkg/Drivers/ArmPkg/ArmGic/ArmGicSecLib.inf
         ArmGicArchLib               |ArmPkg/Library/ArmGicArchSecLib/ArmGicArchSecLib.inf
         ArmMmuLib                   |ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
         ArmPlatformStackLib         |ArmPlatformPkg/Library/ArmPlatformStackLib/ArmPlatformStackLib.inf
         PrePiHobListPointerLib      |ArmPlatformPkg/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
         PlatformPeiLib              |VAGenericPkg/Library/PlatformPeiLib/PlatformPeiLib.inf
-        MemoryInitPeiLib            |VAGenericPkg/Library/MemoryInitPeiLib/MemoryInitPeiLib.inf
+        MemoryInitPeiLib            |ArmPlatformPkg/MemoryInitPei/MemoryInitPeiLib.inf
         PeCoffGetEntryPointLib      |MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
         UefiDecompressLib           |MdePkg/Library/BaseUefiDecompressLib/BaseUefiDecompressLib.inf
         PeCoffLib                   |MdePkg/Library/BasePeCoffLib/BasePeCoffLib.inf
@@ -222,7 +228,7 @@
     DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
 #    PeCoffExtraActionLib        |ArmPkg/Library/DebugPeCoffExtraActionLib/DebugPeCoffExtraActionLib.inf
     PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
-    SerialPortLib               |VAGenericPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
 
 ###################################################################################################
 #
@@ -256,4 +262,4 @@
     DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
 #    PeCoffExtraActionLib        |ArmPkg/Library/DebugPeCoffExtraActionLib/DebugPeCoffExtraActionLib.inf
     PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
-    SerialPortLib               |VAGenericPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf

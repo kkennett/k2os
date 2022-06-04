@@ -31,40 +31,23 @@
 #
 
 [Defines]
-    INF_VERSION                    = 0x00010005
-    BASE_NAME                      = VirtualArmSec
-    FILE_GUID                      = 777E1359-BC16-4A07-80ED-EA9094B2F657
-    MODULE_TYPE                    = SEC
-    VERSION_STRING                 = 1.0
+    INF_VERSION         = 0x00010005
+    BASE_NAME           = VirtualArmSerialPortLibOutOnly
+    FILE_GUID           = 5FA1A218-C450-4A7A-867A-E6A9903372BF
+    MODULE_TYPE         = BASE
+    VERSION_STRING      = 1.0
+    LIBRARY_CLASS       = SerialPortLib
 
 [Sources]
-    SecEntryPoint.S
-    SecPrimary.c
-    SecSecondary.c
-    SmcCall.c
+    SerialPortLibOutOnly.c
+
+[LibraryClasses]
+    IoLib
+    VADebugAdapterLib
 
 [Packages]
     MdePkg/MdePkg.dec
-    ArmPkg/ArmPkg.dec
-    ArmPlatformPkg/ArmPlatformPkg.dec
     VirtualArmPkg/VirtualArmPkg.dec
-    VAGenericPkg/VAGenericPkg.dec
-
-[LibraryClasses]
-    BaseLib
-    ArmLib
-    IoLib
-    DebugLib
-    ArmGicArchLib
-    ArmGicLib
-	ArmPlatformLib
-    SerialPortLib
-    BaseMemoryLib
 
 [Pcd]
-    gArmTokenSpaceGuid.PcdGicDistributorBase
-    gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase
-    gArmTokenSpaceGuid.PcdVFPEnabled
-    gArmTokenSpaceGuid.PcdL2x0ControllerBase
-    gArmTokenSpaceGuid.PcdFvBaseAddress
-    gArmTokenSpaceGuid.PcdSecureFvBaseAddress
+    gVirtualArmTokenSpaceGuid.PcdDebugAdapterSlotNumber

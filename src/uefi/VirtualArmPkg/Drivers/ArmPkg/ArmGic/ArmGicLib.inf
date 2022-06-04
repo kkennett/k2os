@@ -13,18 +13,18 @@
 
 [Defines]
   INF_VERSION                    = 0x00010005
-  BASE_NAME                      = ArmGicSecLib
-  FILE_GUID                      = 85f3cf80-b5f4-11df-9855-0002a5d5c51b
+  BASE_NAME                      = VirtualArmGicLib
+  FILE_GUID                      = 03d05ee4-cdeb-458c-9dfc-993f09bdf405
   MODULE_TYPE                    = SEC
   VERSION_STRING                 = 1.0
   LIBRARY_CLASS                  = ArmGicLib
 
 [Sources]
   ArmGicLib.c
-  ArmGicSecLib.c
+  ArmGicNonSecLib.c
 
   GicV2/ArmGicV2Lib.c
-  GicV2/ArmGicV2SecLib.c
+  GicV2/ArmGicV2NonSecLib.c
 
 [Sources.ARM]
   GicV3/Arm/ArmGicV3.S     | GCC
@@ -33,19 +33,20 @@
 [Sources.AARCH64]
   GicV3/AArch64/ArmGicV3.S
 
-[Packages]
-  ArmPkg/ArmPkg.dec
-  ArmPlatformPkg/ArmPlatformPkg.dec
-  MdePkg/MdePkg.dec
-  MdeModulePkg/MdeModulePkg.dec
-
 [LibraryClasses]
   ArmLib
   DebugLib
   IoLib
   ArmGicArchLib
 
+[Packages]
+  ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  MdePkg/MdePkg.dec
+  VirtualArmPkg/VirtualArmPkg.dec
+
 [Pcd]
   gArmPlatformTokenSpaceGuid.PcdCoreCount
-  gArmTokenSpaceGuid.PcdArmGicV3WithV2Legacy
 
+[FeaturePcd]
+  gArmTokenSpaceGuid.PcdArmGicV3WithV2Legacy

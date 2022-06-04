@@ -42,3 +42,11 @@
 [Guids]
     gVirtualArmTokenSpaceGuid =   { 0xf8190040, 0x6bb9, 0x42bf, { 0x80, 0x18, 0x12, 0xda, 0x17, 0x5d, 0x8b, 0x16 } }
 
+[PcdsFixedAtBuild]
+    gVirtualArmTokenSpaceGuid.PcdRamPartSize|0|UINT32|0x00000001
+
+    gVirtualArmTokenSpaceGuid.PcdDebugAdapterSlotNumber|0|UINT32|0x00000002
+
+    gVirtualArmTokenSpaceGuid.PcdRealTimeAdapterSlotNumber|1|UINT32|0x00000003
+
+

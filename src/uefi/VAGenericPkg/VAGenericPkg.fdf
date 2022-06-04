@@ -37,44 +37,14 @@
 ################################################################################
 [FD.VAGENERIC]
     BaseAddress   = 0x00000000|gArmTokenSpaceGuid.PcdFdBaseAddress
-    Size          = 0x00080000|gArmTokenSpaceGuid.PcdFdSize
+    Size          = 0x00040000|gArmTokenSpaceGuid.PcdFdSize
     ErasePolarity = 1
     BlockSize     = 0x1
-    NumBlocks     = 0x00080000
+    NumBlocks     = 0x00040000
 
 0x00000000|0x00040000
-gArmTokenSpaceGuid.PcdSecureFvBaseAddress|gArmTokenSpaceGuid.PcdSecureFvSize
-FV = FV_SEC
-
-0x00040000|0x00040000
 gArmTokenSpaceGuid.PcdFvBaseAddress|gArmTokenSpaceGuid.PcdFvSize
 FV = FV_UNCOMPRESSED
-
-################################################################################
-#
-# FV_SEC
-#
-################################################################################
-[FV.FV_SEC]
-    FvAlignment        = 8
-    ERASE_POLARITY     = 1
-    MEMORY_MAPPED      = TRUE
-    STICKY_WRITE       = TRUE
-    LOCK_CAP           = TRUE
-    LOCK_STATUS        = TRUE
-    WRITE_DISABLED_CAP = TRUE
-    WRITE_ENABLED_CAP  = TRUE
-    WRITE_STATUS       = TRUE
-    WRITE_LOCK_CAP     = TRUE
-    WRITE_LOCK_STATUS  = TRUE
-    READ_DISABLED_CAP  = TRUE
-    READ_ENABLED_CAP   = TRUE
-    READ_STATUS        = TRUE
-    READ_LOCK_CAP      = TRUE
-    READ_LOCK_STATUS   = TRUE
-
-    INF VAGenericPkg/Sec/Sec.inf
-
 
 ################################################################################
 #
@@ -83,7 +53,7 @@ FV = FV_UNCOMPRESSED
 ################################################################################
 [FV.FV_COMPRESSED]
     BlockSize          = 0x1
-    NumBlocks          = 0         # This FV gets compressed so make it just big enough
+    NumBlocks          = 0         # This FV gets compressed so make it just big enough by setting 0
     FvAlignment        = 8         # FV alignment and FV attributes setting.
     ERASE_POLARITY     = 1
     MEMORY_MAPPED      = TRUE
@@ -133,7 +103,8 @@ FV = FV_UNCOMPRESSED
     #
     # PEI
     #
-    INF ArmPlatformPkg/PrePi/PeiMPCore.inf
+    INF ArmPlatformPkg/PrePeiCore/PrePeiCoreMPCore.inf
+    #INF ArmPlatformPkg/PrePi/PeiMPCore.inf
 
     #
     # Compressed other stuff
