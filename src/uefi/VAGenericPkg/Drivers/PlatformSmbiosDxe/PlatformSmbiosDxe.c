@@ -677,7 +677,7 @@ CacheInfoUpdateSmbiosType7 (
 {
   LogSmbiosData ((EFI_SMBIOS_TABLE_HEADER *)&mCacheInfoType7I1, mCacheInfoType7I1Strings);
   LogSmbiosData ((EFI_SMBIOS_TABLE_HEADER *)&mCacheInfoType7D1, mCacheInfoType7D1Strings);
-  LogSmbiosData ((EFI_SMBIOS_TABLE_HEADER *)&mCacheInfoType7U2, mCacheInfoType7U2Strings);
+//  LogSmbiosData ((EFI_SMBIOS_TABLE_HEADER *)&mCacheInfoType7U2, mCacheInfoType7U2Strings);
 }
 
 /***********************************************************************

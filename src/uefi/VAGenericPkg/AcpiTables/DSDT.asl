@@ -29,14 +29,13 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-DefinitionBlock ("DSDT.aml", "DSDT", 5, "K2____", "UDOOQUAD", 1)
+DefinitionBlock ("DSDT.aml", "DSDT", 5, "K2____", "VAGeneri", 1)
 { 
     Scope (\_SB_)
     {
         //
         // Description: Processor#0
         //
-
         Device (CPU0)
         {
             Name (_HID, "ACPI0007")
@@ -50,7 +49,6 @@ DefinitionBlock ("DSDT.aml", "DSDT", 5, "K2____", "UDOOQUAD", 1)
         //
         // Description: Processor#1
         //
-
         Device (CPU1)
         {
             Name (_HID, "ACPI0007")
@@ -62,85 +60,8 @@ DefinitionBlock ("DSDT.aml", "DSDT", 5, "K2____", "UDOOQUAD", 1)
         }
 
         //
-        // Description: Processor#2
+        // Other junk goes here
         //
 
-        Device (CPU2)
-        {
-            Name (_HID, "ACPI0007")
-            Name (_UID, 0x2)
-            Method (_STA)
-            {
-                Return(0xf)
-            }
-        }
-
-        //
-        // Description: Processor#3
-        //
-
-        Device (CPU3)
-        {
-            Name (_HID, "ACPI0007")
-            Name (_UID, 0x3)
-            Method (_STA)
-            {
-                Return(0xf)
-            }
-        }
-
-        //
-        // Description: Timers HAL extension
-        //
-
-        Device (EPIT)
-        {
-            Name (_HID, "FSCL0001")
-            Name (_UID, 0x0)
-            Method (_STA)
-            {
-                Return(0xf)
-            }
-        }
-
-        //
-        // Description: EHCI USB Controller
-        //
-
-        Device (USB2)
-        {
-            Name (_CID, "PNP0D20")
-            Name (_UID, 0x0)
-            Name (_HID, "FSCL0010")
-            Name (_S0W, 0x3)
-            Method (_STA)
-            {
-                Return(0xf)
-            }
-            Method (_CRS, 0x0, NotSerialized) {
-                Name (RBUF, ResourceTemplate () {
-                    MEMORY32FIXED(ReadWrite, 0x02184300, 0x3D00)
-                    Interrupt(ResourceConsumer, Level, ActiveHigh, Exclusive) { 75 }
-                })
-                Return(RBUF)
-            }
-
-            OperationRegion (OTGM, SystemMemory, 0x02184300, 0x3D00 )
-            Field (OTGM, WordAcc, NoLock, Preserve)
-            {
-                Offset(0x84),   // skip to register 84h
-                PTSC, 32,       // port status control
-                Offset(0xA8),   // skip to register A8h
-                DSBM, 32,       // UOG_USBMOD
-            }
-
-            Method (_UBF, 0x0, NotSerialized) 
-            {
-                Name(REG, Zero)
-                Store(0x03, DSBM);      // set host mode & little endian
-                Store(PTSC, REG);       // read PORTSC status
-                Store(OR(REG,0x2),PTSC);// clear current PORTSC status
-            }
-        }
     }
 } 

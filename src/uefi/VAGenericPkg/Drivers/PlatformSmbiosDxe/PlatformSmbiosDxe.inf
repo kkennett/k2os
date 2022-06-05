@@ -45,6 +45,7 @@
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   ArmPlatformPkg/ArmPlatformPkg.dec
+  VirtualArmPkg/VirtualArmPkg.dec
   VAGenericPkg/VAGenericPkg.dec
 
 [LibraryClasses]

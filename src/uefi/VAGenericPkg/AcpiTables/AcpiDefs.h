@@ -30,13 +30,13 @@
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#ifndef _UDOOQUAD_ACPIDEFS_H
-#define _UDOOQUAD_ACPIDEFS_H
+#ifndef _VAGENERI_ACPIDEFS_H
+#define _VAGENERI_ACPIDEFS_H
 
 #include <IndustryStandard/Acpi50.h>
 
 #define EFI_ACPI_OEM_ID                         {'K','2','_','_','_','_'}   // OEMID 6 bytes long
-#define EFI_ACPI_OEM_TABLE_ID                   SIGNATURE_64('U','D','O','O','Q','U','A','D') // OEM table id 8 bytes long
+#define EFI_ACPI_OEM_TABLE_ID                   SIGNATURE_64('V','A','G','e','n','e','r','i') // OEM table id 8 bytes long
 #define EFI_ACPI_OEM_REVISION                   0x00000001
 #define EFI_ACPI_CREATOR_ID                     SIGNATURE_32('K','2','_','_')
 #define EFI_ACPI_CREATOR_REVISION               0x00000001
@@ -95,4 +95,4 @@ typedef struct
 } __attribute__((packed)) EFI_ACPI_5_0_CSRT_RESOURCE_DESCRIPTOR_HEADER;
 
 
-#endif // _UDOOQUAD_ACPIDEFS_H
+#endif // _VAGENERI_ACPIDEFS_H

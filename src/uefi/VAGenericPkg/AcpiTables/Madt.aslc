@@ -30,8 +30,7 @@
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 #include "AcpiDefs.h"
-#include "VAGeneric.h"
-//#include "..\Include\VAGeneric.h"
+#include "..\Include\VAGeneric.h"
 
 //
 // MADT Definitions
@@ -44,7 +43,7 @@
 // Define the number of each table type.
 // This is where the table layout is modified.
 //
-#define EFI_ACPI_PROCESSOR_GIC_COUNT      4
+#define EFI_ACPI_PROCESSOR_GIC_COUNT      2
 #define EFI_ACPI_GICD_COUNT               1 // Must be only one
 
 //
@@ -89,7 +88,7 @@ EFI_ACPI_1_0_MULTIPLE_APIC_DESCRIPTION_TABLE Madt =
         //
         // MADT specific fields
         //
-        IMX6_PHYSADDR_ARM_GIC_INTC,
+        VIRTARM_PHYSADDR_CORTEXA9MP_PERCPUINT,
         0
 
     }, // Header
@@ -107,50 +106,22 @@ EFI_ACPI_1_0_MULTIPLE_APIC_DESCRIPTION_TABLE Madt =
             0x00000001,                             // Flags - Bit0 = 1 (Processor Enabled); BIT1 = 0 (Performance Interrupt is Level-triggered) Change if needed.
             EFI_ACPI_MPPP_VESRION,                  // Version of the arm processor parking protocol
             0x00,                                   // Performance interrupt gsi
-            UDOOQUAD_OCRAM_PHYSICAL_PARK_PAGES,     // The 64-bit physical address of the processor Parking Protocol mailbox
-            IMX6_PHYSADDR_ARM_GIC_INTC,             // GIC Physical Base Address,don't provide it, we use the ADDRESS in MADT
+            0x3FF0,                                 // The 64-bit physical address of the processor Parking Protocol mailbox
+            VIRTARM_PHYSADDR_CORTEXA9MP_PERCPUINT,             // GIC Physical Base Address,don't provide it, we use the ADDRESS in MADT
         }, 
 
         // 2nd Processor
         {
-            EFI_ACPI_5_0_GIC,                               // Type
-            sizeof (EFI_ACPI_5_0_GIC_STRUCTURE),            // Length
-            EFI_ACPI_RESERVED_BYTE,                         // Reserved 2 bytes. Must be zero
-            0x01,                                           // GIC ID - MUST BE the ARM CPU Interface Number for this proc. Change if needed.
-            0x01,                                           // ACPI Processor ID - A unique number for this processor. It will be used in the DSDT, too
-            0x00000001,                                     // Flags - Bit0 = 1 (Processor Enabled); BIT1 = 0 (Performance Interrupt is Level-triggered) Change if needed.
-            EFI_ACPI_MPPP_VESRION,                          // Version of the arm processor parking protocol
-            0x00,                                           // Performance interrupt gsi
-            UDOOQUAD_OCRAM_PHYSICAL_PARK_PAGES + 0x1000,    // The 64-bit physical address of the processor Parking Protocol mailbox
-            IMX6_PHYSADDR_ARM_GIC_INTC,                     // GIC Physical Base Address,don't provide it, we use the ADDRESS in MADT
-        },
-
-        // 3rd Processor
-        {
-            EFI_ACPI_5_0_GIC,                               // Type
-            sizeof (EFI_ACPI_5_0_GIC_STRUCTURE),            // Length
-            EFI_ACPI_RESERVED_BYTE,                         // Reserved 2 bytes. Must be zero
-            0x02,                                           // GIC ID - MUST BE the ARM CPU Interface Number for this proc. Change if needed.
-            0x02,                                           // ACPI Processor ID - A unique number for this processor. It will be used in the DSDT, too
-            0x00000001,                                     // Flags - Bit0 = 1 (Processor Enabled); BIT1 = 0 (Performance Interrupt is Level-triggered) Change if needed.
-            EFI_ACPI_MPPP_VESRION,                          // Version of the arm processor parking protocol
-            0x00,                                           // Performance interrupt gsi
-            UDOOQUAD_OCRAM_PHYSICAL_PARK_PAGES + 0x2000,    // The 64-bit physical address of the processor Parking Protocol mailbox
-            IMX6_PHYSADDR_ARM_GIC_INTC,                     // GIC Physical Base Address,don't provide it, we use the ADDRESS in MADT
-        },
-
-        // 4th Processor
-        {
-            EFI_ACPI_5_0_GIC,                               // Type
-            sizeof (EFI_ACPI_5_0_GIC_STRUCTURE),            // Length
-            EFI_ACPI_RESERVED_BYTE,                         // Reserved 2 bytes. Must be zero
-            0x03,                                           // GIC ID - MUST BE the ARM CPU Interface Number for this proc. Change if needed.
-            0x03,                                           // ACPI Processor ID - A unique number for this processor. It will be used in the DSDT, too
-            0x00000001,                                     // Flags - Bit0 = 1 (Processor Enabled); BIT1 = 0 (Performance Interrupt is Level-triggered) Change if needed.
-            EFI_ACPI_MPPP_VESRION,                          // Version of the arm processor parking protocol
-            0x00,                                           // Performance interrupt gsi
-            UDOOQUAD_OCRAM_PHYSICAL_PARK_PAGES + 0x3000,    // The 64-bit physical address of the processor Parking Protocol mailbox
-            IMX6_PHYSADDR_ARM_GIC_INTC,                     // GIC Physical Base Address,don't provide it, we use the ADDRESS in MADT
+            EFI_ACPI_5_0_GIC,                       // Type
+            sizeof (EFI_ACPI_5_0_GIC_STRUCTURE),    // Length
+            EFI_ACPI_RESERVED_BYTE,                 // Reserved 2 bytes. Must be zero
+            0x01,                                   // GIC ID - MUST BE the ARM CPU Interface Number for this proc. Change if needed.
+            0x01,                                   // ACPI Processor ID - A unique number for this processor. It will be used in the DSDT, too
+            0x00000001,                             // Flags - Bit0 = 1 (Processor Enabled); BIT1 = 0 (Performance Interrupt is Level-triggered) Change if needed.
+            EFI_ACPI_MPPP_VESRION,                  // Version of the arm processor parking protocol
+            0x00,                                   // Performance interrupt gsi
+            0x3FF8,                                 // The 64-bit physical address of the processor Parking Protocol mailbox
+            VIRTARM_PHYSADDR_CORTEXA9MP_PERCPUINT,  // GIC Physical Base Address,don't provide it, we use the ADDRESS in MADT
         },
     }, // GIC Structures
 
@@ -163,7 +134,7 @@ EFI_ACPI_1_0_MULTIPLE_APIC_DESCRIPTION_TABLE Madt =
             sizeof (EFI_ACPI_5_0_GIC_DISTRIBUTOR_STRUCTURE),// Length
             EFI_ACPI_RESERVED_BYTE,                         // Reserved 2 bytes. Must be zero
             0x00,                                           // GICD ID (Can be 0)
-            IMX6_PHYSADDR_ARM_GIC_DIST,                     // Location in the Physical address map of the GICD's registers
+            VIRTARM_PHYSADDR_CORTEXA9MP_INTDIST,            // Location in the Physical address map of the GICD's registers
             0,                                              // Lowest Interrupt Number for the GICD (Typically 0)
             EFI_ACPI_RESERVED_WORD
         }

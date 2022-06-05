@@ -196,11 +196,11 @@ FV = FV_UNCOMPRESSED
     #
     # Compressed other stuff
     #
-    FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
-        SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
-            SECTION FV_IMAGE = FV_COMPRESSED
-        }
-    }
+#    FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
+#        SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
+#            SECTION FV_IMAGE = FV_COMPRESSED
+#        }
+#    }
 
 ################################################################################
 #

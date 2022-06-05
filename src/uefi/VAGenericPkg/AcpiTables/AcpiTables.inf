@@ -32,7 +32,7 @@
 
 [Defines]
   INF_VERSION                    = 0x00010005
-  BASE_NAME                      = UdooQuadAcpiTables
+  BASE_NAME                      = VirtualArmAcpiTables
 
 
   #
@@ -51,12 +51,11 @@
 #
 
 [Sources]
-  Csrt.aslc
   Fadt.aslc
   DSDT.asl
   Madt.aslc
 
 [Packages]
   MdePkg/MdePkg.dec
-  NxpPkg/NxpPkg.dec
+  VirtualArmPkg/VirtualArmPkg.dec
 
