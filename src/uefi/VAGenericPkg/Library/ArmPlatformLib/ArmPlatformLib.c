@@ -14,7 +14,9 @@
 
 #include <Library/ArmLib.h>
 #include <Library/ArmPlatformLib.h>
-
+#include <Library/DebugLib.h>
+#include <Library/PrePiLib.h>
+#include <VAGeneric.h>
 #include <Ppi/ArmMpCoreInfo.h>
 
 ARM_CORE_INFO mArmPlatformNullMpCoreInfoTable[] = {
@@ -23,20 +25,20 @@ ARM_CORE_INFO mArmPlatformNullMpCoreInfoTable[] = {
     0x0, 0x0,
 
     // MP Core MailBox Set/Get/Clear Addresses and Clear Value
-    (EFI_PHYSICAL_ADDRESS)0,
-    (EFI_PHYSICAL_ADDRESS)0,
-    (EFI_PHYSICAL_ADDRESS)0,
-    (UINT64)0xFFFFFFFF
+    (EFI_PHYSICAL_ADDRESS)(VIRTARM_PHYSADDR_RAMBANK + 0x3FF0),
+    (EFI_PHYSICAL_ADDRESS)(VIRTARM_PHYSADDR_RAMBANK + 0x3FF0),
+    (EFI_PHYSICAL_ADDRESS)(VIRTARM_PHYSADDR_RAMBANK + 0x3FF0),
+    (UINT64)0
   },
   {
     // Cluster 0, Core 1
     0x0, 0x1,
 
     // MP Core MailBox Set/Get/Clear Addresses and Clear Value
-    (EFI_PHYSICAL_ADDRESS)0,
-    (EFI_PHYSICAL_ADDRESS)0,
-    (EFI_PHYSICAL_ADDRESS)0,
-    (UINT64)0xFFFFFFFF
+    (EFI_PHYSICAL_ADDRESS)(VIRTARM_PHYSADDR_RAMBANK + 0x3FF8),
+    (EFI_PHYSICAL_ADDRESS)(VIRTARM_PHYSADDR_RAMBANK + 0x3FF8),
+    (EFI_PHYSICAL_ADDRESS)(VIRTARM_PHYSADDR_RAMBANK + 0x3FF8),
+    (UINT64)0
   }
 };
 
@@ -114,4 +116,3 @@ ArmPlatformGetPlatformPpiList (
     *PpiList = NULL;
   }
 }
-

@@ -1,6 +1,8 @@
-#/* @file
-#  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+#/** @file
+# Timer library implementation
 #
+#
+#  Copyright (c) 2011, ARM Ltd. All rights reserved.<BR>
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
 #  which accompanies this distribution.  The full text of the license may be found at
@@ -9,38 +11,35 @@
 #  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
 #  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
-#*/
+#**/
 
 [Defines]
   INF_VERSION                    = 0x00010005
-  BASE_NAME                      = VirtualArmPlatformLib
-  FILE_GUID                      = cb494bad-23ff-427e-8608-d7e138d3363b
+  BASE_NAME                      = SP804TimerLib
+  FILE_GUID                      = 09cefa99-0d07-487f-a651-fb44f094b1c7
   MODULE_TYPE                    = BASE
   VERSION_STRING                 = 1.0
-  LIBRARY_CLASS                  = ArmPlatformLib
+  LIBRARY_CLASS                  = TimerLib
+
+  CONSTRUCTOR                    = TimerConstructor
+
+[Sources.common]
+  SP804TimerLib.c
 
 [Packages]
   MdePkg/MdePkg.dec
   ArmPkg/ArmPkg.dec
   ArmPlatformPkg/ArmPlatformPkg.dec
   EmbeddedPkg/EmbeddedPkg.dec
-  VAGenericPkg/VAGenericPkg.dec
-  VirtualArmPkg/VirtualArmPkg.dec
 
 [LibraryClasses]
-  ArmLib
   DebugLib
+  IoLib
+  BaseLib
 
-[Sources.common]
-  ArmPlatformLib.c
-  ArmPlatformLibMem.c
-  ArmPlatformHelper.s
+[Pcd]
+  gArmPlatformTokenSpaceGuid.PcdSP804TimerFrequencyInMHz
+  gArmPlatformTokenSpaceGuid.PcdSP804TimerPerformanceBase
+  gArmPlatformTokenSpaceGuid.PcdSP804TimerMetronomeBase
+  gEmbeddedTokenSpaceGuid.PcdEmbeddedPerformanceCounterFrequencyInHz
 
-[FixedPcd]
-  gArmTokenSpaceGuid.PcdArmPrimaryCoreMask
-  gArmTokenSpaceGuid.PcdArmPrimaryCore
-  gArmTokenSpaceGuid.PcdSystemMemoryBase
-  gArmTokenSpaceGuid.PcdSystemMemorySize
-
-[Ppis]
-  gArmMpCoreInfoPpiGuid

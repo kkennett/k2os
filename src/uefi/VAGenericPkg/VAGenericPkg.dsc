@@ -80,8 +80,7 @@
 
     BaseMemoryLib               |MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
 
-    ArmGenericTimerCounterLib   |ArmPkg/Library/ArmGenericTimerPhyCounterLib/ArmGenericTimerPhyCounterLib.inf
-    TimerLib                    |ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
+    TimerLib                    |ArmPlatformPkg/Library/SP804TimerLib/SP804TimerLib.inf
 
     ArmPlatformLib              |VAGenericPkg/Library/ArmPlatformLib/ArmPlatformLib.inf
 
@@ -98,9 +97,8 @@
     gArmTokenSpaceGuid.PcdGicDistributorBase            | 0x0F001000          #0                  |UINT32                         
     gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase     | 0x0F000100          #0                  |UINT32                  
     gArmTokenSpaceGuid.PcdVFPEnabled                    | 1                   #0                  |UINT32                                  
-    gArmTokenSpaceGuid.PcdSystemMemoryBase              | 0x0000000080000000  #0                  |UINT64                           
-    gArmTokenSpaceGuid.PcdSystemMemorySize              | 0x0000000004000000  #0                  |UINT64                           
-
+    gArmTokenSpaceGuid.PcdSystemMemoryBase              | 0x0000000080001000  #0                  |UINT64                           
+    gArmTokenSpaceGuid.PcdSystemMemorySize              | 0x0000000003FFF000  #0                  |UINT64                           
 
 ###################################################################################################
 #
@@ -110,8 +108,13 @@
 [PcdsFixedAtBuild.common]                                               
     gArmPlatformTokenSpaceGuid.PcdCPUCorePrimaryStackSize      | 0x00008000         #0x10000            |UINT32             
     gArmPlatformTokenSpaceGuid.PcdCPUCoreSecondaryStackSize    | 0x00001000         #0x1000             |UINT32
-    gArmPlatformTokenSpaceGuid.PcdSystemMemoryUefiRegionSize   | 0x08000000         #0x08000000         |UINT32       
+    gArmPlatformTokenSpaceGuid.PcdSystemMemoryUefiRegionSize   | 0x00200000         #0x08000000         |UINT32       
     gArmPlatformTokenSpaceGuid.PcdCoreCount                    | 2
+
+    gArmPlatformTokenSpaceGuid.PcdSP804TimerPeriodicInterruptNum    |34
+    gArmPlatformTokenSpaceGuid.PcdSP804TimerPeriodicBase            |0x20004000
+    gArmPlatformTokenSpaceGuid.PcdSP804TimerPerformanceBase         |0x20004020
+    gArmPlatformTokenSpaceGuid.PcdSP804TimerMetronomeBase           |0x20005020
 
 ###################################################################################################
 #
@@ -120,6 +123,9 @@
 ###################################################################################################
 [PcdsFeatureFlag.common]
     gEmbeddedTokenSpaceGuid.PcdPrePiProduceMemoryTypeInformationHob | TRUE        #FALSE              |BOOLEAN
+[PcdsFixedAtBuild.common]                                               
+    gEmbeddedTokenSpaceGuid.PcdEmbeddedPerformanceCounterFrequencyInHz|1000000
+    gEmbeddedTokenSpaceGuid.PcdTimerPeriod|100000        # expressed in 100ns units, 100,000 x 100 ns = 10,000,000 ns = 10 ms
 
 ###################################################################################################
 #
@@ -197,14 +203,13 @@
 ###################################################################################################
 [Components]
     ArmPlatformPkg/PrePi/PeiMPCore.inf {
-#    ArmPlatformPkg/PrePeiCore/PrePeiCoreMPCore.inf {
         <LibraryClasses>
         ArmGicLib                   |VirtualArmPkg/Drivers/ArmPkg/ArmGic/ArmGicSecLib.inf
         ArmGicArchLib               |ArmPkg/Library/ArmGicArchSecLib/ArmGicArchSecLib.inf
         ArmMmuLib                   |ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
         ArmPlatformStackLib         |ArmPlatformPkg/Library/ArmPlatformStackLib/ArmPlatformStackLib.inf
         PrePiHobListPointerLib      |ArmPlatformPkg/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
-        PlatformPeiLib              |VAGenericPkg/Library/PlatformPeiLib/PlatformPeiLib.inf
+        PlatformPeiLib              |ArmPlatformPkg/PlatformPei/PlatformPeiLib.inf
         MemoryInitPeiLib            |ArmPlatformPkg/MemoryInitPei/MemoryInitPeiLib.inf
         PeCoffGetEntryPointLib      |MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
         UefiDecompressLib           |MdePkg/Library/BaseUefiDecompressLib/BaseUefiDecompressLib.inf

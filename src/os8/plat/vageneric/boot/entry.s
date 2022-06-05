@@ -4,6 +4,12 @@
 A32_STARTUPTEXT
 
 BEGIN_A32_PROC(ResetVector)
+    b here 
+    nop 
+    nop
+    nop
+here:
+
     //---------------------------------------------------------------
     // disable interrupts on this CPU interface
     //---------------------------------------------------------------
