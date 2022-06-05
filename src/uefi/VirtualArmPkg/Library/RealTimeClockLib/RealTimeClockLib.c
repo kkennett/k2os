@@ -38,6 +38,8 @@
 #include <Library/DxeServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 
+#define PHYS_REGS_ADDR      VIRTARM_PHYSADDR_ADAPTER_REGS(PcdGet32(PcdRealTimeAdapterSlotNumber))
+
 #define RATE_SECOND     32768ULL
 #define RATE_MINUTE     (RATE_SECOND * 60ULL)
 #define RATE_HOUR       (RATE_MINUTE * 60ULL)
