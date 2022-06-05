@@ -55,5 +55,9 @@
     UefiRuntimeServicesTableLib
     DxeServicesTableLib
 
+[Pcd]
+    gVirtualArmTokenSpaceGuid.PcdDebugAdapterSlotNumber
+
 [Depex]
     gEfiCpuArchProtocolGuid
+

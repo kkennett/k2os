@@ -50,6 +50,10 @@
     DebugLib
     UefiRuntimeServicesTableLib
     DxeServicesTableLib
+    VARealTimeAdapterLib
 
 [Depex]
     gEfiCpuArchProtocolGuid
+
+[Pcd]
+    gVirtualArmTokenSpaceGuid.PcdRealTimeAdapterSlotNumber

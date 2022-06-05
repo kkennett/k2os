@@ -32,16 +32,19 @@
 
 #include <Uefi.h>
 #include <PiDxe.h>
-#include <UdooQuad.h>
+#include <virtarm.h>
 #include <Library/IoLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DxeServicesTableLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Library/VADebugAdapterLib.h>
+
+#define PHYS_REGS_ADDR      VIRTARM_PHYSADDR_ADAPTER_REGS(FixedPcdGet32(PcdDebugAdapterSlotNumber))
 
 static EFI_EVENT  sgVirtualAddressChangeEvent = NULL;
 
-static UINT32 sgRegs_WDOG1 = UDOOQUAD_WDOG_PHYSADDR;
+static UINT32 sgRegs = PHYS_REGS_ADDR;
 
 VOID
 EFIAPI
@@ -54,7 +57,7 @@ ResetLibAddressChangeEvent(
     // need runtime mapping for these registers
     //
     EFI_STATUS Status;
-    Status = gRT->ConvertPointer (0x0, (VOID **) &sgRegs_WDOG1);
+    Status = gRT->ConvertPointer (0x0, (VOID **) &sgRegs);
     ASSERT_EFI_ERROR(Status);
 }
 
@@ -79,8 +82,20 @@ LibResetSystem (
   IN CHAR16           *ResetData OPTIONAL
   )
 {
-    // unconditionally assert the watchdog signal
-    MmioWrite16(sgRegs_WDOG1 + IMX6_WDOG_OFFSET_WCR, 0x0004);
+    UINT32 v;
+
+    v = ((VIRTARM_DEBUGADAPTER_REGS volatile *)sgRegs)->mControlAndStatus;
+
+    if (ResetType == EfiResetShutdown)
+    {
+        v |= VIRTARM_DEBUGADAPTER_CTRLSTAT_POWEROFF;
+    }
+    else
+    {
+        v |= VIRTARM_DEBUGADAPTER_CTRLSTAT_HARDRESET;
+    }
+
+    ((VIRTARM_DEBUGADAPTER_REGS volatile *)sgRegs)->mControlAndStatus = v;
 
     // Spin to wait for the reset to happen.
     while(1);
@@ -111,12 +126,12 @@ LibInitializeResetSystem (
 
     Status = gDS->AddMemorySpace(
         EfiGcdMemoryTypeMemoryMappedIo,
-		UDOOQUAD_WDOG_PHYSADDR, 0x1000,
+        PHYS_REGS_ADDR, 0x1000,
         EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
     ASSERT_EFI_ERROR (Status);
 
     Status = gDS->SetMemorySpaceAttributes(
-		UDOOQUAD_WDOG_PHYSADDR, 0x1000,
+        PHYS_REGS_ADDR, 0x1000,
         EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
     ASSERT_EFI_ERROR (Status);
 

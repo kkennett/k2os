@@ -34,7 +34,7 @@ struct _VASYSTEMTIME
     UINT16 wMinute;
     UINT16 wSecond;
     UINT16 wMilliseconds;
-} VASYSTEMTIME;
+};
 
 //------------------------------------------------------------------------------
 void VIRTARMTIME_Init(volatile VIRTARM_REALTIMEADAPTER_REGS *apAdapter);

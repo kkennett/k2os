@@ -34,7 +34,7 @@
 #include <Library/SerialPortLib.h>
 #include <Library/VADebugAdapterLib.h>
 
-#define PHYS_REGS_ADDR      VIRTARM_PHYSADDR_ADAPTER_REGS(PcdGet32(PcdDebugAdapterSlotNumber))
+#define PHYS_REGS_ADDR      VIRTARM_PHYSADDR_ADAPTER_REGS(FixedPcdGet32(PcdDebugAdapterSlotNumber))
 
 RETURN_STATUS
 EFIAPI

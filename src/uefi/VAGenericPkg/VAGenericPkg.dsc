@@ -73,6 +73,7 @@
     ReportStatusCodeLib         |IntelFrameworkModulePkg/Library/DxeReportStatusCodeLibFramework/DxeReportStatusCodeLib.inf
 
     VADebugAdapterLib           |VirtualArmPkg/Library/VADebugAdapterLib/VADebugAdapterLib.inf
+    VARealTimeAdapterLib        |VirtualArmPkg/Library/VARealtimeAdapterLib/VARealTimeAdapterLib.inf
 
 [LibraryClasses.ARM]
     ArmLib                      |ArmPkg/Library/ArmLib/ArmBaseLib.inf

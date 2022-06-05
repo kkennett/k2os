@@ -13,6 +13,8 @@
 // Last Updated By:  Kurt Kennett
 //
 
+#include <Library/BaseLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Library/VARealTimeAdapterLib.h>
 
 void VIRTARMTIME_Init(volatile VIRTARM_REALTIMEADAPTER_REGS *apAdapter)
@@ -31,7 +33,8 @@ void VIRTARMTIME_GetRealTime(volatile VIRTARM_REALTIMEADAPTER_REGS *apAdapter, V
 
     if (!apRetTime)
         return;
-    ZeroMemory(apRetTime,sizeof(VASYSTEMTIME));
+
+    ZeroMem(apRetTime,sizeof(VASYSTEMTIME));
     if (!apAdapter)
         return;
 
@@ -75,7 +78,7 @@ void VIRTARMTIME_GetAlarmTime(volatile VIRTARM_REALTIMEADAPTER_REGS *apAdapter, 
 
     if (!apRetAlarmTime)
         return;
-    ZeroMemory(apRetAlarmTime,sizeof(VASYSTEMTIME));
+    ZeroMem(apRetAlarmTime,sizeof(VASYSTEMTIME));
     if (!apAdapter)
         return;
 
@@ -134,7 +137,7 @@ void VIRTARMTIME_GetSystemTicks64(volatile VIRTARM_REALTIMEADAPTER_REGS *apAdapt
 
 void VIRTARMTIME_ArmTimerDelta(volatile VIRTARM_REALTIMEADAPTER_REGS *apAdapter, UINTN aTimerNum, UINTN aDeltaMs)
 {
-    volatile UINT32 *pMatchTimer;
+    volatile unsigned long *pMatchTimer;
 
     if (aTimerNum>2)
         return;

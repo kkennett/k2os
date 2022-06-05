@@ -37,21 +37,11 @@
 #include <Library/DebugLib.h>
 #include <Library/DxeServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Library/VARealTimeAdapterLib.h>
 
-#define PHYS_REGS_ADDR      VIRTARM_PHYSADDR_ADAPTER_REGS(PcdGet32(PcdRealTimeAdapterSlotNumber))
+#define PHYS_REGS_ADDR VIRTARM_PHYSADDR_ADAPTER_REGS(FixedPcdGet32(PcdRealTimeAdapterSlotNumber))
 
-#define RATE_SECOND     32768ULL
-#define RATE_MINUTE     (RATE_SECOND * 60ULL)
-#define RATE_HOUR       (RATE_MINUTE * 60ULL)
-#define RATE_DAY        (RATE_HOUR * 24ULL)
-#define RATE_YEAR       (RATE_DAY * 365ULL)
-
-static UINT16 const sgMonthDays[12] = 
-{
-    31,28,31,30,31,30,31,31,30,31,30,31
-};
-
-static UINT32   sgRegs_SNVS = IMX6_PHYSADDR_SNVS;
+static UINT32 sgRegs = PHYS_REGS_ADDR;
 
 EFI_STATUS
 EFIAPI
@@ -60,82 +50,26 @@ LibGetTime (
   OUT  EFI_TIME_CAPABILITIES  *Capabilities
   )
 {
-    UINT32 timeLow1;
-    UINT32 timeHigh1;
-    UINT32 timeLow2;
-    UINT32 timeHigh2;
-    UINT64 timeVal;
+    VASYSTEMTIME    time;
 
     ASSERT(Time);
 
-    timeLow1 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_HPRTCLR);
-    timeHigh1 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_HPRTCMR);
-    do
-    {
-        timeLow2 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_HPRTCLR);
-        timeHigh2 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_HPRTCMR);
-        if (timeHigh2 == timeHigh1)
-        {
-            if ((timeLow2 - timeLow1) < 32)
-                break;
-        }
-        timeLow1 = timeLow2;
-        timeHigh1 = timeHigh2;
-    } while (TRUE);
+    VIRTARMTIME_GetRealTime((volatile VIRTARM_REALTIMEADAPTER_REGS *)sgRegs, &time);
 
-    timeVal = (((UINT64)timeHigh2) << 32) | ((UINT64)timeLow2);
-
-    timeLow1 = (UINT32)(timeVal / RATE_YEAR);
-    timeVal -= (((UINT64)timeLow1) * RATE_YEAR);
-    Time->Year = 2015 + timeLow1;          // 1900 – 9999
-
-    ASSERT(Time->Year >= 2015);
-
-    Time->Month = 1;            // 1 – 12
-    timeLow1 = (UINT32)(timeVal / RATE_DAY);
-    timeVal -= (((UINT64)timeLow1) * RATE_DAY);
-    for (timeLow2 = 0;timeLow2 < 12;timeLow2++)
-    {
-        if (sgMonthDays[timeLow2] > timeLow1)
-            break;
-        timeLow1 -= sgMonthDays[timeLow2];
-        Time->Month++;
-    }
-
-    ASSERT(Time->Month >= 1);
-    ASSERT(Time->Month <= 12);
-
-    Time->Day = timeLow2 + 1;
-
-    ASSERT(Time->Day > 0);
-    ASSERT(Time->Day <= sgMonthDays[Time->Month-1]);
-
-    timeLow1 = (UINT32)(timeVal / RATE_HOUR);
-    timeVal -= (((UINT64)timeLow1) * RATE_HOUR);
-    Time->Hour = timeLow1;
-
-    ASSERT(Time->Hour < 24);
-
-    timeLow1 = (UINT32)(timeVal / RATE_MINUTE);
-    timeVal -= (((UINT64)timeLow1) * RATE_MINUTE);
-    Time->Minute = timeLow1;
-
-    ASSERT(Time->Minute < 60);
-
-    timeLow1 = (UINT32)(timeVal / RATE_SECOND);
-    timeVal -= (((UINT64)timeLow1) * RATE_SECOND);
-    Time->Second = timeLow1;
-
-    ASSERT(Time->Second < 60);
-
-    Time->Nanosecond = 0;       // 0 – 999,999,999
+    Time->Year = time.wYear;
+    Time->Month = (UINT8)time.wMonth;
+    Time->Day = (UINT8)time.wDay;
+    Time->Hour = (UINT8)time.wHour;
+    Time->Minute = (UINT8)time.wMinute;
+    Time->Second = (UINT8)time.wSecond;
+    Time->Nanosecond = ((UINT32)time.wMilliseconds) * 1000000;
     Time->TimeZone = 480;       // PST; -1440 to 1440 or 2047
     Time->Daylight = 0;
 
     if (Capabilities != NULL)
     {
-        Capabilities->Resolution = 32768;
-        Capabilities->Accuracy = 1000000;
+        Capabilities->Resolution = 1000;
+        Capabilities->Accuracy = 1000;
         Capabilities->SetsToZero = TRUE;
     }
 
@@ -190,12 +124,12 @@ LibRtcInitialize (
     // Declare the SNVS as EFI_MEMORY_RUNTIME, Mapped IO
     Status = gDS->AddMemorySpace(
         EfiGcdMemoryTypeMemoryMappedIo,
-        UDOOQUAD_SNVS_PHYSADDR, 0x1000,
+        PHYS_REGS_ADDR, 0x1000,
         EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
     ASSERT_EFI_ERROR(Status);
 
     Status = gDS->SetMemorySpaceAttributes(
-        UDOOQUAD_SNVS_PHYSADDR, 0x1000,
+        PHYS_REGS_ADDR, 0x1000,
         EFI_MEMORY_UC | EFI_MEMORY_RUNTIME);
     ASSERT_EFI_ERROR(Status);
 
@@ -216,7 +150,7 @@ LibRtcVirtualNotifyEvent (
     // runtime calls will be made in virtual mode.
     //
     EFI_STATUS Status;
-    Status = gRT->ConvertPointer(0, (void **)&sgRegs_SNVS);
+    Status = gRT->ConvertPointer(0, (void **)&sgRegs);
     ASSERT_EFI_ERROR(Status);
 }
 
