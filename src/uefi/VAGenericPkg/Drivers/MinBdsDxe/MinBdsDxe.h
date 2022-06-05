@@ -29,61 +29,44 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
+#ifndef __MINBDSDXE_H
+#define __MINBDSDXE_H
 
-#include <PiPei.h>
+#include <Uefi.h>
+
+#include <Protocol/Bds.h>
+#include <Protocol/LoadedImage.h>
+#include <Protocol/SimpleFileSystem.h>
+
+#include <Guid/FileInfo.h>
+
+#include <Library/DevicePathLib.h>
+#include <Library/BaseLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/UefiDriverEntryPoint.h>
+#include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
+#include <Library/UefiLib.h>
 #include <Library/BaseMemoryLib.h>
-#include <Library/ArmPlatformLib.h>
-#include <Library/HobLib.h>
-#include <Library/PcdLib.h>
 #include <Library/DebugLib.h>
-#include <Library/IoLib.h>
-#include <VAGeneric.h>
+#include <Library/PrintLib.h>
+#include <Library/DxeServicesTableLib.h>
 
-//
-// sanity
-//
-#define STATIC_ASSERT(x) \
-typedef int check ## __COUNTER__ [ (x) ? 1 : -1 ];
-STATIC_ASSERT(((UINT32)FixedPcdGet64(PcdSystemMemoryBase)) == VAGENERIC_MAINRAM_PHYSICAL_BASE);
-STATIC_ASSERT(((UINT32)FixedPcdGet64(PcdSystemMemorySize)) == VAGENERIC_MAINRAM_PHYSICAL_LENGTH);
-
-EFI_STATUS
+VOID
 EFIAPI
-PlatformPeim(
-    VOID
-)
-{
-    EFI_PEI_HOB_POINTERS    Hob;
+BdsEntry (
+  IN  EFI_BDS_ARCH_PROTOCOL *This
+  );
 
-    //
-    // find stack HOB. change its memory allocation type to EfiReservedMemoryType
-    // so that it will not be reclaimed by OS.  Secondary core stacks must survive
-    // to secondary core statup code in OS, or they will/can crash coming out of
-    // their WFI loop, as they use regular function calls when they come out of the
-    // loop
-    //
-    Hob.Raw = GetHobList();
-    while ((Hob.Raw = GetNextHob(EFI_HOB_TYPE_MEMORY_ALLOCATION, Hob.Raw)) != NULL) 
-    {
-        if (CompareGuid(&gEfiHobMemoryAllocStackGuid, &(Hob.MemoryAllocationStack->AllocDescriptor.Name))) 
-        {
-            if (EfiBootServicesData == Hob.MemoryAllocationStack->AllocDescriptor.MemoryType)
-            {
-                Hob.MemoryAllocationStack->AllocDescriptor.MemoryType = EfiReservedMemoryType;
-            }
-            break;
-        }
-        Hob.Raw = GET_NEXT_HOB(Hob);
-    }
-    if (NULL == Hob.Raw)
-    {
-        DebugPrint(0xFFFFFFFF, "!!!Could not find Stack hob\n");
-    }
 
-    //
-    // add PEI FV
-    //
-    BuildFvHob(PcdGet64(PcdFvBaseAddress), PcdGet32(PcdFvSize));
+extern EFI_HANDLE MinBdsImageHandle;
 
-    return EFI_SUCCESS;
-}
+void
+RunFsFile(
+    EFI_HANDLE                          FsProtHandle,
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *   FsProt,
+    CHAR16 const *                      FilePath
+);
+
+
+#endif

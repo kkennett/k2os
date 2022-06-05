@@ -77,16 +77,12 @@
 [LibraryClasses.ARM]
     ArmLib                      |ArmPkg/Library/ArmLib/ArmBaseLib.inf
     CacheMaintenanceLib         |ArmPkg/Library/ArmCacheMaintenanceLib/ArmCacheMaintenanceLib.inf
-
     BaseMemoryLib               |MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
-
     TimerLib                    |ArmPlatformPkg/Library/SP804TimerLib/SP804TimerLib.inf
-
-    ArmPlatformLib              |VAGenericPkg/Library/ArmPlatformLib/ArmPlatformLib.inf
-
     NULL                        |ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
     NULL                        |MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
 
+    ArmPlatformLib              |VAGenericPkg/Library/ArmPlatformLib/ArmPlatformLib.inf
 
 ###################################################################################################
 #
@@ -266,5 +262,203 @@
     DebugLib                    |MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
     DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
 #    PeCoffExtraActionLib        |ArmPkg/Library/DebugPeCoffExtraActionLib/DebugPeCoffExtraActionLib.inf
+    PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
+    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+
+
+###################################################################################################
+#
+# DXE_DRIVER
+#
+###################################################################################################
+[Components]
+    MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf {
+        <LibraryClasses>
+        DevicePathLib               |MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
+    }
+
+    ArmPkg/Drivers/CpuDxe/CpuDxe.inf {
+        <LibraryClasses>
+        ArmMmuLib                   |ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
+        CpuLib                      |MdePkg/Library/BaseCpuLib/BaseCpuLib.inf
+        CpuExceptionHandlerLib      |ArmPkg/Library/ArmExceptionLib/ArmExceptionLib.inf
+        DefaultExceptionHandlerLib  |ArmPkg/Library/DefaultExceptionHandlerLib/DefaultExceptionHandlerLib.inf
+        DxeServicesTableLib         |MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
+        HobLib                      |MdePkg/Library/DxeHobLib/DxeHobLib.inf
+        PeCoffGetEntryPointLib      |MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
+        ArmDisassemblerLib          |ArmPkg/Library/ArmDisassemblerLib/ArmDisassemblerLib.inf
+    }
+
+    ArmPkg/Drivers/ArmGic/ArmGicDxe.inf  {
+        <LibraryClasses>
+        ArmGicLib                   |ArmPkg/Drivers/ArmGic/ArmGicLib.inf
+        ArmGicArchLib               |ArmPkg/Library/ArmGicArchLib/ArmGicArchLib.inf
+    }
+
+    MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf {
+        <LibraryClasses>
+        SecurityManagementLib       |MdeModulePkg/Library/DxeSecurityManagementLib/DxeSecurityManagementLib.inf
+        DxeServicesLib              |MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
+    }
+
+    MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
+
+    EmbeddedPkg/MetronomeDxe/MetronomeDxe.inf
+
+    ArmPlatformPkg/Drivers/SP804TimerDxe/SP804TimerDxe.inf
+
+    MdeModulePkg/Universal/SerialDxe/SerialDxe.inf 
+#    {
+#        <LibraryClasses>
+#        SerialPortLib               |VirtualArmPkg/Library/SerialPortLibInOut/SerialPortLibInOut.inf
+#    }
+
+    MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf {
+        <LibraryClasses>
+        PcdLib                      |VAGenericPkg/Library/PcdLibDummy/PcdLibDummy.inf
+    }
+
+    VAGenericPkg/Drivers/MinBdsDxe/MinBdsDxe.inf
+
+    MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+
+    VAGenericPkg/Drivers/PlatformSmbiosDxe/PlatformSmbiosDxe.inf
+
+    MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+
+    MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf   {
+       <LibraryClasses>
+        DxeServicesLib              |MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
+    }
+
+    VAGenericPkg/AcpiTables/AcpiTables.inf
+
+[LibraryClasses.common.DXE_DRIVER]
+    MemoryAllocationLib         |MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+    DevicePathLib               |MdePkg/Library/UefiDevicePathLibDevicePathProtocol/UefiDevicePathLibDevicePathProtocol.inf
+    DxeServicesTableLib         |MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
+
+#DEBUG OFF
+#    DebugLib                    |MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
+#    PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
+#    SerialPortLib               |MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf
+#DEBUG ON
+    DebugLib                    |MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+    DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
+    PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
+    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+
+
+###################################################################################################
+#
+# DXE_RUNTIME_DRIVER
+#
+###################################################################################################
+[Components]
+    MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf {
+        <LibraryClasses>
+        MemoryAllocationLib     |MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+        PeCoffLib               |MdePkg/Library/BasePeCoffLib/BasePeCoffLib.inf
+        DevicePathLib           |MdePkg/Library/UefiDevicePathLibDevicePathProtocol/UefiDevicePathLibDevicePathProtocol.inf
+    }
+
+    MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf {
+        <LibraryClasses>
+        CapsuleLib              |MdeModulePkg/Library/DxeCapsuleLibNull/DxeCapsuleLibNull.inf
+        UefiRuntimeLib          |MdePkg/Library/UefiRuntimeLib/UefiRuntimeLib.inf
+    }
+
+    MdeModulePkg/Universal/Variable/EmuRuntimeDxe/EmuVariableRuntimeDxe.inf {
+        <LibraryClasses>
+        UefiRuntimeLib          |MdePkg/Library/UefiRuntimeLib/UefiRuntimeLib.inf
+        MemoryAllocationLib     |MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+        HobLib                  |MdePkg/Library/DxeHobLib/DxeHobLib.inf
+        DevicePathLib           |MdePkg/Library/UefiDevicePathLibDevicePathProtocol/UefiDevicePathLibDevicePathProtocol.inf
+    }
+
+    EmbeddedPkg/EmbeddedMonotonicCounter/EmbeddedMonotonicCounter.inf
+
+    EmbeddedPkg/ResetRuntimeDxe/ResetRuntimeDxe.inf {
+        <LibraryClasses>
+        EfiResetSystemLib       |VirtualArmPkg/Library/ResetSystemLib/ResetSystemLib.inf
+        MemoryAllocationLib     |MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+        DxeServicesTableLib     |MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
+        DevicePathLib           |MdePkg/Library/UefiDevicePathLibDevicePathProtocol/UefiDevicePathLibDevicePathProtocol.inf
+    }
+
+    EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf {
+        <LibraryClasses>
+        RealTimeClockLib        |VirtualArmPkg/Library/RealTimeClockLib/RealTimeClockLib.inf
+        MemoryAllocationLib     |MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+        DxeServicesTableLib     |MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
+        DevicePathLib           |MdePkg/Library/UefiDevicePathLibDevicePathProtocol/UefiDevicePathLibDevicePathProtocol.inf
+    }
+
+[LibraryClasses.common.DXE_RUNTIME_DRIVER]
+#DEBUG OFF
+#    DebugLib                    |MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
+#    PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
+#    SerialPortLib               |MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf
+#DEBUG ON
+    DebugLib                    |MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+    DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
+    PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
+    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+
+
+
+###################################################################################################
+#
+# UEFI_DRIVER
+#
+###################################################################################################
+[Components]
+    MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
+    MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
+    MdeModulePkg/Universal/FvSimpleFileSystemDxe/FvSimpleFileSystemDxe.inf
+    MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
+    MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
+    MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
+    MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
+    MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
+    FatPkg/EnhancedFatDxe/Fat.inf
+    VAGenericPkg/Drivers/HiiResources/HiiResourcesDxe.inf
+    MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf   {
+       <LibraryClasses>
+       DxeServicesTableLib         |MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
+    }
+
+[LibraryClasses.common.UEFI_DRIVER]
+    DevicePathLib               |MdePkg/Library/UefiDevicePathLibDevicePathProtocol/UefiDevicePathLibDevicePathProtocol.inf
+    MemoryAllocationLib         |MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+    HiiLib                      |MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
+    UefiHiiServicesLib          |MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
+
+#DEBUG OFF
+#    DebugLib                    |MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
+#    PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
+#    SerialPortLib               |MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf
+#DEBUG ON
+    DebugLib                    |MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+    DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
+    PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
+    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+
+###################################################################################################
+#
+# UEFI_APPLICATION
+#
+###################################################################################################
+[Components]
+    ShellBinPkg/UefiShell/UefiShell.inf
+
+[LibraryClasses.common.UEFI_APPLICATION]
+#DEBUG OFF
+#    DebugLib                    |MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
+#    PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
+#    SerialPortLib               |MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf
+#DEBUG ON
+    DebugLib                    |MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+    DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
     PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
     SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf

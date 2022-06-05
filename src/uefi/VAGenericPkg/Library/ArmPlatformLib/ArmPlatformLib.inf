@@ -39,8 +39,7 @@
 [FixedPcd]
   gArmTokenSpaceGuid.PcdArmPrimaryCoreMask
   gArmTokenSpaceGuid.PcdArmPrimaryCore
-  gArmTokenSpaceGuid.PcdSystemMemoryBase
-  gArmTokenSpaceGuid.PcdSystemMemorySize
+  gVirtualArmTokenSpaceGuid.PcdRamPartSize
 
 [Ppis]
   gArmMpCoreInfoPpiGuid

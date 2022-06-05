@@ -112,6 +112,58 @@ FV = FV_UNCOMPRESSED
     # DXE
     #
     INF MdeModulePkg/Core/Dxe/DxeMain.inf
+    INF MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
+    INF ArmPkg/Drivers/CpuDxe/CpuDxe.inf
+    INF ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
+    INF MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
+    INF MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
+    INF EmbeddedPkg/MetronomeDxe/MetronomeDxe.inf
+    INF ArmPlatformPkg/Drivers/SP804TimerDxe/SP804TimerDxe.inf
+
+    INF MdeModulePkg/Universal/SerialDxe/SerialDxe.inf
+    INF MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
+
+    INF MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+    INF VAGenericPkg/Drivers/PlatformSmbiosDxe/PlatformSmbiosDxe.inf
+
+    INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+    INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf   
+    INF RuleOverride=ACPITABLE VAGenericPkg/AcpiTables/AcpiTables.inf
+
+    #
+    # RUNTIME_DRIVER
+    #
+    INF MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
+    INF MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
+    INF MdeModulePkg/Universal/Variable/EmuRuntimeDxe/EmuVariableRuntimeDxe.inf
+    INF EmbeddedPkg/EmbeddedMonotonicCounter/EmbeddedMonotonicCounter.inf
+    INF EmbeddedPkg/ResetRuntimeDxe/ResetRuntimeDxe.inf
+    INF EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
+
+    #
+    # UEFI_DRIVER
+    #
+    INF MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
+    INF MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
+    INF MdeModulePkg/Universal/FvSimpleFileSystemDxe/FvSimpleFileSystemDxe.inf
+    INF MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
+    INF MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
+    INF MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
+    INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
+    INF MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
+    INF FatPkg/EnhancedFatDxe/Fat.inf
+
+    #
+    # BDS
+    # 
+    INF VAGenericPkg/Drivers/MinBdsDxe/MinBdsDxe.inf
+
+    #
+    # APPLICATION
+    #
+    INF VAGenericPkg/Drivers/HiiResources/HiiResourcesDxe.inf
+    INF ShellBinPkg/UefiShell/UefiShell.inf
+
 
 ################################################################################
 #

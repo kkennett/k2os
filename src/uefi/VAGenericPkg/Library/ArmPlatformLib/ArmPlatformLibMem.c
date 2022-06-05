@@ -68,9 +68,9 @@ ArmPlatformGetVirtualMemoryMap(
     ++Index;
 
     // DRAM
-    VirtualMemoryTable[Index].PhysicalBase = PcdGet64(PcdSystemMemoryBase);
-    VirtualMemoryTable[Index].VirtualBase = PcdGet64(PcdSystemMemoryBase);
-    VirtualMemoryTable[Index].Length = PcdGet64(PcdSystemMemorySize);
+    VirtualMemoryTable[Index].PhysicalBase = VIRTARM_PHYSADDR_RAMBANK;
+    VirtualMemoryTable[Index].VirtualBase = VIRTARM_PHYSADDR_RAMBANK;
+    VirtualMemoryTable[Index].Length = PcdGet32(PcdRamPartSize);
     VirtualMemoryTable[Index].Attributes = DDR_ATTRIBUTES_CACHED;
     ++Index;
 

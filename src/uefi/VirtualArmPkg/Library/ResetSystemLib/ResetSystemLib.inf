@@ -32,49 +32,28 @@
 
 [Defines]
     INF_VERSION                    = 0x00010005
-    BASE_NAME                      = VirtualArmPlatformPeiLib
-    FILE_GUID                      = C7E27699-80EA-4BA7-BB71-16B4B1CE870C
-    MODULE_TYPE                    = SEC
+    BASE_NAME                      = VirtualArmResetSystemLib
+    FILE_GUID                      = 436827EB-DEDA-4C3B-BA6D-7572597EF447
+    MODULE_TYPE                    = BASE
     VERSION_STRING                 = 1.0
-    LIBRARY_CLASS                  = PlatformPeiLib
-
-[Sources]
-    PlatformPeiLib.c
+    LIBRARY_CLASS                  = EfiResetSystemLib
 
 [Packages]
     MdePkg/MdePkg.dec
-    MdeModulePkg/MdeModulePkg.dec
-    EmbeddedPkg/EmbeddedPkg.dec
-    ArmPkg/ArmPkg.dec
-    ArmPlatformPkg/ArmPlatformPkg.dec
     VirtualArmPkg/VirtualArmPkg.dec
-    VAGenericPkg/VAGenericPkg.dec
-
-[LibraryClasses]
-    DebugLib
-    HobLib
-    ArmPlatformLib
-    PcdLib
-    IoLib
-    BaseMemoryLib
-
-[Ppis]
-    gEfiPeiMasterBootModePpiGuid                  # PPI ALWAYS_PRODUCED
-    gEfiPeiBootInRecoveryModePpiGuid              # PPI SOMETIMES_PRODUCED
 
 [Guids]
-    gEfiHobMemoryAllocStackGuid
+    gEfiEventVirtualAddressChangeGuid             ## CONSUMES             ## Event
 
-[FixedPcd]
-    gArmTokenSpaceGuid.PcdFdBaseAddress
-    gArmTokenSpaceGuid.PcdFdSize
-    gArmTokenSpaceGuid.PcdFvBaseAddress
-    gArmTokenSpaceGuid.PcdFvSize
-    gArmTokenSpaceGuid.PcdSecureFvBaseAddress
-    gEmbeddedTokenSpaceGuid.PcdPrePiCpuMemorySize
-    gEmbeddedTokenSpaceGuid.PcdPrePiCpuIoSize
-    gArmTokenSpaceGuid.PcdSystemMemoryBase
-    gArmTokenSpaceGuid.PcdSystemMemorySize
+[Sources.common]
+    ResetSystemLib.c
 
-[depex]
-    TRUE
+[LibraryClasses]
+    IoLib
+    DebugLib
+    UefiBootServicesTableLib
+    UefiRuntimeServicesTableLib
+    DxeServicesTableLib
+
+[Depex]
+    gEfiCpuArchProtocolGuid
