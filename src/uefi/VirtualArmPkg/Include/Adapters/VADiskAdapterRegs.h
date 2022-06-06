@@ -23,6 +23,7 @@
   --------------------------------------------*/
 
 #include "virtarm.h"
+#include "VADiskAdapterRegs.inc"
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,29 +80,6 @@ typedef struct _VIRTARM_DISKADAPTER_REGS
 
 } VIRTARM_DISKADAPTER_REGS;
 
-#define VIRTARM_DISKADAPTER_VID                     0x0000045E
-#define VIRTARM_DISKADAPTER_PID                     0x00000606
-
-#define VIRTARM_DISKADAPTER_CTRLSTAT_ENABLE_TOGGLE  0x80000000
-#define VIRTARM_DISKADAPTER_CTRLSTAT_MEDIA_PRESENCE 0x00000001
-#define VIRTARM_DISKADAPTER_CTRLSTAT_MEDIA_READONLY 0x00000002
-
-#define VIRTARM_DISKADAPTER_INTR_PRESENCE_CHANGE    0x00000001
-#define VIRTARM_DISKADAPTER_INTR_ALL                0x00000001
-
-// ---------------------------------------------------------------------
-
-/* SRAM locations (256k) */
-#define VIRTARM_DISKADAPTER_SRAM_OFFSET_SECTORBUFFER    0
-#define VIRTARM_DISKADAPTER_SECTOR_BYTES                512
-#define VIRTARM_DISKADAPTER_MAX_NUM_SECTORS            ((VIRTARM_PHYSSIZE_ADAPTER_SRAM - VIRTARM_DISKADAPTER_SRAM_OFFSET_SECTORBUFFER) / VIRTARM_DISKADAPTER_SECTOR_BYTES)
-
-// ---------------------------------------------------------------------
-
-#define VIRTARM_DISKADAPTER_WINDOWCMD_IXMASK    0x0000000F
-#define VIRTARM_DISKADAPTER_WINDOWCMD_CMDMASK   0x00000030
-
-#define VIRTARM_DISKADAPTER_WINDOWCMD_FRAME     0x00000010
 /* 
    mWindowCmd    IN: (VIRTARM_DISKADAPTER_WINDOWCMD_FRAME | <window index>)
    mWindowArg    IN: sector # to frame into window (somewhere)
@@ -110,7 +88,6 @@ typedef struct _VIRTARM_DISKADAPTER_REGS
    mWindowArg   OUT: SRAM offset to precise sector requested
 */
 
-#define VIRTARM_DISKADAPTER_WINDOWCMD_FLUSH_WRITE 0x00000020
 /* 
    mWindowCmd    IN: (VIRTARM_DISKADAPTER_WINDOWCMD_FLUSH_WRITE | <window index>)
    mWindowArg    IN: ignored. SBZ
@@ -118,12 +95,6 @@ typedef struct _VIRTARM_DISKADAPTER_REGS
    mWindowCmd   OUT: 0 for success, nonzero = error code
    mWindowArg   OUT: undefined
 */
-
-/* window command errors - read the WindowCmd register after a write to get these */
-#define VIRTARM_DISKADAPTER_IOERR_NONE          0
-#define VIRTARM_DISKADAPTER_IOERR_OUTOFRANGE    0x807B0001
-#define VIRTARM_DISKADAPTER_IOERR_BADCOMMAND    0x807B0002
-#define VIRTARM_DISKADAPTER_IOERR_READONLY      0x807B0003
 
 // ---------------------------------------------------------------------
 

@@ -16,8 +16,8 @@
 #ifndef __VIRTARM_DISKADAPTER_H
 #define __VIRTARM_DISKADAPTER_H
 
-#include "virtarmbsp.h"
-#include "adapters\VADiskAdapterRegs.h"
+#include <virtarm.h>
+#include <Adapters\VADiskAdapterRegs.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,13 +25,13 @@ extern "C" {
 
 //------------------------------------------------------------------------------
 
-void    VIRTARMDISK_Init(volatile VIRTARM_DISKADAPTER_REGS *apAdapter);
+void        VIRTARMDISK_Init(volatile VIRTARM_DISKADAPTER_REGS *apAdapter);
 
-UINT32  VIRTARMDISK_GetMaxNumSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter);
+UINT32      VIRTARMDISK_GetMaxNumSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter);
 
-HRESULT VIRTARMDISK_ReadSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, UINT32 aStartSector, UINT aNumSectors, UINT8 *apBuffer);
+EFI_STATUS  VIRTARMDISK_ReadSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, UINT32 aStartSector, UINTN aNumSectors, UINT8 *apBuffer);
 
-HRESULT VIRTARMDISK_WriteSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, UINT32 aStartSector, UINT aNumSectors, UINT8 *apBuffer, BOOL aDoFlushAtEnd);
+EFI_STATUS  VIRTARMDISK_WriteSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, UINT32 aStartSector, UINTN aNumSectors, UINT8 *apBuffer, BOOLEAN aDoFlushAtEnd);
 
 //------------------------------------------------------------------------------
 

@@ -13,7 +13,10 @@
 // Last Updated By:  Kurt Kennett
 //
 
-#include "virtarm_diskadapter.h"
+#include <Uefi/UefiBaseType.h>
+#include <Library/BaseLib.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/VADiskAdapterLib.h>
 
 void VIRTARMDISK_Init(volatile VIRTARM_DISKADAPTER_REGS *apAdapter)
 {
@@ -47,9 +50,10 @@ UINT32 VIRTARMDISK_GetMaxNumSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter
 }
 
 static 
-HRESULT diskIo(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, BOOL aIsWrite, UINT32 aStartSector, UINT aNumSectors, UINT8 *apBuffer, BOOL aDoFlushAtEnd)
+EFI_STATUS
+diskIo(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, BOOLEAN aIsWrite, UINT32 aStartSector, UINTN aNumSectors, UINT8 *apBuffer, BOOLEAN aDoFlushAtEnd)
 {
-    HRESULT hr;
+    EFI_STATUS status;
     UINT8 * pSectorBuffer;
     UINT8 * pCurSector;
     UINT8 * pEndOfWindowSectors;
@@ -58,12 +62,6 @@ HRESULT diskIo(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, BOOL aIsWrite, UINT
     UINT32  bytesTransferredNow;
     UINT32  sessionId;
     UINT32  curChunkOfSectors;
-
-    if (!apAdapter)
-        return HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
-
-    if (!(apAdapter->mControlStatus & VIRTARM_DISKADAPTER_CTRLSTAT_MEDIA_PRESENCE))
-        return HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
 
     if (!aNumSectors)
         return 0;
@@ -74,7 +72,7 @@ HRESULT diskIo(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, BOOL aIsWrite, UINT
     /* just use window 0 */
     max = apAdapter->mDiskTotalSectors;
     if (!max)
-        return HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
+        return EFI_NO_RESPONSE;
 
     if ((aStartSector >= max) ||
         ((max - aStartSector) < aNumSectors))
@@ -92,9 +90,9 @@ HRESULT diskIo(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, BOOL aIsWrite, UINT
         apAdapter->mWindowCmd = VIRTARM_DISKADAPTER_WINDOWCMD_FRAME | 0;
 
         /* get result of the command */
-        hr = apAdapter->mWindowCmd;
-        if (FAILED(hr))
-            return hr;
+        status = apAdapter->mWindowCmd;
+        if (0 != status)
+            return status;
 
         /* window 0 registers updated */
         /* as well, windowarg now points to absolute offset of sector in SRAM */
@@ -106,18 +104,18 @@ HRESULT diskIo(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, BOOL aIsWrite, UINT
 
         /* sanity check */
         if (pEndOfWindowSectors < pCurSector)
-            return E_FAIL;
+            return EFI_DEVICE_ERROR;
 
         /* make sure disk has not changed since read started */
         if (apAdapter->mSessionId != sessionId)
-            return E_FAIL; 
+            return EFI_DEVICE_ERROR;
 
         /* now we can find out how much is left in the window from the sector we asked for */
-        sectorsLeftInWindowFromCurPos = ((UINT)(pEndOfWindowSectors - pCurSector)) / VIRTARM_DISKADAPTER_SECTOR_BYTES;
+        sectorsLeftInWindowFromCurPos = ((UINTN)(pEndOfWindowSectors - pCurSector)) / VIRTARM_DISKADAPTER_SECTOR_BYTES;
 
         /* sanity check */
         if (!sectorsLeftInWindowFromCurPos)
-            return E_FAIL;
+            return EFI_DEVICE_ERROR;
 
         /* in this set of the window position, how much can we transfer to the user buffer? */
         if (aNumSectors > sectorsLeftInWindowFromCurPos)
@@ -128,9 +126,9 @@ HRESULT diskIo(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, BOOL aIsWrite, UINT
         /* copy from adapter ram to user buffer */
         bytesTransferredNow = VIRTARM_DISKADAPTER_SECTOR_BYTES * curChunkOfSectors;
         if (aIsWrite)
-            CopyMemory(pCurSector, apBuffer, bytesTransferredNow);
+            CopyMem(pCurSector, apBuffer, bytesTransferredNow);
         else
-            CopyMemory(apBuffer, pCurSector, bytesTransferredNow);
+            CopyMem(apBuffer, pCurSector, bytesTransferredNow);
         apBuffer += bytesTransferredNow;
 
         /* update sector position for the next window position set */
@@ -139,34 +137,40 @@ HRESULT diskIo(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, BOOL aIsWrite, UINT
 
     } while (aNumSectors);
 
-    if (!FAILED(hr))
+    if (0 == status)
     {
         if ((aIsWrite) && (aDoFlushAtEnd))
         {
             apAdapter->mWindowArg = 0;
             apAdapter->mWindowCmd = VIRTARM_DISKADAPTER_WINDOWCMD_FLUSH_WRITE;
-            hr = apAdapter->mWindowCmd;
+            status = apAdapter->mWindowCmd;
         }
     }
 
-    return hr;
+    return status;
 }
 
-HRESULT VIRTARMDISK_ReadSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, UINT32 aStartSector, UINT aNumSectors, UINT8 *apBuffer)
+EFI_STATUS VIRTARMDISK_ReadSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, UINT32 aStartSector, UINTN aNumSectors, UINT8 *apBuffer)
 {
+    if (!apAdapter)
+        return EFI_NOT_FOUND;
+
+    if (!(apAdapter->mControlStatus & VIRTARM_DISKADAPTER_CTRLSTAT_MEDIA_PRESENCE))
+        return EFI_NO_MEDIA;
+
     return diskIo(apAdapter, FALSE, aStartSector, aNumSectors, apBuffer, FALSE);
 }
 
-HRESULT VIRTARMDISK_WriteSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, UINT32 aStartSector, UINT aNumSectors, UINT8 *apBuffer, BOOL aDoFlushAtEnd)
+EFI_STATUS VIRTARMDISK_WriteSectors(volatile VIRTARM_DISKADAPTER_REGS *apAdapter, UINT32 aStartSector, UINTN aNumSectors, UINT8 *apBuffer, BOOLEAN aDoFlushAtEnd)
 {
     if (!apAdapter)
-        return HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
+        return EFI_NOT_FOUND;
 
     if (!(apAdapter->mControlStatus & VIRTARM_DISKADAPTER_CTRLSTAT_MEDIA_PRESENCE))
-        return HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
+        return EFI_NO_MEDIA;
 
     if (apAdapter->mControlStatus & VIRTARM_DISKADAPTER_CTRLSTAT_MEDIA_READONLY)
-        return STG_E_DISKISWRITEPROTECTED;
+        return EFI_WRITE_PROTECTED;
 
     return diskIo(apAdapter, TRUE, aStartSector, aNumSectors, apBuffer, aDoFlushAtEnd);
 }

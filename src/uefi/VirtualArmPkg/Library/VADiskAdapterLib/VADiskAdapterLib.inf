@@ -31,24 +31,21 @@
 #
 
 [Defines]
-    DEC_SPECIFICATION     = 0x00010005
-    PACKAGE_NAME          = VirtualArmPkg
-    PACKAGE_GUID          = F8190040-6BB9-42BF-8018-12DA175D8B16
-    PACKAGE_VERSION       = 0.1
+    INF_VERSION         = 0x00010005
+    BASE_NAME           = VirtualArmDiskAdapterLib
+    FILE_GUID           = 69CCE6C1-BDC8-4EA2-85D5-26BD5EFEBC54
+    MODULE_TYPE         = BASE
+    VERSION_STRING      = 1.0
+    LIBRARY_CLASS       = VADiskAdapterLib
 
-[Includes]
-    Include
+[Sources]
+    VADiskAdapterLib.c
 
-[Guids]
-    gVirtualArmTokenSpaceGuid =   { 0xf8190040, 0x6bb9, 0x42bf, { 0x80, 0x18, 0x12, 0xda, 0x17, 0x5d, 0x8b, 0x16 } }
+[LibraryClasses]
+    BaseLib
+    BaseMemoryLib
 
-[PcdsFixedAtBuild]
-    gVirtualArmTokenSpaceGuid.PcdRamPartSize|0|UINT32|0x00000001
-
-    gVirtualArmTokenSpaceGuid.PcdDebugAdapterSlotNumber|0|UINT32|0x00000002
-    gVirtualArmTokenSpaceGuid.PcdRealTimeAdapterSlotNumber|1|UINT32|0x00000003
-    gVirtualArmTokenSpaceGuid.PcdBlitAdapterSlotNumber|2|UINT32|0x00000004
-    gVirtualArmTokenSpaceGuid.PcdTouchAdapterSlotNumber|3|UINT32|0x00000005
-    gVirtualArmTokenSpaceGuid.PcdEtherAdapterSlotNumber|4|UINT32|0x00000006
-    gVirtualArmTokenSpaceGuid.PcdDiskAdapterSlotNumber|5|UINT32|0x00000007
+[Packages]
+    MdePkg/MdePkg.dec
+    VirtualArmPkg/VirtualArmPkg.dec
 

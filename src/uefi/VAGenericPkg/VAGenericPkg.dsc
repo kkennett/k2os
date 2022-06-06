@@ -74,6 +74,7 @@
 
     VADebugAdapterLib           |VirtualArmPkg/Library/VADebugAdapterLib/VADebugAdapterLib.inf
     VARealTimeAdapterLib        |VirtualArmPkg/Library/VARealtimeAdapterLib/VARealTimeAdapterLib.inf
+    VADiskAdapterLib            |VirtualArmPkg/Library/VADiskAdapterLib/VADiskAdapterLib.inf
 
 [LibraryClasses.ARM]
     ArmLib                      |ArmPkg/Library/ArmLib/ArmBaseLib.inf
@@ -206,7 +207,7 @@
         ArmMmuLib                   |ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
         ArmPlatformStackLib         |ArmPlatformPkg/Library/ArmPlatformStackLib/ArmPlatformStackLib.inf
         PrePiHobListPointerLib      |ArmPlatformPkg/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
-        PlatformPeiLib              |ArmPlatformPkg/PlatformPei/PlatformPeiLib.inf
+        PlatformPeiLib              |VirtualArmPkg/Library/PlatformPeiLib/PlatformPeiLib.inf
         MemoryInitPeiLib            |ArmPlatformPkg/MemoryInitPei/MemoryInitPeiLib.inf
         PeCoffGetEntryPointLib      |MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
         UefiDecompressLib           |MdePkg/Library/BaseUefiDecompressLib/BaseUefiDecompressLib.inf
