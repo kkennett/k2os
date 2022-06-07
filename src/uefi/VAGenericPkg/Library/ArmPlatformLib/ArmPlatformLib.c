@@ -64,17 +64,40 @@ ArmPlatformGetBootMode (
 
 **/
 RETURN_STATUS
-ArmPlatformInitialize (
-  IN  UINTN                     MpId
-  )
+ArmPlatformInitialize(
+    IN UINTN MpId
+)
 {
-  if (!ArmPlatformIsPrimaryCore (MpId)) {
+    volatile CORTEXA9MP_SCU_REGS * pScu = (volatile CORTEXA9MP_SCU_REGS *)VIRTARM_PHYSADDR_CORTEXA9MP_SCU;
+    UINT32 r;
+
+    //
+    // invalidate and turn on SCU
+    //
+    pScu->mInvalidateSecure = 0xFFFFFFFF;
+    pScu->mControl = 1;
+    pScu->mInvalidateSecure = 0xFFFFFFFF;
+
+    //
+    // set SMP mode
+    //
+    r = ArmReadCpuActlr();
+    r |= 0x41;
+    ArmWriteCpuActlr(r);
+    r = ArmReadCpuActlr();
+
+    if (!ArmPlatformIsPrimaryCore(MpId))
+    {
+        return RETURN_SUCCESS;
+    }
+
+    //
+    // should not be needed but we do it anyway
+    //
+    pScu->mAccessControl = 0xF;
+    pScu->mNonSecureAccessControl = 0xFFF;
+
     return RETURN_SUCCESS;
-  }
-
-  //TODO: Implement me
-
-  return RETURN_SUCCESS;
 }
 
 EFI_STATUS

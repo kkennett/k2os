@@ -31,7 +31,7 @@
 //
 #include "MinBdsDxe.h"
 
-#define RUNBOOT 1
+#define RUNBOOT 0
 
 EFI_HANDLE MinBdsImageHandle = NULL;
 
@@ -186,8 +186,6 @@ BruteForceConnectAllDrivers(
     EFI_EVENT       TimerEvent;
     UINTN           SignalledIndex;
 
-    UINT32 volatile *   pu;
-
     do
     {
         // Locate all the driver handles
@@ -218,56 +216,13 @@ BruteForceConnectAllDrivers(
     } while (!EFI_ERROR(Status));
 
     //
-    // give 2 seconds for USB stuff to enumerate asynchronously
+    // give 3 seconds for USB stuff to enumerate asynchronously
     //
     DebugPrint(0xFFFFFFFF, "..Waiting 3 seconds to let USB enumerate..\n");
     Status = gBS->CreateEvent(EVT_TIMER, 0, NULL, NULL, &TimerEvent);
     ASSERT_EFI_ERROR(Status);
     Status = gBS->SetTimer(TimerEvent, TimerRelative, 10 * 1000 * 1000 * 3);
     ASSERT_EFI_ERROR(Status);
-
-    // gicd
-    pu = (volatile UINT32 *)0x0F001000;
-
-    pu[0x100 / 4] = 0xFFFFFFFF;
-    pu[0x104 / 4] = 0xFFFFFFFF;
-    pu[0x108 / 4] = 0xFFFFFFFF;
-    pu[0x10C / 4] = 0xFFFFFFFF;
-    pu[0x110 / 4] = 0xFFFFFFFF;
-    pu[0x114 / 4] = 0xFFFFFFFF;
-    pu[0x118 / 4] = 0xFFFFFFFF;
-    pu[0x11C / 4] = 0xFFFFFFFF;
-
-    do {
-        DebugPrint(0xFFFFFFFF, "SENB0 %08X\n", pu[0x100 / 4]);
-        DebugPrint(0xFFFFFFFF, "SENB1 %08X\n", pu[0x104 / 4]);
-        DebugPrint(0xFFFFFFFF, "SENB2 %08X\n", pu[0x108 / 4]);
-        DebugPrint(0xFFFFFFFF, "SENB3 %08X\n", pu[0x10C / 4]);
-        DebugPrint(0xFFFFFFFF, "SENB4 %08X\n", pu[0x110 / 4]);
-        DebugPrint(0xFFFFFFFF, "SENB5 %08X\n", pu[0x114 / 4]);
-        DebugPrint(0xFFFFFFFF, "SENB6 %08X\n", pu[0x118 / 4]);
-        DebugPrint(0xFFFFFFFF, "SENB7 %08X\n", pu[0x11C / 4]);
-
-        DebugPrint(0xFFFFFFFF, "SPEN0 %08X\n", pu[0x200 / 4]);
-        DebugPrint(0xFFFFFFFF, "SPEN1 %08X\n", pu[0x204 / 4]);
-        DebugPrint(0xFFFFFFFF, "SPEN2 %08X\n", pu[0x208 / 4]);
-        DebugPrint(0xFFFFFFFF, "SPEN3 %08X\n", pu[0x20C / 4]);
-        DebugPrint(0xFFFFFFFF, "SPEN4 %08X\n", pu[0x210 / 4]);
-        DebugPrint(0xFFFFFFFF, "SPEN5 %08X\n", pu[0x214 / 4]);
-        DebugPrint(0xFFFFFFFF, "SPEN6 %08X\n", pu[0x218 / 4]);
-        DebugPrint(0xFFFFFFFF, "SPEN7 %08X\n", pu[0x21C / 4]);
-
-        DebugPrint(0xFFFFFFFF, "SACT0 %08X\n", pu[0x300 / 4]);
-        DebugPrint(0xFFFFFFFF, "SACT1 %08X\n", pu[0x304 / 4]);
-        DebugPrint(0xFFFFFFFF, "SACT2 %08X\n", pu[0x308 / 4]);
-        DebugPrint(0xFFFFFFFF, "SACT3 %08X\n", pu[0x30C / 4]);
-        DebugPrint(0xFFFFFFFF, "SACT4 %08X\n", pu[0x310 / 4]);
-        DebugPrint(0xFFFFFFFF, "SACT5 %08X\n", pu[0x314 / 4]);
-        DebugPrint(0xFFFFFFFF, "SACT6 %08X\n", pu[0x318 / 4]);
-        DebugPrint(0xFFFFFFFF, "SACT7 %08X\n", pu[0x31C / 4]);
-        DebugPrint(0xFFFFFFFF, "--\n");
-    } while (1);
-
     Status = gBS->WaitForEvent(1, &TimerEvent, &SignalledIndex);
     ASSERT_EFI_ERROR(Status);
     gBS->CloseEvent(TimerEvent);

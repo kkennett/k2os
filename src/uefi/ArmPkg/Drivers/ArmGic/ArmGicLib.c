@@ -222,21 +222,15 @@ ArmGicEnableInterrupt (
   RegOffset = Source / 32;
   RegShift = Source % 32;
 
-  DebugPrint(0xFFFFFFFF, "ArmGicEnableInterrupt(%08X, %08X, %d)\n", GicDistributorBase, GicRedistributorBase, Source);
-
   Revision = ArmGicGetSupportedArchRevision ();
   if ((Revision == ARM_GIC_ARCH_REVISION_2) ||
       FeaturePcdGet (PcdArmGicV3WithV2Legacy) ||
       SourceIsSpi (Source)) {
     // Write set-enable register
-      DebugPrint(0xFFFFFFFF, "Write SER[0x%08X] 0x%08X\n", GicDistributorBase + ARM_GIC_ICDISER + (4 * RegOffset), 1 << RegShift);
     MmioWrite32 (
       GicDistributorBase + ARM_GIC_ICDISER + (4 * RegOffset),
       1 << RegShift
       );
-
-    RegShift = MmioRead32(GicDistributorBase + ARM_GIC_ICDISER + (4 * RegOffset));
-    DebugPrint(0xFFFFFFFF, "    Readback 0x%08X\n", RegShift);
   } else {
     GicCpuRedistributorBase = GicGetCpuRedistributorBase (
                                 GicRedistributorBase,
@@ -360,8 +354,6 @@ ArmGicEnableInterruptInterface (
 {
   ARM_GIC_ARCH_REVISION Revision;
 
-  DebugPrint(0xFFFFFFFF, "ArmGicEnableInterruptInterface(%08X)\n", GicInterruptInterfaceBase);
-
   Revision = ArmGicGetSupportedArchRevision ();
   if (Revision == ARM_GIC_ARCH_REVISION_2) {
     ArmGicV2EnableInterruptInterface (GicInterruptInterfaceBase);
@@ -379,8 +371,6 @@ ArmGicDisableInterruptInterface (
   )
 {
   ARM_GIC_ARCH_REVISION Revision;
-
-  DebugPrint(0xFFFFFFFF, "ArmGicDisableInterruptInterface(%08X)\n", GicInterruptInterfaceBase);
 
   Revision = ArmGicGetSupportedArchRevision ();
   if (Revision == ARM_GIC_ARCH_REVISION_2) {

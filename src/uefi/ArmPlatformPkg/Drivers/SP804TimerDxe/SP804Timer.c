@@ -77,8 +77,6 @@ TimerInterruptHandler(
     //
     OriginalTPL = gBS->RaiseTPL(TPL_HIGH_LEVEL);
 
-    DebugPrint(0xFFFFFFFF, "TimerInterrupt\n");
-
     // If the interrupt is shared then we must check if this interrupt source is the one associated to this Timer
     if (MmioRead32(SP804_TIMER_PERIODIC_BASE + SP804_TIMER_MSK_INT_STS_REG) != 0) {
         // Clear the periodic interrupt
@@ -372,7 +370,6 @@ TimerInitialize(
     ASSERT_EFI_ERROR(Status);
 
     // Install interrupt handler
-    DebugPrint(0xFFFFFFFF, "Timer installed on interrupt %d\n", gVector);
     Status = gInterrupt->RegisterInterruptSource(gInterrupt, gVector, TimerInterruptHandler);
     ASSERT_EFI_ERROR(Status);
 

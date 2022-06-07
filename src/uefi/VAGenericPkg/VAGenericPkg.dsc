@@ -109,7 +109,7 @@
     gArmPlatformTokenSpaceGuid.PcdSystemMemoryUefiRegionSize   | 0x02000000         #0x08000000         |UINT32       
     gArmPlatformTokenSpaceGuid.PcdCoreCount                    | 2
 
-    gArmPlatformTokenSpaceGuid.PcdSP804TimerPeriodicInterruptNum    |32
+    gArmPlatformTokenSpaceGuid.PcdSP804TimerPeriodicInterruptNum    |160
     gArmPlatformTokenSpaceGuid.PcdSP804TimerPeriodicBase            |0x20004000
     gArmPlatformTokenSpaceGuid.PcdSP804TimerPerformanceBase         |0x20004020
     gArmPlatformTokenSpaceGuid.PcdSP804TimerMetronomeBase           |0x20005020
@@ -309,11 +309,10 @@
 
     ArmPlatformPkg/Drivers/SP804TimerDxe/SP804TimerDxe.inf
 
-    MdeModulePkg/Universal/SerialDxe/SerialDxe.inf 
-#    {
-#        <LibraryClasses>
-#        SerialPortLib               |VirtualArmPkg/Library/SerialPortLibInOut/SerialPortLibInOut.inf
-#    }
+    MdeModulePkg/Universal/SerialDxe/SerialDxe.inf {
+        <LibraryClasses>
+        SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+    }
 
     MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf {
         <LibraryClasses>

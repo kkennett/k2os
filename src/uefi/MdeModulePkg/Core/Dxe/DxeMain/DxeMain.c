@@ -366,6 +366,7 @@ DxeMain (
     gDxeCoreImageHandle
     );
 
+#if 0
   DEBUG ((DEBUG_INFO | DEBUG_LOAD, "HOBLIST address in DXE = 0x%p\n", HobStart));
 
   DEBUG_CODE_BEGIN ();
@@ -420,6 +421,7 @@ DxeMain (
       }
     }
   DEBUG_CODE_END ();
+#endif
 
   //
   // Initialize the Event Services

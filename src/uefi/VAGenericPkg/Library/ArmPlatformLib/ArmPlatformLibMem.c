@@ -43,28 +43,28 @@ ArmPlatformGetVirtualMemoryMap(
     VirtualMemoryTable[Index].PhysicalBase = VIRTARM_PHYSADDR_BOOTROM;
     VirtualMemoryTable[Index].VirtualBase = VIRTARM_PHYSADDR_BOOTROM;
     VirtualMemoryTable[Index].Length = VIRTARM_PHYSSIZE_BOOTROM;
-    VirtualMemoryTable[Index].Attributes = ARM_MEMORY_REGION_ATTRIBUTE_NONSECURE_UNCACHED_UNBUFFERED;
+    VirtualMemoryTable[Index].Attributes = ARM_MEMORY_REGION_ATTRIBUTE_UNCACHED_UNBUFFERED;
     ++Index;
 
     // Cortext A9 PERIPHBASE
     VirtualMemoryTable[Index].PhysicalBase = VIRTARM_PHYSADDR_PERIPHBASE;
     VirtualMemoryTable[Index].VirtualBase = VIRTARM_PHYSADDR_PERIPHBASE;
     VirtualMemoryTable[Index].Length = VIRTATM_PHYSSIZE_PERIPHBASE;
-    VirtualMemoryTable[Index].Attributes = ARM_MEMORY_REGION_ATTRIBUTE_NONSECURE_DEVICE;
+    VirtualMemoryTable[Index].Attributes = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
     ++Index;
 
     // Program Counters
     VirtualMemoryTable[Index].PhysicalBase = VIRTARM_PHYSADDR_PROGCOUNTERS;
     VirtualMemoryTable[Index].VirtualBase = VIRTARM_PHYSADDR_PROGCOUNTERS;
     VirtualMemoryTable[Index].Length = VIRTARM_PHYSSIZE_ALL_PROGCOUNTERS;
-    VirtualMemoryTable[Index].Attributes = ARM_MEMORY_REGION_ATTRIBUTE_NONSECURE_DEVICE;
+    VirtualMemoryTable[Index].Attributes = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
     ++Index;
 
     // SP804 Timers
     VirtualMemoryTable[Index].PhysicalBase = VIRTARM_PHYSADDR_SP804_TIMERS;
     VirtualMemoryTable[Index].VirtualBase = VIRTARM_PHYSADDR_SP804_TIMERS;
     VirtualMemoryTable[Index].Length = VIRTARM_PHYSSIZE_ALL_SP804_TIMERS;
-    VirtualMemoryTable[Index].Attributes = ARM_MEMORY_REGION_ATTRIBUTE_NONSECURE_DEVICE;
+    VirtualMemoryTable[Index].Attributes = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
     ++Index;
 
     // DRAM

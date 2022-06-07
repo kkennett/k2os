@@ -22,17 +22,12 @@
 
 #define PHYS_REGS_ADDR VIRTARM_PHYSADDR_ADAPTER_REGS(FixedPcdGet32(PcdDebugAdapterSlotNumber))
 
-#define DISTREG(x)  (*((UINT32 *)(VIRTARM_PHYSADDR_CORTEXA9MP_INTDIST + (x))))
-#define PROCREG(x)  (*((UINT32 *)(VIRTARM_PHYSADDR_CORTEXA9MP_PERCPUINT + (x))))
-
 EFI_STATUS
 EFIAPI
 PlatformPeim(
     VOID
 )
 {
-//    UINT32 volatile * pu = (UINT32 volatile *)VIRTARM_PHYSADDR_CORTEXA9MP_INTDIST;
-
     UINT32  fileBytes;
     UINT32  baseAddr;
     UINT32  packetIx;
@@ -43,56 +38,6 @@ PlatformPeim(
     UINT8 * pOut;
 
     volatile VIRTARM_DEBUGADAPTER_REGS * pRegs = (volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR;
-
-    UINT32 ix;
-
-    /* disable IRQs on the distributor and the per-CPU interface */
-    DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDDCR) = 0;
-    PROCREG(CORTEXA9MP_PERCPUINT_REGS_OFFSET_ICCICR) = 0;
-
-    for (ix = 0; ix < 8; ix++)
-    {
-        DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDICER_0_OF_8 + (4 * ix)) = 0xFFFFFFFF;
-    }
-
-    for (ix = 0; ix < 8; ix++)
-    {
-        DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDICPR_0_OF_8 + (4 * ix)) = 0xFFFFFFFF;
-    }
-
-    for (ix = 0; ix < 64; ix++)
-    {
-        DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDIPR_0_OF_64 + (4 * ix)) = 0;
-    }
-    
-    for (ix = 0; ix < 16; ix++)
-    {
-        DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDICR_0_OF_16 + (4 * ix)) = 0;
-    }
-
-    for (ix = 4; ix < 64; ix++)
-    {
-        DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDIPTR_0_OF_64 + (4 * ix)) = 0x01010101;
-    }
-
-    ix = 3 | (3 << 8) | (3 << 16) | (3 << 24);
-    DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDIPTR_0_OF_64 + 0) = ix;
-    DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDIPTR_0_OF_64 + 4) = ix;
-    DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDIPTR_0_OF_64 + 8) = ix;
-    DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDIPTR_0_OF_64 + 12) = ix;
-
-    for (ix = 0; ix < 8; ix++)
-    {
-        DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDISR_0_OF_8 + (4 * ix)) = 0xFFFFFFFF;
-    }
-
-    PROCREG(CORTEXA9MP_PERCPUINT_REGS_OFFSET_ICCPMR) = 0xFF;
-
-    PROCREG(CORTEXA9MP_PERCPUINT_REGS_OFFSET_ICCICR) = 3;
-    DISTREG(CORTEXA9MP_INTDIST_REGS_OFFSET_ICDDCR) = 3;
-
-
-
 
     //
     // FV that includes code executing now

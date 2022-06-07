@@ -669,6 +669,7 @@ PeiCheckAndSwitchStack (
     // Before switch stack from temporary memory to permanent memory, calculate the heap and stack
     // usage in temporary memory for debugging.
     //
+#if 0
     DEBUG_CODE_BEGIN ();
       UINT32                *StackPointer;
       EFI_PEI_HOB_POINTERS  Hob;
@@ -700,6 +701,7 @@ PeiCheckAndSwitchStack (
         }
       }
     DEBUG_CODE_END ();
+#endif
 
     if (PcdGet64(PcdLoadModuleAtFixAddressEnable) != 0 && (Private->HobList.HandoffInformationTable->BootMode != BOOT_ON_S3_RESUME)) {
       //

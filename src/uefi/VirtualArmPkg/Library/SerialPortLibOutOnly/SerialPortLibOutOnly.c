@@ -54,16 +54,18 @@ SerialPortWrite(
 )
 {
     CHAR16 char16[2];
+    UINT32 left;
 
     if (0 == NumberOfBytes)
         return 0;
 
+    left = NumberOfBytes;
     char16[1] = 0;
     do {
         char16[0] = *Buffer;
         VIRTARMDEBUG_OutputString((volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR, char16, 1);
         Buffer++;
-    } while (--NumberOfBytes);
+    } while (--left);
 
     return NumberOfBytes;
 }
@@ -75,7 +77,23 @@ SerialPortRead(
     IN  UINTN   NumberOfBytes
 )
 {
-    return 0;
+    UINT32 inCount;
+    UINT32 left;
+
+    if (0 == NumberOfBytes)
+        return 0;
+
+    inCount = ((volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR)->mDebugInCount;
+    if (0 == inCount)
+        return 0;
+
+    left = inCount;
+    do {
+        *Buffer = (UINT8)(((volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR)->mDebugIn);
+        Buffer++;
+    } while (--left);
+
+    return inCount;
 }
 
 BOOLEAN
@@ -84,9 +102,10 @@ SerialPortPoll(
     VOID
 )
 {
+    if (((volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR)->mDebugInCount)
+        return TRUE;
     return FALSE;
 }
-
 
 RETURN_STATUS
 EFIAPI

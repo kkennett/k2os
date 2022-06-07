@@ -179,9 +179,9 @@ typedef struct _CORTEXA9MP_INTDIST_REGS
 /* 0xC40-
    0xCFC */ _REG32 mReserved10[48];
 
-/* 0xD00 */ _REG32 ppi_status;
+/* 0xD00 */ _REG32 PPI_STATUS;
 /* 0xD04-
-   0xD1C */ _REG32 spi_status[7];
+   0xD1C */ _REG32 SPI_STATUS[7];
 
 /* 0xD20-
    0xEFC */ _REG32 mReserved11[120];
@@ -192,10 +192,10 @@ typedef struct _CORTEXA9MP_INTDIST_REGS
    0xFCC */ _REG32 mReserved12[51];
 
 /* 0xFD0-
-   0xFEC */ _REG32 periph_id[8];
+   0xFEC */ _REG32 PERIPH_ID[8];
 
 /* 0xFF0-
-   0xFFC */ _REG32 component_id[4];
+   0xFFC */ _REG32 COMPONENT_ID[4];
 
 } CORTEXA9MP_INTDIST_REGS;
 
