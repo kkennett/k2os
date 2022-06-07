@@ -106,7 +106,7 @@
 [PcdsFixedAtBuild.common]                                               
     gArmPlatformTokenSpaceGuid.PcdCPUCorePrimaryStackSize      | 0x00008000         #0x10000            |UINT32             
     gArmPlatformTokenSpaceGuid.PcdCPUCoreSecondaryStackSize    | 0x00001000         #0x1000             |UINT32
-    gArmPlatformTokenSpaceGuid.PcdSystemMemoryUefiRegionSize   | 0x02000000         #0x08000000         |UINT32       
+    gArmPlatformTokenSpaceGuid.PcdSystemMemoryUefiRegionSize   | 0x01000000         #0x08000000         |UINT32       
     gArmPlatformTokenSpaceGuid.PcdCoreCount                    | 2
 
     gArmPlatformTokenSpaceGuid.PcdSP804TimerPeriodicInterruptNum    |160
