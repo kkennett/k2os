@@ -68,6 +68,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2vmap32", "lib\k2vmap32\k2
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2vmap64", "lib\k2vmap64\k2vmap64.vcxproj", "{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fatwork", "exe\fatwork\fatwork\fatwork.vcxproj", "{5D912250-3E7C-4A26-B87C-D32A8D38C4EE}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D859F07A-ABB4-44D3-9A7D-80CA6FDC8846} = {D859F07A-ABB4-44D3-9A7D-80CA6FDC8846}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -233,6 +238,14 @@ Global
 		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Release|x64.Build.0 = Release|x64
 		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Release|x86.ActiveCfg = Release|Win32
 		{89AE20CB-52C6-402E-878B-A9C6B0F53FCD}.Release|x86.Build.0 = Release|Win32
+		{5D912250-3E7C-4A26-B87C-D32A8D38C4EE}.Debug|x64.ActiveCfg = Debug|x64
+		{5D912250-3E7C-4A26-B87C-D32A8D38C4EE}.Debug|x64.Build.0 = Debug|x64
+		{5D912250-3E7C-4A26-B87C-D32A8D38C4EE}.Debug|x86.ActiveCfg = Debug|Win32
+		{5D912250-3E7C-4A26-B87C-D32A8D38C4EE}.Debug|x86.Build.0 = Debug|Win32
+		{5D912250-3E7C-4A26-B87C-D32A8D38C4EE}.Release|x64.ActiveCfg = Release|x64
+		{5D912250-3E7C-4A26-B87C-D32A8D38C4EE}.Release|x64.Build.0 = Release|x64
+		{5D912250-3E7C-4A26-B87C-D32A8D38C4EE}.Release|x86.ActiveCfg = Release|Win32
+		{5D912250-3E7C-4A26-B87C-D32A8D38C4EE}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

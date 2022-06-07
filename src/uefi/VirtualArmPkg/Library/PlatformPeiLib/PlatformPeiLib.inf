@@ -35,12 +35,14 @@
   DebugLib
   HobLib
   ArmPlatformLib
+  BaseLib
+  BaseMemoryLib
   VADiskAdapterLib
 
 [FixedPcd]
   gArmTokenSpaceGuid.PcdFvBaseAddress
   gArmTokenSpaceGuid.PcdFvSize
-  gVirtualArmTokenSpaceGuid.PcdDiskAdapterSlotNumber
+  gVirtualArmTokenSpaceGuid.PcdDebugAdapterSlotNumber
 
 [depex]
   TRUE

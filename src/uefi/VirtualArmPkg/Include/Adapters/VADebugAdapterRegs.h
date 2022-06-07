@@ -95,6 +95,18 @@ typedef struct _VIRTARM_DEBUGADAPTER_REGS
    IOCommand  OUT:  error code or 0 for no error
 */
 
+//#define VIRTARM_DEBUGADAPTER_IOCMD_GETAUXBYTES      6   
+/* IOArgument  IN:  nothing
+   IOArgument OUT:  # of bytes in aux boot image
+   IOCommand  OUT:  error code or 0 for no error
+*/
+
+//#define VIRTARM_DEBUGADAPTER_IOCMD_PUSHAUXPACKET    7   
+/* IOArgument  IN:  packet #
+   IOArgument OUT:  valid bytes in packet
+   IOCommand  OUT:  error code or 0 for no error
+*/
+
 // ---------------------------------------------------------------------
 
 #ifdef _MSC_VER
