@@ -31,8 +31,12 @@
 //
 
 #include <virtarm.h>
+#include <Library/BaseLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Library/SerialPortLib.h>
 #include <Library/VADebugAdapterLib.h>
+
+#define USE_MSG_BUFFER  1
 
 #define PHYS_REGS_ADDR      VIRTARM_PHYSADDR_ADAPTER_REGS(FixedPcdGet32(PcdDebugAdapterSlotNumber))
 
@@ -42,10 +46,51 @@ SerialPortInitialize(
     VOID
 )
 {
-    VIRTARMDEBUG_Init((volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR, FALSE, FALSE);
+    VIRTARMDEBUG_Init((volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR, 
+#if USE_MSG_BUFFER
+        TRUE,
+#else
+        FALSE,
+#endif
+        FALSE);
     return EFI_SUCCESS;
 }
 
+#if USE_MSG_BUFFER
+UINTN
+EFIAPI
+SerialPortWrite(
+    IN  UINT8 * Buffer,
+    IN  UINTN   NumberOfBytes
+)
+{
+    volatile VIRTARM_DEBUGADAPTER_REGS *pRegs;
+    UINT8 *                             pTarget;
+
+    if (0 == NumberOfBytes)
+        return 0;
+
+    pRegs = (volatile VIRTARM_DEBUGADAPTER_REGS *)PHYS_REGS_ADDR;
+
+    if (!(pRegs->mControlAndStatus & VIRTARM_DEBUGADAPTER_CTRLSTAT_CONSOLE_PRESENT))
+        return 0;
+
+    if (NumberOfBytes > 2047)
+        NumberOfBytes = 2047;
+
+    pTarget = (UINT8 *)pRegs;
+    pTarget -= VIRTARM_OFFSET_ADAPTER_REGS;
+    pTarget += VIRTARM_OFFSET_ADAPTER_SRAM;
+    pTarget += VIRTARM_DEBUGADAPTER_SRAM_OFFSET_MESSAGEBUFFER;
+
+    CopyMem(pTarget, Buffer, NumberOfBytes);
+
+    pRegs->mDebugOut = NumberOfBytes;
+
+    return NumberOfBytes;
+}
+
+#else
 UINTN
 EFIAPI
 SerialPortWrite(
@@ -69,6 +114,7 @@ SerialPortWrite(
 
     return NumberOfBytes;
 }
+#endif
 
 UINTN
 EFIAPI

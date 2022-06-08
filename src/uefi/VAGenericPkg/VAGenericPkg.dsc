@@ -231,7 +231,7 @@
     DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
 #    PeCoffExtraActionLib        |ArmPkg/Library/DebugPeCoffExtraActionLib/DebugPeCoffExtraActionLib.inf
     PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
-    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+    SerialPortLib               |VirtualArmPkg/Library/DebugAdapterPortLib/DebugAdapterPortLib.inf
 
 ###################################################################################################
 #
@@ -265,7 +265,7 @@
     DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
 #    PeCoffExtraActionLib        |ArmPkg/Library/DebugPeCoffExtraActionLib/DebugPeCoffExtraActionLib.inf
     PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
-    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+    SerialPortLib               |VirtualArmPkg/Library/DebugAdapterPortLib/DebugAdapterPortLib.inf
 
 
 ###################################################################################################
@@ -311,7 +311,7 @@
 
     MdeModulePkg/Universal/SerialDxe/SerialDxe.inf {
         <LibraryClasses>
-        SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+        SerialPortLib               |VirtualArmPkg/Library/DebugAdapterPortLib/DebugAdapterPortLib.inf
     }
 
     MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf {
@@ -347,7 +347,7 @@
     DebugLib                    |MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
     DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
     PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
-    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+    SerialPortLib               |VirtualArmPkg/Library/DebugAdapterPortLib/DebugAdapterPortLib.inf
 
 
 ###################################################################################################
@@ -404,7 +404,7 @@
     DebugLib                    |MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
     DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
     PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
-    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+    SerialPortLib               |VirtualArmPkg/Library/DebugAdapterPortLib/DebugAdapterPortLib.inf
 
 
 
@@ -443,7 +443,7 @@
     DebugLib                    |MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
     DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
     PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
-    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+    SerialPortLib               |VirtualArmPkg/Library/DebugAdapterPortLib/DebugAdapterPortLib.inf
 
 ###################################################################################################
 #
@@ -462,4 +462,4 @@
     DebugLib                    |MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
     DebugPrintErrorLevelLib     |MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
     PeCoffExtraActionLib        |MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
-    SerialPortLib               |VirtualArmPkg/Library/SerialPortLibOutOnly/SerialPortLibOutOnly.inf
+    SerialPortLib               |VirtualArmPkg/Library/DebugAdapterPortLib/DebugAdapterPortLib.inf
