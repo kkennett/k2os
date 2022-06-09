@@ -51,94 +51,122 @@ myAssert(
 
 extern "C" K2_pf_ASSERT K2_Assert = myAssert;
 
-#define DISK_SECTOR_BYTES   512
+#define K2STOR_SECTOR_BYTES   512
 
 K2_PACKED_PUSH
-typedef struct _STORMEDIA   STORMEDIA;
-typedef struct _BLOCKIO     BLOCKIO;
-typedef struct _STORPART    STORPART;
-typedef struct _BLOCKSTOR   BLOCKSTOR;
+typedef struct _K2STOR_MEDIA    K2STOR_MEDIA;
+typedef struct _K2STOR_BLOCKIO  K2STOR_BLOCKIO;
+typedef struct _K2STOR_PART     K2STOR_PART;
+typedef struct _K2STOR_BLOCKDEV K2STOR_BLOCKDEV;
 
-struct _STORMEDIA
+struct _K2STOR_MEDIA
 {
-    UINT8       mSerialNumber[31];
-    UINT8       mFlagReadOnly;
-    UINT16      mNumSectorsPerTrack;
-    UINT16      mNumCylinders;
-    UINT16      mNumHeads;
-    UINT16      mBytesPerSector;
-    UINT64      mTotalSectorsCount;
-    UINT64      mSpare;
+    UINT8               mSerialNumber[31];
+    UINT8               mFlagReadOnly;
+    UINT16              mNumSectorsPerTrack;
+    UINT16              mNumCylinders;
+    UINT16              mNumHeads;
+    UINT16              mBytesPerSector;
+    UINT64              mTotalSectorsCount;
+    UINT_PTR            mCurrentPartCount;
+    K2STOR_PART *       mpCurrentPartArray;
+    K2STOR_BLOCKDEV *   mpCurrentMount;
+    UINT_PTR            mUserContext;
 } K2_PACKED_ATTRIB;
+
+struct _K2STOR_PART
+{
+    K2STOR_MEDIA *  mpMedia;
+    UINT_PTR        mPartTableEntryIx;
+    K2_GUID128      mPartTypeGuid;
+    K2_GUID128      mPartIdGuid;
+    UINT64          mAttributes;
+    UINT64          mMediaStartSectorOffset;
+    UINT64          mMediaSectorsCount;
+    UINT_PTR        mUserContext;
+    UINT8           mPartTypeByte;
+    UINT8           mFlagReadOnly;
+    UINT8           mFlagActive;
+    UINT8           mFlagEFI;
+} K2_PACKED_ATTRIB;
+
 K2_PACKED_POP
 
-typedef K2STAT (*BLOCKIO_pf_Transfer)(BLOCKIO const *apBlockIo, UINT64 const *apBlockStartIx, UINT_PTR aBlockCount, BOOL aIsWrite, void *apBuffer);
+typedef K2STAT (*K2STOR_BLOCKIO_pf_Transfer)(K2STOR_BLOCKIO const *apBlockIo, UINT64 const *apBlockStartIx, UINT_PTR aBlockCount, BOOL aIsWrite, UINT_PTR aBufferAddr);
 
-struct _BLOCKIO
+struct _K2STOR_BLOCKIO
 {
-    BLOCKIO_pf_Transfer Transfer;
-    UINT_PTR            mBlockSizeInBytes;
-    BOOL                mIsReadOnlyDevice;
+    K2STOR_BLOCKIO_pf_Transfer  Transfer;
+    UINT_PTR                    mBlockSizeInBytes;
+    UINT_PTR                    mMaxBlocksOneTransfer;
+    UINT_PTR                    mTransferAlignBytes;
+    BOOL                        mIsReadOnlyDevice;
 };
 
-struct _STORPART
+struct _K2STOR_BLOCKDEV
 {
-    BLOCKSTOR * mpBlockStor;
-    UINT_PTR    mPartTableEntryIx;
-    K2_GUID128  mPartTypeGuid;
-    K2_GUID128  mPartIdGuid;
-    UINT64      mAttributes;
-    UINT64      mMediaStartSectorOffset;
-    UINT64      mMediaSectorsCount;
-    UINT8       mPartTypeByte;
-    UINT8       mFlagReadOnly;
-    UINT8       mFlagActive;
-    UINT8       mFlagSpare;
-};
-
-struct _BLOCKSTOR
-{
-    BLOCKIO     BlockIo;
-    STORMEDIA   Media;
-    UINT_PTR    mPartCount;
-    STORPART *  mpPartArray;
+    K2STOR_BLOCKIO  BlockIo;
+    K2STOR_MEDIA *  mpCurrentMedia;
 };
 
 K2STAT
-BLOCKSTOR_Transfer(
-    BLOCKSTOR *     apBlockStor,
-    UINT64 const *  apBlockIx,
-    UINT_PTR        aBlockCount,
-    BOOL            aIsWrite,
-    void *          apBuffer
+K2STOR_BLOCKDEV_Transfer(
+    K2STOR_BLOCKDEV *   apBlockStor,
+    UINT64 const *      apBlockIx,
+    UINT_PTR            aBlockCount,
+    BOOL                aIsWrite,
+    UINT_PTR            aBufferAddr
 )
 {
+    K2STOR_MEDIA *  pMedia;
+
     if ((NULL == apBlockStor) ||
         (0 == apBlockStor->BlockIo.mBlockSizeInBytes) ||
-        (apBlockStor->BlockIo.mBlockSizeInBytes != apBlockStor->Media.mBytesPerSector) ||
-        ((*apBlockIx) >= apBlockStor->Media.mTotalSectorsCount) ||
-        ((apBlockStor->Media.mTotalSectorsCount - (*apBlockIx)) < aBlockCount))
+        (0 == apBlockStor->BlockIo.mMaxBlocksOneTransfer) ||
+        (0 == apBlockStor->BlockIo.mTransferAlignBytes))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    if ((aIsWrite) && ((apBlockStor->Media.mFlagReadOnly) || (apBlockStor->BlockIo.mIsReadOnlyDevice)))
+    pMedia = apBlockStor->mpCurrentMedia;
+    if (NULL == pMedia)
+        return K2STAT_ERROR_NO_MEDIA;
+
+    if ((apBlockStor->BlockIo.mBlockSizeInBytes != pMedia->mBytesPerSector) ||
+        ((*apBlockIx) >= pMedia->mTotalSectorsCount) ||
+        (aBlockCount > apBlockStor->BlockIo.mMaxBlocksOneTransfer) ||
+        ((pMedia->mTotalSectorsCount - (*apBlockIx)) < aBlockCount) ||
+        ((aBufferAddr % apBlockStor->BlockIo.mTransferAlignBytes) != 0))
+        return K2STAT_ERROR_BAD_ARGUMENT;
+
+    if ((aIsWrite) && ((pMedia->mFlagReadOnly) || (apBlockStor->BlockIo.mIsReadOnlyDevice)))
         return K2STAT_ERROR_READ_ONLY;
 
-    return apBlockStor->BlockIo.Transfer(&apBlockStor->BlockIo, apBlockIx, aBlockCount, aIsWrite, apBuffer);
+    return apBlockStor->BlockIo.Transfer(&apBlockStor->BlockIo, apBlockIx, aBlockCount, aIsWrite, aBufferAddr);
 }
 
 K2STAT 
-STORPART_Transfer(
-    STORPART *      apStorPart,
+K2STOR_PART_Transfer(
+    K2STOR_PART *   apStorPart,
     UINT64 const *  apBlockIx,
     UINT_PTR        aBlockCount,
     BOOL            aIsWrite,
-    void *          apBuffer
+    UINT_PTR        aBufferAddr
 )
 {
-    UINT64 trans;
+    UINT64              trans;
+    K2STOR_MEDIA *      pMedia;
+    K2STOR_BLOCKDEV *   pBlockDev;
 
-    if ((NULL == apStorPart) ||
-        (NULL == apBuffer) ||
+    if (NULL == apStorPart)
+        return K2STAT_ERROR_BAD_ARGUMENT;
+
+    pMedia = apStorPart->mpMedia;
+    if (NULL == pMedia)
+        return K2STAT_ERROR_NO_MEDIA;
+
+
+
+        (NULL == apStorPart->mpMedia) ||
+        (NULL == apStorPart->mpMedia->mpCurrentMount) ||
         ((*apBlockIx) >= apStorPart->mMediaSectorsCount) ||
         ((apStorPart->mMediaSectorsCount - (*apBlockIx)) < aBlockCount))
         return K2STAT_ERROR_BAD_ARGUMENT;
@@ -148,12 +176,12 @@ STORPART_Transfer(
 
     trans = (*apBlockIx) + apStorPart->mMediaStartSectorOffset;
 
-    return BLOCKSTOR_Transfer(apStorPart->mpBlockStor, &trans, aBlockCount, aIsWrite, apBuffer);
+    return K2STOR_BLOCKDEV_Transfer(apStorPart->mpMedia->mpCurrentMount, &trans, aBlockCount, aIsWrite, apBuffer);
 }
 
 BOOL
-STORPART_MBRPartIsValid(
-    STORMEDIA const *               apMedia,
+K2STOR_PART_MBRPartIsValid(
+    K2STOR_MEDIA const *               apMedia,
     FAT_MBR_PARTITION_ENTRY const * apEnt,
     UINT_PTR *                      apRetStartSector,
     UINT_PTR *                      apRetSectorCount
@@ -238,14 +266,14 @@ STORPART_MBRPartIsValid(
 }
 
 K2STAT
-STORPART_DiscoverMBR(
-    BLOCKIO const *     apBlockIo,
-    STORMEDIA const *   apMedia,
+K2STOR_PART_DiscoverMBR(
+    K2STOR_BLOCKIO const *     apBlockIo,
+    K2STOR_MEDIA const *   apMedia,
     UINT_PTR *          apRetPartCount,
-    STORPART **         appRetPartArray
+    K2STOR_PART **         appRetPartArray
 )
 {
-    UINT8                       sector0[DISK_SECTOR_BYTES];
+    UINT8                       sector0[K2STOR_SECTOR_BYTES];
     K2STAT                      stat;
     UINT_PTR                    validMask;
     UINT_PTR                    ix;
@@ -254,7 +282,7 @@ STORPART_DiscoverMBR(
     FAT_GENERIC_BOOTSECTOR *    pBootSec;
     UINT_PTR                    partStart[4];
     UINT_PTR                    partSectors[4];
-    STORPART *                  pRet;
+    K2STOR_PART *                  pRet;
     UINT64                      blockIx;
 
     blockIx = 0;
@@ -274,7 +302,7 @@ STORPART_DiscoverMBR(
     partCount = 0;
     for (ix = 0; ix < 4; ix++)
     {
-        if (STORPART_MBRPartIsValid(apMedia, &pPart[ix], &partStart[ix], &partSectors[ix]))
+        if (K2STOR_PART_MBRPartIsValid(apMedia, &pPart[ix], &partStart[ix], &partSectors[ix]))
         {
             partCount++;
             validMask |= (1 << ix);
@@ -286,11 +314,11 @@ STORPART_DiscoverMBR(
         return K2STAT_ERROR_NOT_FOUND;
     }
 
-    pRet = (STORPART *)malloc(partCount * sizeof(STORPART));
+    pRet = (K2STOR_PART *)malloc(partCount * sizeof(K2STOR_PART));
     if (NULL == pRet)
         return K2STAT_ERROR_OUT_OF_MEMORY;
 
-    K2MEM_Zero(pRet, partCount * sizeof(STORPART));
+    K2MEM_Zero(pRet, partCount * sizeof(K2STOR_PART));
 
     for (ix = 0; ix < 4; ix++)
     {
@@ -338,10 +366,10 @@ typedef struct _GPT_SECTOR GPT_SECTOR;
 struct _GPT_SECTOR
 {
     GPT_HEADER  Header;
-    UINT8       Reserved[DISK_SECTOR_BYTES - 92];
+    UINT8       Reserved[K2STOR_SECTOR_BYTES - 92];
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
-K2_STATIC_ASSERT(sizeof(GPT_SECTOR) == DISK_SECTOR_BYTES);
+K2_STATIC_ASSERT(sizeof(GPT_SECTOR) == K2STOR_SECTOR_BYTES);
 
 K2_PACKED_PUSH
 typedef struct _GPT_ENTRY GPT_ENTRY;
@@ -360,12 +388,12 @@ K2_STATIC_ASSERT(sizeof(GPT_ENTRY) == 128);
 #define GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY          (0x1000000000000000)
 
 K2STAT
-STORPART_DiscoverGPT(
+K2STOR_PART_DiscoverGPT(
     GPT_SECTOR const *  apSector1,
-    BLOCKIO const *     apBlockIo,
-    STORMEDIA const *   apMedia,
+    K2STOR_BLOCKIO const *     apBlockIo,
+    K2STOR_MEDIA const *   apMedia,
     UINT_PTR *          apRetPartCount,
-    STORPART **         appRetPartArray
+    K2STOR_PART **         appRetPartArray
 )
 {
     static K2_GUID128 const sBasicPartGuid = { 0xEBD0A0A2, 0xB9E5, 0x4433, { 0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 } };
@@ -380,8 +408,8 @@ STORPART_DiscoverGPT(
     UINT8 *     pScan;
     UINT_PTR    ixPart;
     UINT_PTR    partCount;
-    STORPART *  pPartArray;
-    STORPART *  pPart;
+    K2STOR_PART *  pPartArray;
+    K2STOR_PART *  pPart;
 
     *apRetPartCount = 0;
     *appRetPartArray = NULL;
@@ -515,14 +543,14 @@ STORPART_DiscoverGPT(
 
     if (0 != partCount)
     {
-        pPartArray = (STORPART *)malloc(sizeof(STORPART) * partCount);
+        pPartArray = (K2STOR_PART *)malloc(sizeof(K2STOR_PART) * partCount);
         if (NULL == pPartArray)
         {
             partCount = 0;
         }
         else
         {
-            K2MEM_Zero(pPartArray, sizeof(STORPART) * partCount);
+            K2MEM_Zero(pPartArray, sizeof(K2STOR_PART) * partCount);
             pScan = pPartTab;
             pPart = pPartArray;
             for (ixPart = 0; ixPart < apSector1->Header.NumberOfPartitionEntries; ixPart++)
@@ -565,11 +593,11 @@ STORPART_DiscoverGPT(
 }
 
 K2STAT 
-STORPART_Discover(
-    BLOCKIO const *     apBlockIo,
-    STORMEDIA const *   apMedia,
+K2STOR_PART_Discover(
+    K2STOR_BLOCKIO const *     apBlockIo,
+    K2STOR_MEDIA const *   apMedia,
     UINT_PTR *          apRetPartCount,
-    STORPART **         appRetPartArray
+    K2STOR_PART **         appRetPartArray
 )
 {
     GPT_SECTOR  gptSector;
@@ -589,7 +617,7 @@ STORPART_Discover(
     *apRetPartCount = 0;
     *appRetPartArray = NULL;
 
-    K2_ASSERT(DISK_SECTOR_BYTES == apBlockIo->mBlockSizeInBytes);
+    K2_ASSERT(K2STOR_SECTOR_BYTES == apBlockIo->mBlockSizeInBytes);
     
     blockIx = 1;
     stat = apBlockIo->Transfer(apBlockIo, &blockIx, 1, FALSE, &gptSector);
@@ -599,15 +627,15 @@ STORPART_Discover(
 
     if (!K2ASC_CompLen((char *)&gptSector.Header.Signature, "EFI PART", 8))
     {
-        return STORPART_DiscoverGPT(&gptSector, apBlockIo, apMedia, apRetPartCount, appRetPartArray);
+        return K2STOR_PART_DiscoverGPT(&gptSector, apBlockIo, apMedia, apRetPartCount, appRetPartArray);
     }
 
-    return STORPART_DiscoverMBR(apBlockIo, apMedia, apRetPartCount, appRetPartArray);
+    return K2STOR_PART_DiscoverMBR(apBlockIo, apMedia, apRetPartCount, appRetPartArray);
 }
 
 K2STAT
-BLOCKSTOR_Discover(
-    BLOCKSTOR * apBlockStor
+K2STOR_BLOCKDEV_Discover(
+    K2STOR_BLOCKDEV * apBlockStor
 )
 {
     K2STAT      stat;
@@ -624,7 +652,7 @@ BLOCKSTOR_Discover(
         (0 == apBlockStor->Media.mTotalSectorsCount))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    stat = STORPART_Discover(&apBlockStor->BlockIo, &apBlockStor->Media, &apBlockStor->mPartCount, &apBlockStor->mpPartArray);
+    stat = K2STOR_PART_Discover(&apBlockStor->BlockIo, &apBlockStor->Media, &apBlockStor->mPartCount, &apBlockStor->mpPartArray);
     if (K2STAT_IS_ERROR(stat))
         return stat;
 
@@ -664,7 +692,7 @@ struct _VHD_FOOTER
     UINT8   mReserved[427];
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
-K2_STATIC_ASSERT(DISK_SECTOR_BYTES == sizeof(VHD_FOOTER));
+K2_STATIC_ASSERT(K2STOR_SECTOR_BYTES == sizeof(VHD_FOOTER));
 VHD_FOOTER vhdFooter;
 
 typedef struct _VHD VHD;
@@ -672,12 +700,12 @@ struct _VHD
 {
     HANDLE      mHandle;
     VHD_FOOTER  VhdFooter;
-    BLOCKSTOR   BlockStor;
+    K2STOR_BLOCKDEV   BlockStor;
 };
 
 K2STAT
 vhdTransfer(
-    BLOCKIO const * apBlockIo,
+    K2STOR_BLOCKIO const * apBlockIo,
     UINT64 const *  apBlockIx,
     UINT_PTR        aBlockCount,
     BOOL            aIsWrite,
@@ -744,12 +772,12 @@ int main(int argc, char **argv)
     ULONG fileBytes = GetFileSize(hFile, NULL);
     if (INVALID_FILE_SIZE == fileBytes)
         return -2;
-    if (0 != (fileBytes % DISK_SECTOR_BYTES))
+    if (0 != (fileBytes % K2STOR_SECTOR_BYTES))
         return -3;
-    if (INVALID_SET_FILE_POINTER == SetFilePointer(hFile, -DISK_SECTOR_BYTES, NULL, FILE_END))
+    if (INVALID_SET_FILE_POINTER == SetFilePointer(hFile, -K2STOR_SECTOR_BYTES, NULL, FILE_END))
         return -4;
     DWORD bytesIo = 0;
-    if (!ReadFile(hFile, &gVHD.VhdFooter, DISK_SECTOR_BYTES, &bytesIo, NULL))
+    if (!ReadFile(hFile, &gVHD.VhdFooter, K2STOR_SECTOR_BYTES, &bytesIo, NULL))
     {
         return -5;
     }
@@ -807,7 +835,7 @@ int main(int argc, char **argv)
     gVHD.BlockStor.Media.mTotalSectorsCount = info.Size.VirtualSize / info.Size.SectorSize;
  
     K2STAT stat;
-    stat = BLOCKSTOR_Discover(&gVHD.BlockStor);
+    stat = K2STOR_BLOCKDEV_Discover(&gVHD.BlockStor);
     if (K2STAT_IS_ERROR(stat))
     {
         return -1;
@@ -817,7 +845,7 @@ int main(int argc, char **argv)
     FAT_GENERIC_BOOTSECTOR bootSector;
 
     blockIx = 0;
-    stat = STORPART_Transfer(&gVHD.BlockStor.mpPartArray[0], &blockIx, 1, FALSE, &bootSector);
+    stat = K2STOR_PART_Transfer(&gVHD.BlockStor.mpPartArray[0], &blockIx, 1, FALSE, &bootSector);
     if (K2STAT_IS_ERROR(stat))
     {
         return -1;
