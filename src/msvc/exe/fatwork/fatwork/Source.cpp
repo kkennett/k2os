@@ -51,9 +51,13 @@ myAssert(
 
 extern "C" K2_pf_ASSERT K2_Assert = myAssert;
 
+
+
+
 #define K2STOR_SECTOR_BYTES   512
 
 K2_PACKED_PUSH
+
 typedef struct _K2STOR_MEDIA    K2STOR_MEDIA;
 typedef struct _K2STOR_BLOCKIO  K2STOR_BLOCKIO;
 typedef struct _K2STOR_PART     K2STOR_PART;
@@ -90,6 +94,46 @@ struct _K2STOR_PART
     UINT8           mFlagEFI;
 } K2_PACKED_ATTRIB;
 
+typedef struct _K2STOR_GPT_HEADER K2STOR_GPT_HEADER;
+struct _K2STOR_GPT_HEADER
+{
+    UINT8       Signature[8];       //  "EFI PART"
+    UINT32      Revision;           //  0x00010000
+    UINT32      HeaderSize;
+    UINT32      HeaderCRC32;
+    UINT32      Reserved;
+    UINT64      MyLBA;
+    UINT64      AlternateLBA;
+    UINT64      FirstUsableLBA;
+    UINT64      LastUsableLBA;
+    K2_GUID128  DiskGuid;
+    UINT64      PartitionEntryLBA;
+    UINT32      NumberOfPartitionEntries;
+    UINT32      SizeOfPartitionEntry;
+    UINT32      PartitionEntryArrayCRC32;
+} K2_PACKED_ATTRIB;
+K2_STATIC_ASSERT(sizeof(K2STOR_GPT_HEADER) == 92);
+
+typedef struct _K2STOR_GPT_SECTOR K2STOR_GPT_SECTOR;
+struct _K2STOR_GPT_SECTOR
+{
+    K2STOR_GPT_HEADER   Header;
+    UINT8               Reserved[K2STOR_SECTOR_BYTES - 92];
+} K2_PACKED_ATTRIB;
+K2_STATIC_ASSERT(sizeof(K2STOR_GPT_SECTOR) == K2STOR_SECTOR_BYTES);
+
+typedef struct _K2STOR_GPT_ENTRY K2STOR_GPT_ENTRY;
+struct _K2STOR_GPT_ENTRY
+{
+    K2_GUID128  PartitionTypeGuid;
+    K2_GUID128  UniquePartitionGuid;
+    UINT64      StartingLBA;
+    UINT64      EndingLBA;
+    UINT64      Attributes;
+    UINT16      UnicodePartitionName[36];
+} K2_PACKED_ATTRIB;
+K2_STATIC_ASSERT(sizeof(K2STOR_GPT_ENTRY) == 128);
+
 K2_PACKED_POP
 
 typedef K2STAT (*K2STOR_BLOCKIO_pf_Transfer)(K2STOR_BLOCKIO const *apBlockIo, UINT64 const *apBlockStartIx, UINT_PTR aBlockCount, BOOL aIsWrite, UINT_PTR aBufferAddr);
@@ -109,9 +153,13 @@ struct _K2STOR_BLOCKDEV
     K2STOR_MEDIA *  mpCurrentMedia;
 };
 
+#define K2STOR_GPT_BASIC_DATA_PART_GUID             { 0xEBD0A0A2, 0xB9E5, 0x4433, { 0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 } }
+
+#define K2STOR_GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY   (0x1000000000000000)
+
 K2STAT
 K2STOR_BLOCKDEV_Transfer(
-    K2STOR_BLOCKDEV *   apBlockStor,
+    K2STOR_BLOCKDEV *   apBlockDev,
     UINT64 const *      apBlockIx,
     UINT_PTR            aBlockCount,
     BOOL                aIsWrite,
@@ -120,27 +168,27 @@ K2STOR_BLOCKDEV_Transfer(
 {
     K2STOR_MEDIA *  pMedia;
 
-    if ((NULL == apBlockStor) ||
-        (0 == apBlockStor->BlockIo.mBlockSizeInBytes) ||
-        (0 == apBlockStor->BlockIo.mMaxBlocksOneTransfer) ||
-        (0 == apBlockStor->BlockIo.mTransferAlignBytes))
+    if ((NULL == apBlockDev) ||
+        (0 == apBlockDev->BlockIo.mBlockSizeInBytes) ||
+        (0 == apBlockDev->BlockIo.mMaxBlocksOneTransfer) ||
+        (0 == apBlockDev->BlockIo.mTransferAlignBytes))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    pMedia = apBlockStor->mpCurrentMedia;
+    pMedia = apBlockDev->mpCurrentMedia;
     if (NULL == pMedia)
         return K2STAT_ERROR_NO_MEDIA;
 
-    if ((apBlockStor->BlockIo.mBlockSizeInBytes != pMedia->mBytesPerSector) ||
+    if ((apBlockDev->BlockIo.mBlockSizeInBytes != pMedia->mBytesPerSector) ||
         ((*apBlockIx) >= pMedia->mTotalSectorsCount) ||
-        (aBlockCount > apBlockStor->BlockIo.mMaxBlocksOneTransfer) ||
+        (aBlockCount > apBlockDev->BlockIo.mMaxBlocksOneTransfer) ||
         ((pMedia->mTotalSectorsCount - (*apBlockIx)) < aBlockCount) ||
-        ((aBufferAddr % apBlockStor->BlockIo.mTransferAlignBytes) != 0))
+        ((aBufferAddr % apBlockDev->BlockIo.mTransferAlignBytes) != 0))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    if ((aIsWrite) && ((pMedia->mFlagReadOnly) || (apBlockStor->BlockIo.mIsReadOnlyDevice)))
+    if ((aIsWrite) && ((pMedia->mFlagReadOnly) || (apBlockDev->BlockIo.mIsReadOnlyDevice)))
         return K2STAT_ERROR_READ_ONLY;
 
-    return apBlockStor->BlockIo.Transfer(&apBlockStor->BlockIo, apBlockIx, aBlockCount, aIsWrite, aBufferAddr);
+    return apBlockDev->BlockIo.Transfer(&apBlockDev->BlockIo, apBlockIx, aBlockCount, aIsWrite, aBufferAddr);
 }
 
 K2STAT 
@@ -159,29 +207,32 @@ K2STOR_PART_Transfer(
     if (NULL == apStorPart)
         return K2STAT_ERROR_BAD_ARGUMENT;
 
+    if ((aIsWrite) && (apStorPart->mFlagReadOnly))
+        return K2STAT_ERROR_READ_ONLY;
+
     pMedia = apStorPart->mpMedia;
     if (NULL == pMedia)
         return K2STAT_ERROR_NO_MEDIA;
 
+    if ((pMedia->mCurrentPartCount <= apStorPart->mPartTableEntryIx) ||
+        (apStorPart != &pMedia->mpCurrentPartArray[apStorPart->mPartTableEntryIx]))
+        return K2STAT_ERROR_CORRUPTED;
 
-
-        (NULL == apStorPart->mpMedia) ||
-        (NULL == apStorPart->mpMedia->mpCurrentMount) ||
+    pBlockDev = pMedia->mpCurrentMount;
+    if ((NULL == pBlockDev) ||
+        (pMedia != pBlockDev->mpCurrentMedia) ||
         ((*apBlockIx) >= apStorPart->mMediaSectorsCount) ||
         ((apStorPart->mMediaSectorsCount - (*apBlockIx)) < aBlockCount))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    if ((aIsWrite) && (apStorPart->mFlagReadOnly))
-        return K2STAT_ERROR_READ_ONLY;
-
     trans = (*apBlockIx) + apStorPart->mMediaStartSectorOffset;
 
-    return K2STOR_BLOCKDEV_Transfer(apStorPart->mpMedia->mpCurrentMount, &trans, aBlockCount, aIsWrite, apBuffer);
+    return K2STOR_BLOCKDEV_Transfer(apStorPart->mpMedia->mpCurrentMount, &trans, aBlockCount, aIsWrite, aBufferAddr);
 }
 
 BOOL
 K2STOR_PART_MBRPartIsValid(
-    K2STOR_MEDIA const *               apMedia,
+    K2STOR_MEDIA const *            apMedia,
     FAT_MBR_PARTITION_ENTRY const * apEnt,
     UINT_PTR *                      apRetStartSector,
     UINT_PTR *                      apRetSectorCount
@@ -267,10 +318,10 @@ K2STOR_PART_MBRPartIsValid(
 
 K2STAT
 K2STOR_PART_DiscoverMBR(
-    K2STOR_BLOCKIO const *     apBlockIo,
-    K2STOR_MEDIA const *   apMedia,
-    UINT_PTR *          apRetPartCount,
-    K2STOR_PART **         appRetPartArray
+    K2STOR_BLOCKIO const *  apBlockIo,
+    K2STOR_MEDIA *          apMedia,
+    UINT_PTR *              apRetPartCount,
+    K2STOR_PART **          appRetPartArray
 )
 {
     UINT8                       sector0[K2STOR_SECTOR_BYTES];
@@ -282,11 +333,11 @@ K2STOR_PART_DiscoverMBR(
     FAT_GENERIC_BOOTSECTOR *    pBootSec;
     UINT_PTR                    partStart[4];
     UINT_PTR                    partSectors[4];
-    K2STOR_PART *                  pRet;
+    K2STOR_PART *               pRet;
     UINT64                      blockIx;
 
     blockIx = 0;
-    stat = apBlockIo->Transfer(apBlockIo, &blockIx, 1, FALSE, &sector0);
+    stat = apBlockIo->Transfer(apBlockIo, &blockIx, 1, FALSE, (UINT_PTR)&sector0);
     if (K2STAT_IS_ERROR(stat))
         return stat;
 
@@ -330,6 +381,7 @@ K2STOR_PART_DiscoverMBR(
             pRet[ix].mFlagReadOnly = apMedia->mFlagReadOnly;
             pRet[ix].mFlagActive = ((pPart[ix].mBootInd & 0x80) != 0) ? TRUE : FALSE;
             pRet[ix].mPartTypeByte = pPart[ix].mFileSystem;
+            pRet[ix].mpMedia = apMedia;
         }
     }
 
@@ -339,82 +391,34 @@ K2STOR_PART_DiscoverMBR(
     return K2STAT_NO_ERROR;
 }
 
-K2_PACKED_PUSH
-typedef struct _GPT_HEADER GPT_HEADER;
-struct _GPT_HEADER
-{
-    UINT8       Signature[8];       //  "EFI PART"
-    UINT32      Revision;           //  0x00010000
-    UINT32      HeaderSize;
-    UINT32      HeaderCRC32;
-    UINT32      Reserved;
-    UINT64      MyLBA;
-    UINT64      AlternateLBA;
-    UINT64      FirstUsableLBA;
-    UINT64      LastUsableLBA;
-    K2_GUID128  DiskGuid;
-    UINT64      PartitionEntryLBA;
-    UINT32      NumberOfPartitionEntries;
-    UINT32      SizeOfPartitionEntry;
-    UINT32      PartitionEntryArrayCRC32;
-} K2_PACKED_ATTRIB;
-K2_PACKED_POP
-K2_STATIC_ASSERT(sizeof(GPT_HEADER) == 92);
-
-K2_PACKED_PUSH
-typedef struct _GPT_SECTOR GPT_SECTOR;
-struct _GPT_SECTOR
-{
-    GPT_HEADER  Header;
-    UINT8       Reserved[K2STOR_SECTOR_BYTES - 92];
-} K2_PACKED_ATTRIB;
-K2_PACKED_POP
-K2_STATIC_ASSERT(sizeof(GPT_SECTOR) == K2STOR_SECTOR_BYTES);
-
-K2_PACKED_PUSH
-typedef struct _GPT_ENTRY GPT_ENTRY;
-struct _GPT_ENTRY
-{
-    K2_GUID128  PartitionTypeGuid;
-    K2_GUID128  UniquePartitionGuid;
-    UINT64      StartingLBA;
-    UINT64      EndingLBA;
-    UINT64      Attributes;
-    UINT16      UnicodePartitionName[36];
-} K2_PACKED_ATTRIB;
-K2_PACKED_POP
-K2_STATIC_ASSERT(sizeof(GPT_ENTRY) == 128);
-
-#define GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY          (0x1000000000000000)
-
 K2STAT
 K2STOR_PART_DiscoverGPT(
-    GPT_SECTOR const *  apSector1,
-    K2STOR_BLOCKIO const *     apBlockIo,
-    K2STOR_MEDIA const *   apMedia,
-    UINT_PTR *          apRetPartCount,
-    K2STOR_PART **         appRetPartArray
+    K2STOR_GPT_SECTOR const *   apSector1,
+    K2STOR_BLOCKIO const *      apBlockIo,
+    K2STOR_MEDIA  *             apMedia,
+    UINT_PTR *                  apRetPartCount,
+    K2STOR_PART **              appRetPartArray
 )
 {
-    static K2_GUID128 const sBasicPartGuid = { 0xEBD0A0A2, 0xB9E5, 0x4433, { 0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 } };
-    UINT64      partitionTableSize;
-    GPT_SECTOR  gptSector2;
-    UINT64      blockIx;
-    K2STAT      stat;
-    UINT32      crc;
-    UINT32      zero;
-    GPT_ENTRY   entry;
-    UINT8 *     pPartTab;
-    UINT8 *     pScan;
-    UINT_PTR    ixPart;
-    UINT_PTR    partCount;
-    K2STOR_PART *  pPartArray;
-    K2STOR_PART *  pPart;
+    static K2_GUID128 const sBasicPartGuid = K2STOR_GPT_BASIC_DATA_PART_GUID;
+    UINT64              partitionTableSize;
+    K2STOR_GPT_SECTOR   gptSector2;
+    UINT64              blockIx;
+    K2STAT              stat;
+    UINT32              crc;
+    UINT32              zero;
+    K2STOR_GPT_ENTRY    entry;
+    UINT8 *             pPartTab;
+    UINT8 *             pScan;
+    UINT_PTR            ixPart;
+    UINT_PTR            partCount;
+    K2STOR_PART *       pPartArray;
+    K2STOR_PART *       pPart;
 
     *apRetPartCount = 0;
     *appRetPartArray = NULL;
 
-    if ((apSector1->Header.HeaderSize < sizeof(GPT_HEADER)) ||
+    if ((apSector1->Header.HeaderSize < sizeof(K2STOR_GPT_HEADER)) ||
         (apSector1->Header.HeaderSize >= apMedia->mBytesPerSector))
         return K2STAT_ERROR_CORRUPTED;
 
@@ -435,7 +439,7 @@ K2STOR_PART_DiscoverGPT(
     if ((apSector1->Header.PartitionEntryLBA < 2) ||
         ((apSector1->Header.PartitionEntryLBA >= apSector1->Header.FirstUsableLBA) &&
          (apSector1->Header.PartitionEntryLBA <= apSector1->Header.LastUsableLBA)) ||
-        (sizeof(GPT_ENTRY) > apSector1->Header.SizeOfPartitionEntry) ||
+        (sizeof(K2STOR_GPT_ENTRY) > apSector1->Header.SizeOfPartitionEntry) ||
         (apSector1->Header.NumberOfPartitionEntries == 0))
         return K2STAT_ERROR_CORRUPTED;
 
@@ -453,7 +457,7 @@ K2STOR_PART_DiscoverGPT(
     }
 
     blockIx = apSector1->Header.AlternateLBA;
-    stat = apBlockIo->Transfer(apBlockIo, &blockIx, 1, FALSE, &gptSector2);
+    stat = apBlockIo->Transfer(apBlockIo, &blockIx, 1, FALSE, (UINT_PTR)&gptSector2);
     if (K2STAT_IS_ERROR(stat))
         return stat;
 
@@ -505,7 +509,7 @@ K2STOR_PART_DiscoverGPT(
     }
 
     blockIx = apSector1->Header.PartitionEntryLBA;
-    stat = apBlockIo->Transfer(apBlockIo, &blockIx, (UINT_PTR)partitionTableSize, FALSE, pPartTab);
+    stat = apBlockIo->Transfer(apBlockIo, &blockIx, (UINT_PTR)partitionTableSize, FALSE, (UINT_PTR)pPartTab);
     if (K2STAT_IS_ERROR(stat))
     {
         free(pPartTab);
@@ -525,7 +529,7 @@ K2STOR_PART_DiscoverGPT(
     pPartArray = NULL;
     for (ixPart = 0; ixPart < apSector1->Header.NumberOfPartitionEntries; ixPart++)
     {
-        K2MEM_Copy(&entry, pScan, sizeof(GPT_ENTRY));
+        K2MEM_Copy(&entry, pScan, sizeof(K2STOR_GPT_ENTRY));
         pScan += apSector1->Header.SizeOfPartitionEntry;
         if (!K2MEM_VerifyZero(&entry.PartitionTypeGuid, sizeof(K2_GUID128)))
         {
@@ -555,7 +559,7 @@ K2STOR_PART_DiscoverGPT(
             pPart = pPartArray;
             for (ixPart = 0; ixPart < apSector1->Header.NumberOfPartitionEntries; ixPart++)
             {
-                K2MEM_Copy(&entry, pScan, sizeof(GPT_ENTRY));
+                K2MEM_Copy(&entry, pScan, sizeof(K2STOR_GPT_ENTRY));
                 pScan += apSector1->Header.SizeOfPartitionEntry;
                 if (!K2MEM_VerifyZero(&entry.PartitionTypeGuid, sizeof(K2_GUID128)))
                 {
@@ -567,13 +571,15 @@ K2STOR_PART_DiscoverGPT(
                         pPart->mFlagActive = ((entry.Attributes & GPT_ATTRIBUTE_LEGACY_BIOS_BOOTABLE) != 0) ? TRUE : FALSE;
                         if (0 == K2MEM_Compare(&sBasicPartGuid, &entry.PartitionTypeGuid, sizeof(K2_GUID128)))
                         {
-                            pPart->mFlagReadOnly = ((entry.Attributes & GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY) != 0) ? TRUE : FALSE;
+                            pPart->mFlagReadOnly = ((entry.Attributes & K2STOR_GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY) != 0) ? TRUE : FALSE;
                         }
                         pPart->mMediaSectorsCount = (entry.EndingLBA - entry.StartingLBA) + 1;
                         pPart->mMediaStartSectorOffset = entry.StartingLBA;
                         pPart->mPartTableEntryIx = ixPart;
                         K2MEM_Copy(&pPart->mPartIdGuid, &entry.UniquePartitionGuid, sizeof(K2_GUID128));
                         K2MEM_Copy(&pPart->mPartTypeGuid, &entry.PartitionTypeGuid, sizeof(K2_GUID128));
+                        pPart->mpMedia = apMedia;
+                        pPart->mFlagEFI = TRUE;
                         pPart++;
                     }
                 }
@@ -594,13 +600,13 @@ K2STOR_PART_DiscoverGPT(
 
 K2STAT 
 K2STOR_PART_Discover(
-    K2STOR_BLOCKIO const *     apBlockIo,
-    K2STOR_MEDIA const *   apMedia,
-    UINT_PTR *          apRetPartCount,
-    K2STOR_PART **         appRetPartArray
+    K2STOR_BLOCKIO const *  apBlockIo,
+    K2STOR_MEDIA  *         apMedia,
+    UINT_PTR *              apRetPartCount,
+    K2STOR_PART **          appRetPartArray
 )
 {
-    GPT_SECTOR  gptSector;
+    K2STOR_GPT_SECTOR  gptSector;
     UINT64      blockIx;
     K2STAT      stat;
 
@@ -620,7 +626,7 @@ K2STOR_PART_Discover(
     K2_ASSERT(K2STOR_SECTOR_BYTES == apBlockIo->mBlockSizeInBytes);
     
     blockIx = 1;
-    stat = apBlockIo->Transfer(apBlockIo, &blockIx, 1, FALSE, &gptSector);
+    stat = apBlockIo->Transfer(apBlockIo, &blockIx, 1, FALSE, (UINT_PTR)&gptSector);
     
     if (K2STAT_IS_ERROR(stat))
         return stat;
@@ -634,37 +640,32 @@ K2STOR_PART_Discover(
 }
 
 K2STAT
-K2STOR_BLOCKDEV_Discover(
-    K2STOR_BLOCKDEV * apBlockStor
+K2STOR_BLOCKDEV_DiscoverMediaPartitions(
+    K2STOR_BLOCKDEV * apBlockDev
 )
 {
-    K2STAT      stat;
-    UINT_PTR    ix;
+    K2STOR_MEDIA *  pMedia;
 
-    if (NULL == apBlockStor)
+    if (NULL == apBlockDev)
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    if ((NULL == apBlockStor->BlockIo.Transfer) ||
-        (0 == apBlockStor->BlockIo.mBlockSizeInBytes))
+    if ((NULL == apBlockDev->BlockIo.Transfer) ||
+        (0 == apBlockDev->BlockIo.mBlockSizeInBytes))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    if ((apBlockStor->BlockIo.mBlockSizeInBytes != apBlockStor->Media.mBytesPerSector) ||
-        (0 == apBlockStor->Media.mTotalSectorsCount))
+    pMedia = apBlockDev->mpCurrentMedia;
+    if (NULL == pMedia)
+        return K2STAT_ERROR_NO_MEDIA;
+
+    if ((NULL != pMedia->mpCurrentPartArray) ||
+        (0 != pMedia->mCurrentPartCount))
+        return K2STAT_ERROR_ALREADY_EXISTS;
+
+    if ((apBlockDev->BlockIo.mBlockSizeInBytes != pMedia->mBytesPerSector) ||
+        (0 == pMedia->mTotalSectorsCount))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    stat = K2STOR_PART_Discover(&apBlockStor->BlockIo, &apBlockStor->Media, &apBlockStor->mPartCount, &apBlockStor->mpPartArray);
-    if (K2STAT_IS_ERROR(stat))
-        return stat;
-
-    if (!K2STAT_IS_ERROR(stat))
-    {
-        for (ix = 0; ix < apBlockStor->mPartCount; ix++)
-        {
-            apBlockStor->mpPartArray[ix].mpBlockStor = apBlockStor;
-        }
-    }
-
-    return stat;
+    return K2STOR_PART_Discover(&apBlockDev->BlockIo, pMedia, &pMedia->mCurrentPartCount, &pMedia->mpCurrentPartArray);
 }
 
 
@@ -700,33 +701,39 @@ struct _VHD
 {
     HANDLE      mHandle;
     VHD_FOOTER  VhdFooter;
-    K2STOR_BLOCKDEV   BlockStor;
+    K2STOR_BLOCKDEV   BlockDev;
 };
 
 K2STAT
 vhdTransfer(
-    K2STOR_BLOCKIO const * apBlockIo,
-    UINT64 const *  apBlockIx,
-    UINT_PTR        aBlockCount,
-    BOOL            aIsWrite,
-    void *          apBuffer
+    K2STOR_BLOCKIO const *  apBlockIo,
+    UINT64 const *          apBlockIx,
+    UINT_PTR                aBlockCount,
+    BOOL                    aIsWrite,
+    UINT_PTR                aBufferAddr
 )
 {
-    VHD *       pVhd;
+    VHD *           pVhd;
+    K2STOR_MEDIA *  pMedia;
 
     if ((NULL == apBlockIo) ||
         (vhdTransfer != apBlockIo->Transfer) ||
-        (0 == apBlockIo->mBlockSizeInBytes) ||
-        (NULL == apBuffer))
+        (0 == apBlockIo->mBlockSizeInBytes))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
     if (0 == aBlockCount)
         return K2STAT_NO_ERROR;
 
-    pVhd = K2_GET_CONTAINER(VHD, apBlockIo, BlockStor.BlockIo);
+    pVhd = K2_GET_CONTAINER(VHD, apBlockIo, BlockDev.BlockIo);
+    pMedia = pVhd->BlockDev.mpCurrentMedia;
+    if (NULL == pMedia)
+        return K2STAT_ERROR_NO_MEDIA;
+
+    if (pVhd->BlockDev.BlockIo.mBlockSizeInBytes != pMedia->mBytesPerSector)
+        return K2STAT_ERROR_CORRUPTED;
 
     LARGE_INTEGER li;
-    li.QuadPart = pVhd->BlockStor.Media.mBytesPerSector;
+    li.QuadPart = pMedia->mBytesPerSector;
     li.QuadPart *= *apBlockIx;
     OVERLAPPED overlapped;
     ZeroMemory(&overlapped, sizeof(overlapped));
@@ -737,11 +744,11 @@ vhdTransfer(
     overlapped.OffsetHigh = li.HighPart;
     if (aIsWrite)
     {
-        ok = WriteFile(pVhd->mHandle, apBuffer, pVhd->BlockStor.Media.mBytesPerSector * aBlockCount, &bytesIo, &overlapped);
+        ok = WriteFile(pVhd->mHandle, (void *)aBufferAddr, apBlockIo->mBlockSizeInBytes * aBlockCount, &bytesIo, &overlapped);
     }
     else
     {
-        ok = ReadFile(pVhd->mHandle, apBuffer, pVhd->BlockStor.Media.mBytesPerSector * aBlockCount, &bytesIo, &overlapped);
+        ok = ReadFile(pVhd->mHandle, (void *)aBufferAddr, apBlockIo->mBlockSizeInBytes * aBlockCount, &bytesIo, &overlapped);
     }
     if (!ok)
     {
@@ -819,37 +826,72 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    gVHD.BlockStor.BlockIo.Transfer = vhdTransfer;
-    gVHD.BlockStor.BlockIo.mBlockSizeInBytes = info.Size.SectorSize;
-    gVHD.BlockStor.BlockIo.mIsReadOnlyDevice = FALSE;
+    gVHD.BlockDev.BlockIo.Transfer = vhdTransfer;
+    gVHD.BlockDev.BlockIo.mBlockSizeInBytes = info.Size.SectorSize;
+    gVHD.BlockDev.BlockIo.mMaxBlocksOneTransfer = (UINT_PTR)-1;
+    gVHD.BlockDev.BlockIo.mTransferAlignBytes = 1;
+    gVHD.BlockDev.BlockIo.mIsReadOnlyDevice = FALSE;
 
-    _snprintf_s((char *)&gVHD.BlockStor.Media.mSerialNumber, 31, 17, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+    K2STOR_MEDIA media;
+    K2MEM_Zero(&media, sizeof(media));
+
+    _snprintf_s((char *)&media.mSerialNumber, 31, 17, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
         vhdFooter.mUniqueId[0], vhdFooter.mUniqueId[1], vhdFooter.mUniqueId[2], vhdFooter.mUniqueId[3],
         vhdFooter.mUniqueId[4], vhdFooter.mUniqueId[5], vhdFooter.mUniqueId[6], vhdFooter.mUniqueId[7],
         vhdFooter.mUniqueId[8], vhdFooter.mUniqueId[9], vhdFooter.mUniqueId[10], vhdFooter.mUniqueId[11],
         vhdFooter.mUniqueId[12], vhdFooter.mUniqueId[13], vhdFooter.mUniqueId[14], vhdFooter.mUniqueId[15]);
-    gVHD.BlockStor.Media.mNumSectorsPerTrack = vhdFooter.mDiskGeo_NumSectorsPerTrack;
-    gVHD.BlockStor.Media.mNumCylinders = vhdFooter.mDiskGeo_NumCyl;
-    gVHD.BlockStor.Media.mNumHeads = vhdFooter.mDiskGeo_NumHeads;
-    gVHD.BlockStor.Media.mBytesPerSector = (UINT16)info.Size.SectorSize;
-    gVHD.BlockStor.Media.mTotalSectorsCount = info.Size.VirtualSize / info.Size.SectorSize;
+    media.mNumSectorsPerTrack = vhdFooter.mDiskGeo_NumSectorsPerTrack;
+    media.mNumCylinders = vhdFooter.mDiskGeo_NumCyl;
+    media.mNumHeads = vhdFooter.mDiskGeo_NumHeads;
+    media.mBytesPerSector = (UINT16)info.Size.SectorSize;
+    media.mTotalSectorsCount = info.Size.VirtualSize / info.Size.SectorSize;
+
+
+
+    //
+    // mount the media
+    //
+    gVHD.BlockDev.mpCurrentMedia = &media;
+    media.mpCurrentMount = &gVHD.BlockDev;
  
+    //
+    // discover the partitions on the media
+    //
     K2STAT stat;
-    stat = K2STOR_BLOCKDEV_Discover(&gVHD.BlockStor);
+    stat = K2STOR_BLOCKDEV_DiscoverMediaPartitions(&gVHD.BlockDev);
     if (K2STAT_IS_ERROR(stat))
     {
         return -1;
     }
 
+    //
+    // find the first FAT partition
+    //
     UINT64 blockIx;
     FAT_GENERIC_BOOTSECTOR bootSector;
-
-    blockIx = 0;
-    stat = K2STOR_PART_Transfer(&gVHD.BlockStor.mpPartArray[0], &blockIx, 1, FALSE, &bootSector);
-    if (K2STAT_IS_ERROR(stat))
+    UINT_PTR partIx;
+    K2STOR_PART *pFatPart = gVHD.BlockDev.mpCurrentMedia->mpCurrentPartArray;
+    for (partIx = 0; partIx < media.mCurrentPartCount; partIx++)
     {
-        return -1;
+        blockIx = 0;
+        stat = K2STOR_PART_Transfer(pFatPart, &blockIx, 1, FALSE, (UINT_PTR)&bootSector);
+        if (K2STAT_IS_ERROR(stat))
+        {
+            return -1;
+        }
+        if (bootSector.BS_Signature == 0xAA55)
+        {
+            break;
+        }
+        pFatPart++;
     }
+
+    if (partIx == media.mCurrentPartCount)
+        return -1;
+
+    //
+    // pFatPart has the signature.  try to determine what type of FAT this is
+    //
 
 
 
