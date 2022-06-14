@@ -32,8 +32,70 @@
 #define INITGUID
 #include <lib/k2win32.h>
 #include <lib/k2stor.h>
+#include <lib/k2list.h>
+#include <lib/k2tree.h>
 #include <VirtDisk.h>
+
 #pragma warning(disable: 4477)
+
+typedef struct _K2OS_IOPARAM K2OS_IOPARAM;
+struct _K2OS_IOPARAM
+{
+    UINT64      mDeviceOffset;
+    UINT_PTR    mBufferAddr;
+    UINT_PTR    mBytesIo;
+};
+
+
+K2STAT K2OS_Io_Sync(K2OS_DEVICE aDevice, BOOL aIsWrite, K2OS_IOPARAM *apIoParam);
+
+typedef struct _K2OS_IOREC K2OS_IOREC;
+struct _K2OS_IOREC
+{
+    K2OS_IOPARAM        Param;
+    UINT_PTR            mUserContext;
+    K2OS_NOTIFY_TOKEN   mNotifyToken;
+};
+
+K2STAT  K2OS_Io_AsyncStart(K2OS_DEVICE aDevice, BOOL aIsWrite, K2OS_IOREC *apIoRec, K2OS_MAILSLOT *apMailslot);
+BOOL    K2OS_Io_AsyncGetStatus(K2OS_IOREC *apIoRec, K2STAT *apRetStatus);
+BOOL    K2OS_Io_AsyncCancel(K2OS_IOREC *apIoRec);
+BOOL    K2OS_Io_AsyncComplete(K2OS_IOREC *apIoRec, K2STAT *apRetStatus, UINT_PTR *apRetActualIoBytes);
+
+typedef struct _K2OS_ASYNCIO K2OS_ASYNCIO;
+
+typedef void (*K2OS_IO_Key)(K2OS_ASYNCIO *apAsyncIo, K2STAT aResultStatus, UINT_PTR aBytesTransferred);
+
+typedef enum _AsyncIoStateType AsyncIoStateType;
+enum _AsyncIoStateType
+{
+    AsyncIoState_Invalid = 0,
+    AsyncIoState_Prepare,
+    AsyncIoState_Pending,
+    AsyncIoState_Abandoned,
+
+    AsyncIoStateType_Count
+};
+
+struct _K2OS_ASYNCIO
+{
+    K2TREE_NODE         TreeNode;               // mUserVal is pointer to K2OS_IOREC
+    AsyncIoStateType    mState;
+    K2STAT              mStatus;
+    UINT_PTR            mBytesTransferred;
+    K2OS_IO_Key         mKey;
+};
+
+
+
+K2STAT  K2OS_Io_AsyncStart(K2OS_DEVICE aDevice, BOOL aIsWrite, K2OS_IOREC *apIoRec, K2OS_MAILSLOT *apMailslot)
+{
+
+}
+
+
+
+
 
 static
 void
@@ -97,8 +159,13 @@ vhdTransfer(
 
     if ((NULL == apBlockIo) ||
         (vhdTransfer != apBlockIo->Transfer) ||
-        (0 == apBlockIo->mBlockSizeInBytes))
+        (0 == apBlockIo->mBlockSizeInBytes) ||
+        (0 == apBlockIo->mTransferAlignBytes) ||
+        (aBlockCount > apBlockIo->mMaxBlocksOneTransfer))
         return K2STAT_ERROR_BAD_ARGUMENT;
+
+    if (0 != (aBufferAddr % apBlockIo->mTransferAlignBytes))
+        return K2STAT_ERROR_BAD_ALIGNMENT;
 
     if (0 == aBlockCount)
         return K2STAT_NO_ERROR;
