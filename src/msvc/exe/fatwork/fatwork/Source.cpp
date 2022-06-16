@@ -38,29 +38,47 @@
 
 #pragma warning(disable: 4477)
 
-typedef struct _K2OS_IOPARAM K2OS_IOPARAM;
-struct _K2OS_IOPARAM
+typedef UINT_PTR K2OS_MAILSLOT;
+
+
+typedef UINT_PTR K2OS_DEVICE_USAGE;
+typedef UINT_PTR K2OS_DEVICE_IO;
+
+#define K2OS_DEVICE_PARAM_ACCESS            1
+#define K2OS_DEVICE_PARAM_SHARE             2
+#define K2OS_DEVICE_PARAM_IO_BLOCK_SIZE     3
+#define K2OS_DEVICE_PARAM_MEDIA_STATE       4
+#define K2OS_DEVICE_PARAM_MEDIA_PROP        5
+
+K2OS_DEVICE_USAGE   K2OS_Device_Acquire(char const *apDevicePath);
+K2STAT              K2OS_Device_SetConfig(K2OS_DEVICE_USAGE aDeviceUsage, UINT_PTR aParameter, UINT_PTR aConfigBytes, void const *apConfigData);
+K2STAT              K2OS_Device_GetConfig(K2OS_DEVICE_USAGE aDeviceUsage, UINT_PTR aParameter, UINT_PTR aBufferBytes, void *apRetConfigData);
+K2OS_DEVICE_IO      K2OS_Device_OpenIo(K2OS_DEVICE_USAGE aDeviceUsage, K2OS_MAILSLOT aMailslot);
+K2STAT              K2OS_Device_Release(K2OS_DEVICE_USAGE aDeviceUsage);
+
+typedef struct _K2OS_IOPROP K2OS_IOPROP;
+struct _K2OS_IOPROP
 {
-    UINT64      mDeviceOffset;
-    UINT_PTR    mBufferAddr;
-    UINT_PTR    mBytesIo;
+    UINT64          mDeviceOffset;
+    UINT_PTR        mBufferAddr;
+    UINT_PTR        mBytesIo;
 };
-
-
-K2STAT K2OS_Io_Sync(K2OS_DEVICE aDevice, BOOL aIsWrite, K2OS_IOPARAM *apIoParam);
 
 typedef struct _K2OS_IOREC K2OS_IOREC;
 struct _K2OS_IOREC
 {
-    K2OS_IOPARAM        Param;
-    UINT_PTR            mUserContext;
-    K2OS_NOTIFY_TOKEN   mNotifyToken;
+    K2OS_IOPROP     Param;
+    UINT_PTR        mUserContext;
 };
 
-K2STAT  K2OS_Io_AsyncStart(K2OS_DEVICE aDevice, BOOL aIsWrite, K2OS_IOREC *apIoRec, K2OS_MAILSLOT *apMailslot);
-BOOL    K2OS_Io_AsyncGetStatus(K2OS_IOREC *apIoRec, K2STAT *apRetStatus);
-BOOL    K2OS_Io_AsyncCancel(K2OS_IOREC *apIoRec);
-BOOL    K2OS_Io_AsyncComplete(K2OS_IOREC *apIoRec, K2STAT *apRetStatus, UINT_PTR *apRetActualIoBytes);
+K2STAT  K2OS_DeviceIo_Sync(K2OS_DEVICE_IO aDeviceIo, BOOL aIsWrite, K2OS_IOPROP *apIoProp);
+BOOL    K2OS_DeviceIo_StartAsync(K2OS_DEVICE_IO aDeviceIo, BOOL aIsWrite, K2OS_IOREC *apIoRec);
+BOOL    K2OS_DeviceIo_GetAsyncStatus(K2OS_IOREC *apIoRec, K2STAT *apRetStatus);
+BOOL    K2OS_DeviceIo_CancelAsync(K2OS_IOREC *apIoRec);
+BOOL    K2OS_DeviceIo_CompleteAsync(K2OS_IOREC *apIoRec, K2STAT *apRetStatus, UINT_PTR *apRetActualIoBytes);
+K2STAT  K2OS_DeviceIo_Close(K2OS_DEVICE_IO aDeviceIo);
+
+
 
 typedef struct _K2OS_ASYNCIO K2OS_ASYNCIO;
 
@@ -70,7 +88,7 @@ typedef enum _AsyncIoStateType AsyncIoStateType;
 enum _AsyncIoStateType
 {
     AsyncIoState_Invalid = 0,
-    AsyncIoState_Prepare,
+    AsyncIoState_Submit,
     AsyncIoState_Pending,
     AsyncIoState_Abandoned,
 
@@ -85,13 +103,6 @@ struct _K2OS_ASYNCIO
     UINT_PTR            mBytesTransferred;
     K2OS_IO_Key         mKey;
 };
-
-
-
-K2STAT  K2OS_Io_AsyncStart(K2OS_DEVICE aDevice, BOOL aIsWrite, K2OS_IOREC *apIoRec, K2OS_MAILSLOT *apMailslot)
-{
-
-}
 
 
 
