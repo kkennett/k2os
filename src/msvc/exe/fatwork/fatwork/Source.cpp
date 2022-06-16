@@ -186,6 +186,8 @@ K2STOR_PART_DiscoverGPT(
     UINT8 *             pTableBuffer2;
     UINT8 *             pPartTab2;
     UINT_PTR            partCount;
+    K2STOR_PART *       pPart;
+    K2STOR_GPT_ENTRY    entry;
 
     *apRetPartCount = 0;
     *appRetPartArray = NULL;
@@ -251,15 +253,61 @@ K2STOR_PART_DiscoverGPT(
                 if (K2STAT_IS_ERROR(stat))
                     break;
 
-                stat = K2STOR_PART_ValidateGPTPartitions(apSector1, pAltSector, apMedia, pPartTab2, pPartTab2, &partCount);
+                stat = K2STOR_PART_ValidateGPTPartitions(apSector1, pAltSector, apMedia, pPartTab1, pPartTab2, &partCount);
                 if (K2STAT_IS_ERROR(stat))
                     break;
 
                 //
-                // usable partitions!
+                // there are no malformed partitions
                 //
+                *apRetPartCount = partCount;
 
+                if (0 != partCount)
+                {
+                    pPart = (K2STOR_PART *)malloc(sizeof(K2STOR_PART) * partCount);
+                    if (NULL == pPart)
+                    {
+                        stat = K2STAT_ERROR_OUT_OF_MEMORY;
+                        break;
+                    }
 
+                    //
+                    // cannot fail from here on
+                    //
+
+                    *appRetPartArray = pPart;
+                    pPartTab2 = pPartTab1;
+                    bufBytes = 0;
+                    for (align = 0; align < apSector1->Header.NumberOfPartitionEntries; align++)
+                    {
+                        K2MEM_Copy(&entry, pPartTab2, sizeof(K2STOR_GPT_ENTRY));
+                        pPartTab2 += apSector1->Header.SizeOfPartitionEntry;
+
+                        if (!K2MEM_VerifyZero(&entry.PartitionTypeGuid, sizeof(K2_GUID128)))
+                        {
+                            if ((entry.StartingLBA < apMedia->mTotalSectorsCount) &&
+                                (entry.EndingLBA < apMedia->mTotalSectorsCount) &&
+                                (entry.EndingLBA >= entry.StartingLBA))
+                            {
+                                pPart->mPartTableEntryIx = align;
+                                K2MEM_Copy(&pPart->mPartTypeGuid, &entry.PartitionTypeGuid, sizeof(K2_GUID128));
+                                K2MEM_Copy(&pPart->mPartIdGuid, &entry.UniquePartitionGuid, sizeof(K2_GUID128));
+                                pPart->mAttributes = entry.Attributes;
+                                pPart->mMediaStartSectorOffset = entry.StartingLBA;
+                                pPart->mMediaSectorsCount = entry.EndingLBA - entry.StartingLBA + 1;
+                                if (0 == K2MEM_Compare(&entry.PartitionTypeGuid, &sBasicPartGuid, sizeof(K2_GUID128)))
+                                {
+                                    pPart->mFlagReadOnly = ((entry.Attributes & K2STOR_GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY) != 0) ? 0xFF : 0;
+                                }
+                                pPart->mFlagActive = ((entry.Attributes & K2STOR_GPT_ATTRIBUTE_LEGACY_BIOS_BOOTABLE) != 0) ? 0xFF : 0;
+                                pPart->mFlagEFI = 0xFF;
+                                pPart++;
+                                if (++bufBytes == partCount)
+                                    break;
+                            }
+                        }
+                    }
+                }
 
             } while (0);
 
@@ -595,7 +643,7 @@ int main(int argc, char **argv)
         return -1;
 
     //
-    // pFatPart has the signature.  try to determine what type of FAT this is
+    // partIx has the signature.  try to determine what type of FAT this is
     //
 
 

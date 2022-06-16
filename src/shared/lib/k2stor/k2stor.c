@@ -360,6 +360,7 @@ K2STOR_PART_ValidateGPTAlt(
         (apSector1->Header.AlternateLBA != apAltSector->Header.MyLBA))
         return K2STAT_ERROR_CORRUPTED;
 
+    zero = 0;
     crc = K2CRC_Calc32(0, apAltSector, 16);
     crc = K2CRC_Calc32(crc, &zero, 4);
     crc = K2CRC_Calc32(crc, &apAltSector->Header.Reserved, apAltSector->Header.HeaderSize - 20);
@@ -449,7 +450,7 @@ K2STOR_PART_ValidateGPTPartitions(
     {
         K2MEM_Copy(pEntry, pScan, sizeof(K2STOR_GPT_ENTRY));
         pScan += apSector1->Header.SizeOfPartitionEntry;
-        if (!K2MEM_VerifyZero(&pEntry->PartitionTypeGuid, sizeof(K2_GUID128)))
+        if (0 == K2MEM_VerifyZero(&pEntry->PartitionTypeGuid, sizeof(K2_GUID128)))
         {
             if ((pEntry->StartingLBA >= apMedia->mTotalSectorsCount) ||
                 (pEntry->EndingLBA >= apMedia->mTotalSectorsCount) ||
