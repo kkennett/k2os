@@ -149,13 +149,55 @@ struct _K2STOR_BLOCKDEV
 #define K2STOR_GPT_BASIC_DATA_PART_GUID             { 0xEBD0A0A2, 0xB9E5, 0x4433, { 0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 } }
 #define K2STOR_GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY   (0x1000000000000000)
 
-K2STAT K2STOR_BLOCKDEV_Transfer(K2STOR_BLOCKDEV const *apBlockDev, UINT64 const *apBlockIx, UINT_PTR aBlockCount, BOOL aIsWrite, UINT_PTR aBufferAddr);
+K2STAT
+K2STOR_BLOCKDEV_Transfer(
+    K2STOR_BLOCKDEV const * apBlockDev,
+    UINT64 const *          apBlockIx,
+    UINT_PTR                aBlockCount,
+    BOOL                    aIsWrite,
+    UINT_PTR                aBufferAddr
+);
 
-K2STAT K2STOR_PART_Transfer(K2STOR_BLOCKDEV const *apBlockDev, UINT_PTR aPartIx, UINT64 const * apPartBlockOffset, UINT_PTR aBlockCount, BOOL aIsWrite, UINT_PTR aBufferAddr);
+K2STAT
+K2STOR_PART_Transfer(
+    K2STOR_BLOCKDEV const *apBlockDev,
+    UINT_PTR        aPartIx,
+    UINT64 const *  apPartBlockOffset,
+    UINT_PTR        aBlockCount,
+    BOOL            aIsWrite,
+    UINT_PTR        aBufferAddr
+);
 
-K2STAT K2STOR_PART_Discover(K2STOR_BLOCKIO const *apBlockIo, K2STOR_MEDIA const *apMedia, UINT_PTR *apRetPartCount,K2STOR_PART **appRetPartArray);
+K2STAT
+K2STOR_PART_DiscoverFromMBR(
+    K2STOR_MEDIA const *    apMedia,
+    UINT8 const *           apSector0,
+    UINT_PTR *              apIoPartCount,
+    K2STOR_PART *           apRetPartEntries
+);
 
-K2STAT K2STOR_BLOCKDEV_DiscoverMediaPartitions(K2STOR_BLOCKDEV * apBlockDev);
+K2STAT
+K2STOR_PART_ValidateGPT1(
+    K2STOR_GPT_SECTOR const *   apSector1,
+    K2STOR_MEDIA const *        apMedia
+);
+
+K2STAT
+K2STOR_PART_ValidateGPTAlt(
+    K2STOR_GPT_SECTOR const *   apSector1,
+    K2STOR_GPT_SECTOR const *   apAltSector,
+    K2STOR_MEDIA const *        apMedia
+);
+
+K2STAT
+K2STOR_PART_ValidateGPTPartitions(
+    K2STOR_GPT_SECTOR const *   apSector1,
+    K2STOR_GPT_SECTOR const *   apAltSector,
+    K2STOR_MEDIA const *        apMedia,
+    UINT8 const *               apPartTab1,
+    UINT8 const *               apPartTab2,
+    UINT_PTR *                  apRetNonEmptyPartCount
+);
 
 //
 //------------------------------------------------------
