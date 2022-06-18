@@ -34,6 +34,7 @@
 #include <lib/k2stor.h>
 #include <lib/k2list.h>
 #include <lib/k2tree.h>
+#include <lib/k2fat.h>
 #include <VirtDisk.h>
 
 #pragma warning(disable: 4477)
@@ -165,29 +166,29 @@ K2STOR_PART_DiscoverMBR(
 
 K2STAT
 K2STOR_PART_DiscoverGPT(
-    K2STOR_GPT_SECTOR const *   apSector1,
-    K2STOR_BLOCKIO const *      apBlockIo,
-    K2STOR_MEDIA const *        apMedia,
-    UINT_PTR *                  apRetPartCount,
-    K2STOR_PART **              appRetPartArray
+    GPT_SECTOR const *      apSector1,
+    K2STOR_BLOCKIO const *  apBlockIo,
+    K2STOR_MEDIA const *    apMedia,
+    UINT_PTR *              apRetPartCount,
+    K2STOR_PART **          appRetPartArray
 )
 {
-    static K2_GUID128 const sBasicPartGuid = K2STOR_GPT_BASIC_DATA_PART_GUID;
+    static K2_GUID128 const sBasicPartGuid = GPT_BASIC_DATA_PART_GUID;
 
-    K2STAT              stat;
-    UINT_PTR            bufBytes;
-    UINT8 *             pBlockBuffer;
-    UINT_PTR            align;
-    K2STOR_GPT_SECTOR * pAltSector;
-    UINT64              blockIx;
-    UINT_PTR            partitionTableSize;
-    UINT8 *             pTableBuffer1;
-    UINT8 *             pPartTab1;
-    UINT8 *             pTableBuffer2;
-    UINT8 *             pPartTab2;
-    UINT_PTR            partCount;
-    K2STOR_PART *       pPart;
-    K2STOR_GPT_ENTRY    entry;
+    K2STAT          stat;
+    UINT_PTR        bufBytes;
+    UINT8 *         pBlockBuffer;
+    UINT_PTR        align;
+    GPT_SECTOR *    pAltSector;
+    UINT64          blockIx;
+    UINT_PTR        partitionTableSize;
+    UINT8 *         pTableBuffer1;
+    UINT8 *         pPartTab1;
+    UINT8 *         pTableBuffer2;
+    UINT8 *         pPartTab2;
+    UINT_PTR        partCount;
+    K2STOR_PART *   pPart;
+    GPT_ENTRY       entry;
 
     *apRetPartCount = 0;
     *appRetPartArray = NULL;
@@ -204,7 +205,7 @@ K2STOR_PART_DiscoverGPT(
     do {
         align = (UINT_PTR)pBlockBuffer;
         align = ((align + (apBlockIo->mTransferAlignBytes - 1)) / apBlockIo->mTransferAlignBytes) * apBlockIo->mTransferAlignBytes;
-        pAltSector = (K2STOR_GPT_SECTOR *)align;
+        pAltSector = (GPT_SECTOR *)align;
 
         blockIx = apSector1->Header.AlternateLBA;
         stat = apBlockIo->Transfer(apBlockIo, &blockIx, 1, FALSE, align);
@@ -280,7 +281,7 @@ K2STOR_PART_DiscoverGPT(
                     bufBytes = 0;
                     for (align = 0; align < apSector1->Header.NumberOfPartitionEntries; align++)
                     {
-                        K2MEM_Copy(&entry, pPartTab2, sizeof(K2STOR_GPT_ENTRY));
+                        K2MEM_Copy(&entry, pPartTab2, sizeof(GPT_ENTRY));
                         pPartTab2 += apSector1->Header.SizeOfPartitionEntry;
 
                         if (!K2MEM_VerifyZero(&entry.PartitionTypeGuid, sizeof(K2_GUID128)))
@@ -297,9 +298,9 @@ K2STOR_PART_DiscoverGPT(
                                 pPart->mMediaSectorsCount = entry.EndingLBA - entry.StartingLBA + 1;
                                 if (0 == K2MEM_Compare(&entry.PartitionTypeGuid, &sBasicPartGuid, sizeof(K2_GUID128)))
                                 {
-                                    pPart->mFlagReadOnly = ((entry.Attributes & K2STOR_GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY) != 0) ? 0xFF : 0;
+                                    pPart->mFlagReadOnly = ((entry.Attributes & GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY) != 0) ? 0xFF : 0;
                                 }
-                                pPart->mFlagActive = ((entry.Attributes & K2STOR_GPT_ATTRIBUTE_LEGACY_BIOS_BOOTABLE) != 0) ? 0xFF : 0;
+                                pPart->mFlagActive = ((entry.Attributes & GPT_ATTRIBUTE_LEGACY_BIOS_BOOTABLE) != 0) ? 0xFF : 0;
                                 pPart->mFlagEFI = 0xFF;
                                 pPart++;
                                 if (++bufBytes == partCount)
@@ -332,11 +333,11 @@ K2STOR_PART_Discover(
     K2STOR_PART **          appRetPartArray
 )
 {
-    UINT8               diskSectorBuffer[K2STOR_SECTOR_BYTES * 2];
-    UINT_PTR            align;
-    K2STOR_GPT_SECTOR * pGptSector;
-    UINT64              blockIx;
-    K2STAT              stat;
+    UINT8           diskSectorBuffer[K2STOR_SECTOR_BYTES * 2];
+    UINT_PTR        align;
+    GPT_SECTOR *    pGptSector;
+    UINT64          blockIx;
+    K2STAT          stat;
 
     if ((NULL == apBlockIo) ||
         (NULL == apBlockIo->Transfer) ||
@@ -355,7 +356,7 @@ K2STOR_PART_Discover(
 
     align = (UINT_PTR)&diskSectorBuffer[0];
     align = ((align + (K2STOR_SECTOR_BYTES - 1)) / K2STOR_SECTOR_BYTES) * K2STOR_SECTOR_BYTES;
-    pGptSector = (K2STOR_GPT_SECTOR *)align;
+    pGptSector = (GPT_SECTOR *)align;
 
     blockIx = 1;
     stat = apBlockIo->Transfer(apBlockIo, &blockIx, 1, FALSE, (UINT_PTR)pGptSector);
@@ -608,7 +609,7 @@ int main(int argc, char **argv)
     // mount the media
     //
     gVHD.BlockDev.mpCurrentMedia = &media;
- 
+
     //
     // discover the partitions on the media
     //
@@ -633,7 +634,8 @@ int main(int argc, char **argv)
         {
             return -1;
         }
-        if (bootSector.BS_Signature == 0xAA55)
+        if ((bootSector.BS_Signature == 0xAA55) &&
+            (bootSector.BPB_BytesPerSec == gVHD.BlockDev.BlockIo.mBlockSizeInBytes))
         {
             break;
         }
@@ -645,6 +647,112 @@ int main(int argc, char **argv)
     //
     // partIx has the signature.  try to determine what type of FAT this is
     //
+    K2FAT_PART part;;
+    stat = K2FAT_DetermineFromBootSector(&bootSector, &part);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        return -1;
+    }
+
+    //
+    // load the first FAT from the disk
+    //
+    blockIx = part.mFirstFATSector64;
+    sizeUsed = (part.mNumSectorsPerFAT * part.mBytesPerSector) + gVHD.BlockDev.BlockIo.mTransferAlignBytes;
+    UINT_PTR bufAddr = (UINT_PTR)malloc(sizeUsed);
+    if (0 == bufAddr)
+    {
+        return -2;
+    }
+
+    bufAddr = ((bufAddr + (gVHD.BlockDev.BlockIo.mTransferAlignBytes - 1)) / gVHD.BlockDev.BlockIo.mTransferAlignBytes) * gVHD.BlockDev.BlockIo.mTransferAlignBytes;
+
+    UINT8 *pFat = (UINT8 *)bufAddr;
+
+    stat = K2STOR_PART_Transfer(&gVHD.BlockDev, partIx, &blockIx, part.mNumSectorsPerFAT, FALSE, bufAddr);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        return -3;
+    }
+
+    //
+    // load the root directory from the disk
+    //
+    if (part.mFATType == K2FAT_Type32)
+    {
+        //
+        // scan cluster chain to determine size of root directory
+        //
+        UINT_PTR clusterNumber;
+
+        part.mNumRootDirSectors = 0;
+
+        clusterNumber = ((FAT_BOOTSECTOR32 *)&bootSector)->BPB_RootClus;
+        do {
+            part.mNumRootDirSectors += part.mSectorsPerCluster;
+            stat = K2FAT_GetNextCluster(&part, pFat, clusterNumber, &clusterNumber);
+            if (K2STAT_IS_ERROR(stat))
+            {
+                return -4;
+            }
+        } while (0 != clusterNumber);
+    }
+
+    sizeUsed = (part.mNumRootDirSectors * part.mBytesPerSector) + gVHD.BlockDev.BlockIo.mTransferAlignBytes;
+
+    bufAddr = (UINT_PTR)malloc(sizeUsed);
+    if (0 == bufAddr)
+    {
+        return -5;
+    }
+
+    bufAddr = ((bufAddr + (gVHD.BlockDev.BlockIo.mTransferAlignBytes - 1)) / gVHD.BlockDev.BlockIo.mTransferAlignBytes) * gVHD.BlockDev.BlockIo.mTransferAlignBytes;
+
+    FAT_DIRENTRY *pRootDir = (FAT_DIRENTRY *)bufAddr;
+
+    if (part.mFATType == K2FAT_Type32)
+    {
+        UINT_PTR clusterNumber;
+
+        clusterNumber = ((FAT_BOOTSECTOR32 *)&bootSector)->BPB_RootClus;
+        do {
+
+            blockIx = FAT_CLUSTER_TO_SECTOR(part.mFirstDataSector64, part.mSectorsPerCluster, clusterNumber);
+
+            stat = K2STOR_PART_Transfer(&gVHD.BlockDev, partIx, &blockIx, part.mSectorsPerCluster, FALSE, bufAddr);
+            if (K2STAT_IS_ERROR(stat))
+            {
+                return -6;
+            }
+
+            part.mNumRootDirEntries += (part.mBytesPerSector * part.mSectorsPerCluster) / sizeof(FAT_DIRENTRY);
+            bufAddr += part.mBytesPerSector * part.mSectorsPerCluster;
+
+            stat = K2FAT_GetNextCluster(&part, pFat, clusterNumber, &clusterNumber);
+            if (K2STAT_IS_ERROR(stat))
+            {
+                return -5;
+            }
+        } while (0 != clusterNumber);
+    }
+    else
+    {
+        blockIx = part.mFirstRootDirSector64;
+        stat = K2STOR_PART_Transfer(&gVHD.BlockDev, partIx, &blockIx, part.mNumRootDirSectors, FALSE, bufAddr);
+        if (K2STAT_IS_ERROR(stat))
+        {
+            return -6;
+        }
+    }
+
+    FAT_DIRENTRY dirEntry;
+    stat = K2FAT_FindDirEntry((UINT8 *)pRootDir, part.mNumRootDirEntries, "configcmd.txt", 13, &dirEntry);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        return -7;
+    }
+    
+
 
 
 

@@ -37,6 +37,7 @@
 #include <lib/k2asc.h>
 #include <lib/k2crc.h>
 #include <spec/fat.h>
+#include <spec/gpt.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,11 +53,6 @@ K2_PACKED_PUSH
 
 typedef struct _K2STOR_MEDIA        K2STOR_MEDIA;
 typedef struct _K2STOR_PART         K2STOR_PART;
-
-typedef struct _K2STOR_GPT_HEADER   K2STOR_GPT_HEADER;
-typedef struct _K2STOR_GPT_SECTOR   K2STOR_GPT_SECTOR;
-typedef struct _K2STOR_GPT_ENTRY    K2STOR_GPT_ENTRY;
-
 typedef struct _K2STOR_BLOCKIO      K2STOR_BLOCKIO;
 typedef struct _K2STOR_BLOCKDEV     K2STOR_BLOCKDEV;
 
@@ -86,43 +82,6 @@ struct _K2STOR_PART
     UINT8       mFlagEFI;
 } K2_PACKED_ATTRIB;
 
-struct _K2STOR_GPT_HEADER
-{
-    UINT8       Signature[8];       //  "EFI PART"
-    UINT32      Revision;           //  0x00010000
-    UINT32      HeaderSize;
-    UINT32      HeaderCRC32;
-    UINT32      Reserved;
-    UINT64      MyLBA;
-    UINT64      AlternateLBA;
-    UINT64      FirstUsableLBA;
-    UINT64      LastUsableLBA;
-    K2_GUID128  DiskGuid;
-    UINT64      PartitionEntryLBA;
-    UINT32      NumberOfPartitionEntries;
-    UINT32      SizeOfPartitionEntry;
-    UINT32      PartitionEntryArrayCRC32;
-} K2_PACKED_ATTRIB;
-K2_STATIC_ASSERT(sizeof(K2STOR_GPT_HEADER) == 92);
-
-struct _K2STOR_GPT_SECTOR
-{
-    K2STOR_GPT_HEADER   Header;
-    UINT8               Reserved[K2STOR_SECTOR_BYTES - 92];
-} K2_PACKED_ATTRIB;
-K2_STATIC_ASSERT(sizeof(K2STOR_GPT_SECTOR) == K2STOR_SECTOR_BYTES);
-
-struct _K2STOR_GPT_ENTRY
-{
-    K2_GUID128  PartitionTypeGuid;
-    K2_GUID128  UniquePartitionGuid;
-    UINT64      StartingLBA;
-    UINT64      EndingLBA;
-    UINT64      Attributes;
-    UINT16      UnicodePartitionName[36];
-} K2_PACKED_ATTRIB;
-K2_STATIC_ASSERT(sizeof(K2STOR_GPT_ENTRY) == 128);
-
 K2_PACKED_POP
 
 typedef K2STAT (*K2STOR_BLOCKIO_pf_Transfer)(K2STOR_BLOCKIO const *apBlockIo, UINT64 const *apBlockStartIx, UINT_PTR aBlockCount, BOOL aIsWrite, UINT_PTR aBufferAddr);
@@ -143,11 +102,6 @@ struct _K2STOR_BLOCKDEV
     UINT_PTR            mCurrentPartCount;
     K2STOR_PART *       mpCurrentPartArray;
 };
-
-#define K2STOR_GPT_ATTRIBUTE_LEGACY_BIOS_BOOTABLE   (0x0000000000000004)
-
-#define K2STOR_GPT_BASIC_DATA_PART_GUID             { 0xEBD0A0A2, 0xB9E5, 0x4433, { 0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 } }
-#define K2STOR_GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY   (0x1000000000000000)
 
 K2STAT
 K2STOR_BLOCKDEV_Transfer(
@@ -178,25 +132,25 @@ K2STOR_PART_DiscoverFromMBR(
 
 K2STAT
 K2STOR_PART_ValidateGPT1(
-    K2STOR_GPT_SECTOR const *   apSector1,
-    K2STOR_MEDIA const *        apMedia
+    GPT_SECTOR const *      apSector1,
+    K2STOR_MEDIA const *    apMedia
 );
 
 K2STAT
 K2STOR_PART_ValidateGPTAlt(
-    K2STOR_GPT_SECTOR const *   apSector1,
-    K2STOR_GPT_SECTOR const *   apAltSector,
-    K2STOR_MEDIA const *        apMedia
+    GPT_SECTOR const *      apSector1,
+    GPT_SECTOR const *      apAltSector,
+    K2STOR_MEDIA const *    apMedia
 );
 
 K2STAT
 K2STOR_PART_ValidateGPTPartitions(
-    K2STOR_GPT_SECTOR const *   apSector1,
-    K2STOR_GPT_SECTOR const *   apAltSector,
-    K2STOR_MEDIA const *        apMedia,
-    UINT8 const *               apPartTab1,
-    UINT8 const *               apPartTab2,
-    UINT_PTR *                  apRetNonEmptyPartCount
+    GPT_SECTOR const *   apSector1,
+    GPT_SECTOR const *   apAltSector,
+    K2STOR_MEDIA const * apMedia,
+    UINT8 const *        apPartTab1,
+    UINT8 const *        apPartTab2,
+    UINT_PTR *           apRetNonEmptyPartCount
 );
 
 //

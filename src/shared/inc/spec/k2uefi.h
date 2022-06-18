@@ -34,6 +34,7 @@
 
 #include <k2basetype.h>
 #include <spec/fat.h>
+#include <spec/gpt.h>
 
 //
 //------------------------------------------------------------------------

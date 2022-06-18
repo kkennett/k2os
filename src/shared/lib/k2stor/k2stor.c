@@ -278,8 +278,8 @@ K2STOR_PART_DiscoverFromMBR(
 
 K2STAT 
 K2STOR_PART_ValidateGPT1(
-    K2STOR_GPT_SECTOR const *   apSector1,
-    K2STOR_MEDIA const *        apMedia
+    GPT_SECTOR const *   apSector1,
+    K2STOR_MEDIA const * apMedia
 )
 {
     UINT64  partitionTableSize;
@@ -290,7 +290,7 @@ K2STOR_PART_ValidateGPT1(
         (NULL == apMedia))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    if ((apSector1->Header.HeaderSize < sizeof(K2STOR_GPT_HEADER)) ||
+    if ((apSector1->Header.HeaderSize < sizeof(GPT_HEADER)) ||
         (apSector1->Header.HeaderSize >= apMedia->mBytesPerSector))
         return K2STAT_ERROR_CORRUPTED;
 
@@ -311,7 +311,7 @@ K2STOR_PART_ValidateGPT1(
     if ((apSector1->Header.PartitionEntryLBA < 2) ||
         ((apSector1->Header.PartitionEntryLBA >= apSector1->Header.FirstUsableLBA) &&
             (apSector1->Header.PartitionEntryLBA <= apSector1->Header.LastUsableLBA)) ||
-        (sizeof(K2STOR_GPT_ENTRY) > apSector1->Header.SizeOfPartitionEntry) ||
+        (sizeof(GPT_ENTRY) > apSector1->Header.SizeOfPartitionEntry) ||
         (apSector1->Header.NumberOfPartitionEntries == 0))
         return K2STAT_ERROR_CORRUPTED;
 
@@ -333,9 +333,9 @@ K2STOR_PART_ValidateGPT1(
 
 K2STAT
 K2STOR_PART_ValidateGPTAlt(
-    K2STOR_GPT_SECTOR const *   apSector1,
-    K2STOR_GPT_SECTOR const *   apAltSector,
-    K2STOR_MEDIA const *        apMedia
+    GPT_SECTOR const *      apSector1,
+    GPT_SECTOR const *      apAltSector,
+    K2STOR_MEDIA const *    apMedia
 )
 {
     UINT64  partitionTable1Size;
@@ -406,21 +406,21 @@ K2STOR_PART_ValidateGPTAlt(
 
 K2STAT
 K2STOR_PART_ValidateGPTPartitions(
-    K2STOR_GPT_SECTOR const *   apSector1,
-    K2STOR_GPT_SECTOR const *   apAltSector,
-    K2STOR_MEDIA const *        apMedia,
-    UINT8 const *               apPartTab1,
-    UINT8 const *               apPartTab2,
-    UINT_PTR *                  apRetNonEmptyPartCount
+    GPT_SECTOR const *      apSector1,
+    GPT_SECTOR const *      apAltSector,
+    K2STOR_MEDIA const *    apMedia,
+    UINT8 const *           apPartTab1,
+    UINT8 const *           apPartTab2,
+    UINT_PTR *              apRetNonEmptyPartCount
 )
 {
-    K2STAT              stat;
-    UINT64              partitionTableSize;
-    UINT32              alignEntry[(sizeof(K2STOR_GPT_ENTRY) + 3) / 4];
-    K2STOR_GPT_ENTRY *  pEntry;
-    UINT8 const *       pScan;
-    UINT_PTR            partCount;
-    UINT_PTR            ixPart;
+    K2STAT          stat;
+    UINT64          partitionTableSize;
+    UINT32          alignEntry[(sizeof(GPT_ENTRY) + 3) / 4];
+    GPT_ENTRY *     pEntry;
+    UINT8 const *   pScan;
+    UINT_PTR        partCount;
+    UINT_PTR        ixPart;
 
     if ((NULL == apSector1) ||
         (NULL == apAltSector) ||
@@ -442,13 +442,13 @@ K2STOR_PART_ValidateGPTPartitions(
         K2CRC_Calc32(0, apPartTab1, (UINT_PTR)partitionTableSize))
         return K2STAT_ERROR_CORRUPTED;
 
-    pEntry = (K2STOR_GPT_ENTRY *)&alignEntry[0];
+    pEntry = (GPT_ENTRY *)&alignEntry[0];
 
     pScan = apPartTab1;
     partCount = 0;
     for (ixPart = 0; ixPart < apSector1->Header.NumberOfPartitionEntries; ixPart++)
     {
-        K2MEM_Copy(pEntry, pScan, sizeof(K2STOR_GPT_ENTRY));
+        K2MEM_Copy(pEntry, pScan, sizeof(GPT_ENTRY));
         pScan += apSector1->Header.SizeOfPartitionEntry;
         if (0 == K2MEM_VerifyZero(&pEntry->PartitionTypeGuid, sizeof(K2_GUID128)))
         {
