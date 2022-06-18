@@ -752,7 +752,44 @@ int main(int argc, char **argv)
         return -7;
     }
     
+    //
+    // load the file into memory
+    //
+    sizeUsed = ((dirEntry.mBytesLength + (part.mBytesPerSector - 1)) / part.mBytesPerSector) * part.mBytesPerSector;
+    sizeUsed = sizeUsed + gVHD.BlockDev.BlockIo.mTransferAlignBytes;
 
+    bufAddr = (UINT_PTR)malloc(sizeUsed);
+    if (0 == bufAddr)
+        return -7;
+
+    bufAddr = ((bufAddr + (gVHD.BlockDev.BlockIo.mTransferAlignBytes - 1)) / gVHD.BlockDev.BlockIo.mTransferAlignBytes) * gVHD.BlockDev.BlockIo.mTransferAlignBytes;
+
+    char *pFileData = (char *)bufAddr;
+
+    UINT_PTR clusterNumber;
+
+    clusterNumber = dirEntry.mStartClusterLow;
+    if (dirEntry.mEAorHighCluster != 0xEA)
+    {
+        clusterNumber += (((UINT_PTR)dirEntry.mEAorHighCluster) << 16);
+    }
+    do {
+        blockIx = FAT_CLUSTER_TO_SECTOR(part.mFirstDataSector64, part.mSectorsPerCluster, clusterNumber);
+
+        stat = K2STOR_PART_Transfer(&gVHD.BlockDev, partIx, &blockIx, part.mSectorsPerCluster, FALSE, bufAddr);
+        if (K2STAT_IS_ERROR(stat))
+        {
+            return -6;
+        }
+
+        bufAddr += part.mBytesPerSector * part.mSectorsPerCluster;
+
+        stat = K2FAT_GetNextCluster(&part, pFat, clusterNumber, &clusterNumber);
+        if (K2STAT_IS_ERROR(stat))
+        {
+            return -5;
+        }
+    } while (0 != clusterNumber);
 
 
 
