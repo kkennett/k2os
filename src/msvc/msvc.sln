@@ -91,6 +91,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2fat", "lib\k2fat\k2fat.vc
 		{B4D0CE95-D3F5-4224-B95E-4BA2B4058E3D} = {B4D0CE95-D3F5-4224-B95E-4BA2B4058E3D}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2bit", "lib\k2bit\k2bit.vcxproj", "{3A294E95-9FDC-4D61-8630-9264F372A707}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -280,6 +282,14 @@ Global
 		{0A36275E-24AA-43E3-8A3B-5C0E30E6840E}.Release|x64.Build.0 = Release|x64
 		{0A36275E-24AA-43E3-8A3B-5C0E30E6840E}.Release|x86.ActiveCfg = Release|Win32
 		{0A36275E-24AA-43E3-8A3B-5C0E30E6840E}.Release|x86.Build.0 = Release|Win32
+		{3A294E95-9FDC-4D61-8630-9264F372A707}.Debug|x64.ActiveCfg = Debug|x64
+		{3A294E95-9FDC-4D61-8630-9264F372A707}.Debug|x64.Build.0 = Debug|x64
+		{3A294E95-9FDC-4D61-8630-9264F372A707}.Debug|x86.ActiveCfg = Debug|Win32
+		{3A294E95-9FDC-4D61-8630-9264F372A707}.Debug|x86.Build.0 = Debug|Win32
+		{3A294E95-9FDC-4D61-8630-9264F372A707}.Release|x64.ActiveCfg = Release|x64
+		{3A294E95-9FDC-4D61-8630-9264F372A707}.Release|x64.Build.0 = Release|x64
+		{3A294E95-9FDC-4D61-8630-9264F372A707}.Release|x86.ActiveCfg = Release|Win32
+		{3A294E95-9FDC-4D61-8630-9264F372A707}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
