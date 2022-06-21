@@ -146,8 +146,6 @@
     <ClInclude Include="..\..\..\shared\inc\lib\k2elf.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\shared\lib\k2elf\file32.cpp" />
-    <ClCompile Include="..\..\..\shared\lib\k2elf\file64.cpp" />
     <ClCompile Include="..\..\..\shared\lib\k2elf\parse32.c" />
     <ClCompile Include="..\..\..\shared\lib\k2elf\parse64.c" />
   </ItemGroup>

@@ -34,6 +34,10 @@
 
 #include <k2systype.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //
 //------------------------------------------------------------------------
 //
@@ -55,344 +59,11 @@
 #endif
 #endif
 
-
-#ifdef __cplusplus
-
-class K2Elf32Section;
-class K2Elf64Section;
-
-extern "C" typedef struct _K2ELF32PARSE K2ELF32PARSE;
-extern "C" typedef struct _K2ELF64PARSE K2ELF64PARSE;
-
-class K2Elf32File
-{
-public:
-    static K2STAT Create(UINT8 const *apBuf, UINT_PTR aBufBytes, K2Elf32File **appRetFile);
-    static K2STAT Create(K2ELF32PARSE const *apParse, K2Elf32File **appRetFile);
-
-    INT_PTR AddRef(void);
-    INT_PTR Release(void);
-
-    Elf32_Ehdr const & Header(void) const
-    {
-        return *((Elf32_Ehdr const *)mpBuf);
-    }
-    K2Elf32Section const & Section(UINT_PTR aIndex) const
-    {
-        if (aIndex >= Header().e_shnum)
-            aIndex = 0;
-        return *mppSection[aIndex];
-    }
-    UINT8 const * RawData(void) const
-    {
-        return mpBuf;
-    }
-    UINT_PTR const & SizeBytes(void) const
-    {
-        return mSizeBytes;
-    }
-
-private:
-    K2Elf32File(
-        UINT8 const * apBuf,
-        UINT_PTR aSizeBytes
-    ) : mpBuf(apBuf),
-        mSizeBytes(aSizeBytes)
-    {
-        mppSection = NULL;
-        mRefs = 1;
-    }
-    virtual ~K2Elf32File(void);
-
-    UINT8 const * const mpBuf;
-    UINT_PTR const      mSizeBytes;
-
-    K2Elf32Section **   mppSection;
-    INT_PTR volatile    mRefs;
-};
-
-class K2Elf32Section
-{
-public:
-    K2Elf32File const & File(void) const
-    {
-        return mFile;
-    }
-    UINT_PTR IndexInFile(void) const
-    {
-        return mIndex;
-    }
-    Elf32_Shdr const & Header(void) const
-    {
-        return mHdr;
-    }
-    UINT8 const * RawData(void) const
-    {
-        return File().RawData() + mHdr.sh_offset;
-    }
-
-protected:
-    K2Elf32Section(
-        K2Elf32File const & aFile,
-        UINT_PTR aIndex,
-        Elf32_Shdr const * apHdr
-    ) : mFile(aFile), 
-        mIndex(aIndex),
-        mHdr(*apHdr)
-    {
-    }
-    virtual ~K2Elf32Section(void)
-    {
-    }
-
-private:
-    friend class K2Elf32File;
-    K2Elf32File const & mFile;
-	UINT_PTR const      mIndex;
-	Elf32_Shdr const &  mHdr;
-};
-
-class K2Elf32SymbolSection : public K2Elf32Section
-{
-public:
-    UINT_PTR const & EntryCount(void) const
-    {
-        return mSymCount;
-    }
-    Elf32_Sym const & Symbol(UINT_PTR aIndex) const
-    {
-        if (aIndex >= mSymCount)
-            aIndex = 0;
-        return *((Elf32_Sym const *)(RawData() + (aIndex * Header().sh_entsize)));
-    }
-    K2Elf32Section const & StringSection(void) const
-    {
-        return File().Section(Header().sh_link);
-    }
-
-private:
-    friend class K2Elf32File;
-    K2Elf32SymbolSection(
-        K2Elf32File const & aFile,
-        UINT_PTR aIndex,
-        Elf32_Shdr const * apHdr
-    ) : K2Elf32Section(aFile, aIndex, apHdr),
-        mSymCount(apHdr->sh_size / apHdr->sh_entsize)
-    {
-    }
-    ~K2Elf32SymbolSection(void)
-    {
-    }
-    UINT_PTR const mSymCount;
-};
-
-class K2Elf32RelocSection : public K2Elf32Section
-{
-public:
-    UINT_PTR const & EntryCount(void) const
-    {
-        return mRelCount;
-    }
-
-    Elf32_Rel const & Reloc(UINT_PTR aIndex) const
-    {
-        if (aIndex >= mRelCount)
-            aIndex = 0;
-        return *((Elf32_Rel const *)(RawData() + (aIndex * Header().sh_entsize)));
-    }
-    K2Elf32Section const & TargetSection(void) const
-    {
-        return File().Section(Header().sh_info);
-    }
-    K2Elf32SymbolSection const & SymbolSection(void) const
-    {
-        return (K2Elf32SymbolSection const &)File().Section(Header().sh_link);
-    }
-
-private:
-    friend class K2Elf32File;
-    K2Elf32RelocSection(
-        K2Elf32File const & aFile,
-        UINT_PTR aIndex,
-        Elf32_Shdr const * apHdr
-    ) : K2Elf32Section(aFile, aIndex, apHdr),
-        mRelCount(apHdr->sh_size / apHdr->sh_entsize)
-    {
-    }
-    ~K2Elf32RelocSection(void)
-    {
-    }
-    UINT_PTR const mRelCount;
-};
-
-class K2Elf64File
-{
-public:
-    static K2STAT Create(UINT8 const *apBuf, UINT_PTR aBufBytes, K2Elf64File **appRetFile);
-    static K2STAT Create(K2ELF64PARSE const *apParse, K2Elf64File **appRetFile);
-
-    INT_PTR AddRef(void);
-    INT_PTR Release(void);
-
-    Elf64_Ehdr const & Header(void) const
-    {
-        return *((Elf64_Ehdr const *)mpBuf);
-    }
-    K2Elf64Section const & Section(UINT_PTR aIndex) const
-    {
-        if (aIndex >= Header().e_shnum)
-            aIndex = 0;
-        return *mppSection[aIndex];
-    }
-    UINT8 const * RawData(void) const
-    {
-        return mpBuf;
-    }
-    UINT_PTR const & SizeBytes(void) const
-    {
-        return mSizeBytes;
-    }
-
-private:
-    K2Elf64File(
-        UINT8 const * apBuf,
-        UINT_PTR aSizeBytes
-    ) : mpBuf(apBuf),
-        mSizeBytes(aSizeBytes)
-    {
-        mppSection = NULL;
-        mRefs = 1;
-    }
-    virtual ~K2Elf64File(void);
-
-    UINT8 const * const mpBuf;
-    UINT_PTR const      mSizeBytes;
-
-    K2Elf64Section **   mppSection;
-    INT_PTR volatile    mRefs;
-};
-
-class K2Elf64Section
-{
-public:
-    K2Elf64File const & File(void) const
-    {
-        return mFile;
-    }
-    UINT_PTR IndexInFile(void) const
-    {
-        return mIndex;
-    }
-    Elf64_Shdr const & Header(void) const
-    {
-        return mHdr;
-    }
-    UINT8 const * RawData(void) const
-    {
-        return File().RawData() + mHdr.sh_offset;
-    }
-
-protected:
-    K2Elf64Section(
-        K2Elf64File const & aFile,
-        UINT_PTR aIndex,
-        Elf64_Shdr const * apHdr
-    ) : mFile(aFile),
-        mIndex(aIndex),
-        mHdr(*apHdr)
-    {
-    }
-    virtual ~K2Elf64Section(void)
-    {
-    }
-
-private:
-    friend class K2Elf64File;
-    K2Elf64File const & mFile;
-    UINT_PTR const      mIndex;
-    Elf64_Shdr const &  mHdr;
-};
-
-class K2Elf64SymbolSection : public K2Elf64Section
-{
-public:
-    UINT_PTR const & EntryCount(void) const
-    {
-        return mSymCount;
-    }
-    Elf64_Sym const & Symbol(UINT_PTR aIndex) const
-    {
-        if (aIndex >= mSymCount)
-            aIndex = 0;
-        return *((Elf64_Sym const *)(RawData() + (aIndex * Header().sh_entsize)));
-    }
-    K2Elf64Section const & StringSection(void) const
-    {
-        return File().Section(Header().sh_link);
-    }
-
-private:
-    friend class K2Elf64File;
-    K2Elf64SymbolSection(
-        K2Elf64File const & aFile,
-        UINT_PTR aIndex,
-        Elf64_Shdr const * apHdr
-    ) : K2Elf64Section(aFile, aIndex, apHdr),
-        mSymCount((UINT_PTR)(apHdr->sh_size / apHdr->sh_entsize))
-    {
-    }
-    ~K2Elf64SymbolSection(void)
-    {
-    }
-    UINT_PTR const mSymCount;
-};
-
-class K2Elf64RelocSection : public K2Elf64Section
-{
-public:
-    UINT_PTR const & EntryCount(void) const
-    {
-        return mRelCount;
-    }
-
-    Elf64_Rel const & Reloc(UINT_PTR aIndex) const
-    {
-        if (aIndex >= mRelCount)
-            aIndex = 0;
-        return *((Elf64_Rel const *)(RawData() + (aIndex * Header().sh_entsize)));
-    }
-    K2Elf64Section const & TargetSection(void) const
-    {
-        return File().Section(Header().sh_info);
-    }
-    K2Elf64SymbolSection const & SymbolSection(void) const
-    {
-        return (K2Elf64SymbolSection const &)File().Section(Header().sh_link);
-    }
-
-private:
-    friend class K2Elf64File;
-    K2Elf64RelocSection(
-        K2Elf64File const & aFile,
-        UINT_PTR aIndex,
-        Elf64_Shdr const * apHdr
-    ) : K2Elf64Section(aFile, aIndex, apHdr),
-        mRelCount((UINT_PTR)(apHdr->sh_size / apHdr->sh_entsize))
-    {
-    }
-    ~K2Elf64RelocSection(void)
-    {
-    }
-    UINT_PTR const mRelCount;
-};
-
-extern "C" {
-#endif
-
 //
 //------------------------------------------------------------------------
 //
 
+typedef struct _K2ELF32PARSE K2ELF32PARSE;
 struct _K2ELF32PARSE
 {
     Elf32_Ehdr const *  mpRawFileData;
@@ -408,7 +79,6 @@ struct _K2ELF32PARSE
     UINT_PTR            mProgramHeaderTableEntryBytes;
     UINT_PTR            mProgramHeaderTableBytes;
 };
-typedef struct _K2ELF32PARSE K2ELF32PARSE;
 
 K2STAT
 K2ELF32_ValidateHeader(
@@ -446,6 +116,7 @@ K2ELF32_GetProgramHeader(
 //------------------------------------------------------------------------
 //
 
+typedef struct _K2ELF64PARSE K2ELF64PARSE;
 struct _K2ELF64PARSE
 {
     Elf64_Ehdr const *  mpRawFileData;
@@ -461,7 +132,6 @@ struct _K2ELF64PARSE
     UINT_PTR            mProgramHeaderTableEntryBytes;
     UINT_PTR            mProgramHeaderTableBytes;
 };
-typedef struct _K2ELF64PARSE K2ELF64PARSE;
 
 K2STAT
 K2ELF64_ValidateHeader(

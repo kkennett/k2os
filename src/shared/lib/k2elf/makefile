@@ -33,8 +33,6 @@ include $(K2_ROOT)/src/build/pre.make
 
 TARGET_TYPE = LIB
 
-SOURCES += file32.cpp
-SOURCES += file64.cpp
 SOURCES += parse32.c
 SOURCES += parse64.c
 
