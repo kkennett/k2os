@@ -38,7 +38,7 @@ TARGET_TYPE = IMAGE
 
 IMAGE_PLAT_DLX = @$(K2_OS)/plat/virtbox/kern/k2osplat
 
-BUILTIN_DLX += @$(K2_OS)/user/pcibus
+BUILTIN_DLX += @$(K2_OS)/user/driver/pcibus
 BUILTIN_DLX += @$(K2_OS)/user/k2osdrv
 BUILTIN_DLX += @$(K2_OS)/user/k2osrpc
 
