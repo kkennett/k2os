@@ -43,12 +43,63 @@ AddOneObject32(
 {
     K2ELF32PARSE    parse;
     K2STAT          stat;
+    UINT_PTR        secIx;
+    Elf32_Shdr *    pSecHdr;
+    UINT_PTR        symBytes;
+    UINT_PTR        symCount;
+    Elf32_Shdr *    pStrSecHdr;
+    char const *    pStr;
+    UINT8 const *   pScan;
+    UINT_PTR        symBind;
+    char const *    pSymName;
+    UINT_PTR        symNameLen;
+    Elf32_Sym *     pSym;
 
+    printf("k2export:AddOneObject32(\"%.*s\")\n", aObjectFileNameLen, apObjectFileName);
     stat = K2ELF32_Parse(apFileData, aFileDataBytes, &parse);
     if (K2STAT_IS_ERROR(stat))
     {
         printf("*** Could not parse input file as ELF (%.*s)\n", aObjectFileNameLen, apObjectFileName);
         return stat;
+    }
+
+    for (secIx = 1; secIx < parse.mpRawFileData->e_shnum; secIx++)
+    {
+        pSecHdr = (Elf32_Shdr *)(parse.mpSectionHeaderTable + (parse.mSectionHeaderTableEntryBytes * secIx));
+        if (pSecHdr->sh_type != SHT_SYMTAB)
+            continue;
+
+        symBytes = pSecHdr->sh_entsize;
+        if (0 == symBytes)
+            symBytes = sizeof(Elf32_Sym);
+        symCount = pSecHdr->sh_size / symBytes;
+        if (1 >= symCount)
+            continue;
+
+        pStrSecHdr = (Elf32_Shdr *)(parse.mpSectionHeaderTable + (parse.mSectionHeaderTableEntryBytes * pSecHdr->sh_link));
+        pStr = ((char const *)parse.mpRawFileData) + pStrSecHdr->sh_offset;
+
+        pScan = ((UINT8 const *)parse.mpRawFileData) + pSecHdr->sh_offset;
+        do {
+            pSym = (Elf32_Sym *)pScan;
+            pScan += symBytes;
+
+            pSymName = pStr + pSym->st_name;
+
+            symBind = ELF32_ST_BIND(pSym->st_info);
+
+            if (((symBind == STB_GLOBAL) ||
+                (symBind == STB_WEAK)) &&
+                (pSym->st_shndx != 0))
+            {
+                /* this is a global symbol in this object file */
+                symNameLen = K2ASC_Len(pSymName);
+                if ((symNameLen != 0) && (pSym->st_shndx < parse.mpRawFileData->e_shnum))
+                {
+                    printf("  AddSymbol(%s)\n", pSymName);
+                }
+            }
+        } while (--symCount);
     }
 
     return K2STAT_NO_ERROR;
@@ -66,6 +117,7 @@ AddOneObject64(
     K2ELF64PARSE    parse;
     K2STAT          stat;
 
+    printf("k2export:AddOneObject64(\"%.*s\")\n", aObjectFileNameLen, apObjectFileName);
     stat = K2ELF64_Parse(apFileData, aFileDataBytes, &parse);
     if (K2STAT_IS_ERROR(stat))
     {
@@ -87,7 +139,6 @@ AddOneObject(
 {
     UINT_PTR fileClass;
 
-    printf("k2export:AddOneObject(\"%.*s\")\n", aObjectFileNameLen, apObjectFileName);
     fileClass = apFileData[EI_CLASS];
     if (fileClass != gOut.mFileClass) 
     {

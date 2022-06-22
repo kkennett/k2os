@@ -340,14 +340,14 @@ LoadDlxInfFile(
     }
 
     gOut.mpMappedDlxInf = K2ReadWriteMappedFile::Create(pDlxInfFilePath);
-
-    delete[] pDlxInfFilePath;
-
     if (gOut.mpMappedDlxInf == NULL)
     {
         printf("*** Error mapping in dlx inf file \"%s\"\n", pDlxInfFilePath);
+        delete[] pDlxInfFilePath;
         return K2STAT_ERROR_UNKNOWN;
     }
+
+    delete[] pDlxInfFilePath;
 
     return sParseDlxInf();
 }
