@@ -34,17 +34,10 @@
 
 OUTCTX gOut;
 
-void
-LoadInputFile(
-    char const *apFilePath
-)
-{
-    printf("k2export:LoadInputFile(\"%s\")\n", apFilePath);
-}
-
 int main(int argc, char **argv)
 {
-    ArgParser args;
+    ArgParser   args;
+    K2STAT      stat;
     
     if (!args.Init(argc, argv))
     {
@@ -94,7 +87,9 @@ int main(int argc, char **argv)
                     printf("*** more than one INF specifier on command line\n");
                     return K2STAT_ERROR_BAD_ARGUMENT;
                 }
-                LoadDlxInfFile(args.Arg());
+                stat = LoadDlxInfFile(args.Arg());
+                if (K2STAT_IS_ERROR(stat))
+                    return stat;
                 break;
 
             case 'o':
@@ -114,7 +109,9 @@ int main(int argc, char **argv)
         }
         else
         {
-            LoadInputFile(args.Arg());
+            stat = LoadInputFile(args.Arg());
+            if (K2STAT_IS_ERROR(stat))
+                return stat;
         }
         args.Advance();
     }

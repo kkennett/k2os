@@ -29,62 +29,14 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __K2EXPORT_H
-#define __K2EXPORT_H
 
-#include <k2systype.h>
-#include <lib/k2win32.h>
-#include <lib/k2mem.h>
-#include <lib/k2asc.h>
-#include <lib/k2parse.h>
-#include <lib/k2elf.h>
-#include <lib/k2tree.h>
+#include "k2export.h"
 
-typedef struct _EXPORT_SPEC EXPORT_SPEC;
-struct _EXPORT_SPEC
+K2STAT
+LoadInputFile(
+    char const *apFilePath
+)
 {
-    char const *    mpName;
-    EXPORT_SPEC *   mpNext;
-    UINT_PTR        mExpNameOffset; // offset to copy of symbol name in export section
-    UINT_PTR        mSymNameOffset; // offset to copy of symbol name in string table
-};
-
-typedef struct _EXPSECT EXPSECT;
-struct _EXPSECT
-{
-    UINT_PTR        mCount;
-    EXPORT_SPEC *   mpSpecList;
-};
-
-#define SECIX_SEC_STR       1
-#define SECIX_SYM_STR       2
-#define SECIX_SYM           3
-#define SECIX_DLXINFO       4
-#define SECIX_DLXINFO_RELOC 5
-
-#define OUTSEC_CODE         0
-#define OUTSEC_READ         1
-#define OUTSEC_DATA         2
-#define OUTSEC_COUNT        3
-
-typedef struct _OUTCTX OUTCTX;
-struct _OUTCTX
-{
-    char const *            mpOutputFilePath;
-
-    K2ReadWriteMappedFile * mpMappedDlxInf;
-
-    K2_GUID128              Id;
-
-    EXPSECT                 mOutSec[OUTSEC_COUNT];
-
-    UINT_PTR                mTotalExports;          // for all mOutSec
-};
-
-extern OUTCTX gOut;
-
-K2STAT LoadDlxInfFile(char const *apArgument);
-
-K2STAT LoadInputFile(char const *apFilePath);
-
-#endif // __K2EXPORT_H
+    printf("k2export:LoadInputFile(\"%s\")\n", apFilePath);
+    return K2STAT_NO_ERROR;
+}
