@@ -98,7 +98,7 @@
 #define EM_X32                          3
 #define EM_A32                          40
 
-#define ELF32_LIBREC_LENGTH             60
+#define ELF_LIBREC_LENGTH               60
 
 //
 // section headers

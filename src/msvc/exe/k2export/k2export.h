@@ -79,6 +79,8 @@ struct _OUTCTX
     EXPSECT                 mOutSec[OUTSEC_COUNT];
 
     UINT_PTR                mTotalExports;          // for all mOutSec
+
+    UINT_PTR                mFileClass;
 };
 
 extern OUTCTX gOut;
@@ -86,5 +88,7 @@ extern OUTCTX gOut;
 K2STAT LoadDlxInfFile(char const *apArgument);
 
 K2STAT LoadInputFile(char const *apFilePath);
+
+K2STAT AddOneObject(K2ReadOnlyMappedFile *apSrcFile, char const *apObjectFileName, UINT_PTR aObjectFileNameLen, UINT8 const *apFileData, UINT_PTR aFileDataBytes);
 
 #endif // __K2EXPORT_H

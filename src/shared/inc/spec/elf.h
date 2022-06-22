@@ -227,7 +227,7 @@ K2_PACKED_POP
 typedef struct _Elf64_Phdr Elf64_Phdr;
 
 K2_PACKED_PUSH
-struct _Elf32_LibRec
+struct _Elf_LibRec
 {
     char    mName[16];
     char    mTime[12];
@@ -236,8 +236,8 @@ struct _Elf32_LibRec
     char    mMagic[2];
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
-typedef struct _Elf32_LibRec Elf32_LibRec;
-K2_STATIC_ASSERT(sizeof(Elf32_LibRec) == ELF32_LIBREC_LENGTH);
+typedef struct _Elf_LibRec Elf_LibRec;
+K2_STATIC_ASSERT(sizeof(Elf_LibRec) == ELF_LIBREC_LENGTH);
 
 #define ELF32_ST_TYPE(st_info)                  (((UINT8)(st_info)) & 0xF)
 #define ELF32_ST_BIND(st_info)                  ((((UINT8)(st_info))>>4) & 0xF)
