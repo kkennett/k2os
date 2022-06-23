@@ -43,7 +43,7 @@ iK2DLXSUPP_LoadSegments(
     UINT32              secIx;
     UINT32              count;
     K2STAT              status;
-    DLX_INFO *          pInfo;
+    DLX_INFO32 *        pInfo;
     UINT32              totalSpace;
     K2DLX_SECTOR *      pSector;
     UINT32              startAddr;

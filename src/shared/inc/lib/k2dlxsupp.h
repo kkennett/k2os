@@ -77,7 +77,7 @@ typedef void   (*pfK2DLXSUPP_AtReInit)(DLX *apDlx, UINT_PTR aModulePageLinkAddr,
 typedef K2STAT (*pfK2DLXSUPP_AcqAlreadyLoaded)(void *apAcqContext, K2DLXSUPP_HOST_FILE aHostFile);
 typedef K2STAT (*pfK2DLXSUPP_Open)(void *apAcqContext, char const * apFileSpec, char const *apNamePart, UINT_PTR aNamePartLen, K2DLXSUPP_OPENRESULT *apRetResult);
 typedef K2STAT (*pfK2DLXSUPP_ReadSectors)(void *apAcqContext, K2DLXSUPP_HOST_FILE aHostFile, void *apBuffer, UINT_PTR aSectorCount);
-typedef K2STAT (*pfK2DLXSUPP_Prepare)(void *apAcqContext, K2DLXSUPP_HOST_FILE aHostFile, DLX_INFO *apInfo, UINT_PTR aInfoSize, BOOL aKeepSymbols, K2DLXSUPP_SEGALLOC *apRetAlloc);
+typedef K2STAT (*pfK2DLXSUPP_Prepare)(void *apAcqContext, K2DLXSUPP_HOST_FILE aHostFile, DLX_INFO32 *apInfo, UINT_PTR aInfoSize, BOOL aKeepSymbols, K2DLXSUPP_SEGALLOC *apRetAlloc);
 typedef BOOL   (*pfK2DLXSUPP_PreCallback)(void *apAcqContext, K2DLXSUPP_HOST_FILE aHostFile, BOOL aIsLoad, DLX *apDlx);
 typedef K2STAT (*pfK2DLXSUPP_PostCallback)(void *apAcqContext, K2DLXSUPP_HOST_FILE aHostFile, K2STAT aUserStatus, DLX *apDlx);
 typedef K2STAT (*pfK2DLXSUPP_Finalize)(void *apAcqContext, K2DLXSUPP_HOST_FILE aHostFile, K2DLXSUPP_SEGALLOC *apUpdateAlloc);
@@ -136,21 +136,21 @@ K2DLXSUPP_Handoff(
 typedef
 K2STAT
 (*K2DLXSUPP_pf_GetInfo)(
-    DLX *               apDlx,
-    UINT_PTR *          apRetFlags,
-    DLX_pf_ENTRYPOINT * apRetEntrypoint,
-    DLX_SEGMENT_INFO *  apRetSegInfo,
-    UINT_PTR *          apRetPageAddr
+    DLX *                   apDlx,
+    UINT_PTR *              apRetFlags,
+    DLX_pf_ENTRYPOINT *     apRetEntrypoint,
+    DLX_ARCH_SEGMENT_INFO * apRetSegInfo,
+    UINT_PTR *              apRetPageAddr
 );
 
 K2STAT
 K2DLXSUPP_GetInfo(
-    DLX *               apDlx,
-    UINT_PTR *          apRetFlags,
-    DLX_pf_ENTRYPOINT * apRetEntrypoint,
-    DLX_SEGMENT_INFO *  apRetSegInfo,
-    UINT_PTR *          apRetPageAddr,
-    char const **       appRetFileName
+    DLX *                   apDlx,
+    UINT_PTR *              apRetFlags,
+    DLX_pf_ENTRYPOINT *     apRetEntrypoint,
+    DLX_ARCH_SEGMENT_INFO * apRetSegInfo,
+    UINT_PTR *              apRetPageAddr,
+    char const **           appRetFileName
     );
 
 #ifdef __cplusplus

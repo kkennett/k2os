@@ -52,7 +52,7 @@ iK2DLXSUPP_ReleaseImports(
         return;
 
     pWork = (UINT8 *)apDlx->mpInfo;
-    pWork += sizeof(DLX_INFO) - 4 + apDlx->mIntNameFieldLen;
+    pWork += sizeof(DLX_INFO32) - 4 + apDlx->mIntNameFieldLen;
 
     pStartImports = pWork;
 

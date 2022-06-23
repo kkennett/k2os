@@ -32,44 +32,6 @@
 
 #include "k2export.h"
 
-typedef struct _OBJ_FILE OBJ_FILE;
-struct _OBJ_FILE
-{
-    K2ReadOnlyMappedFile *      mpParentFile;
-    char const *                mpObjName;
-    UINT_PTR                    mObjNameLen;
-    UINT_PTR                    mFileBytes;
-    union {
-        struct {
-            Elf32_Ehdr const *          mpRawHdr;
-            K2ELF32PARSE                Parse;
-        } Bits32;
-        struct {
-            Elf64_Ehdr const *          mpRawHdr;
-            K2ELF64PARSE                Parse;
-        } Bits64;
-    };
-};
-
-typedef struct _GLOBAL_SYMBOL GLOBAL_SYMBOL;
-struct _GLOBAL_SYMBOL
-{
-    OBJ_FILE *          mpObjFile;
-    char const *        mpSymName;
-    bool                mIsCode;
-    bool                mIsRead;
-    bool                mIsWeak;
-    K2TREE_NODE         TreeNode;
-    union {
-        struct {
-            Elf32_Sym const *   mpSymEnt;
-        } Bits32;
-        struct {
-            Elf64_Sym const *   mpSymEnt;
-        } Bits64;
-    };
-};
-
 K2STAT
 AddOneGlobalSymbol32(
     OBJ_FILE *          apObjFile,
@@ -114,7 +76,7 @@ AddOneGlobalSymbol32(
                 isCode ? 'x' : '-',
                 isRead ? 'r' : '-',
                 apObjFile->mpParentFile->FileName(), apObjFile->mObjNameLen, apObjFile->mpObjName);
-            return false;
+            return K2STAT_ERROR_ALREADY_EXISTS;
         }
 
         if (pFound->mIsWeak)
@@ -126,7 +88,7 @@ AddOneGlobalSymbol32(
                 pFound->mpObjFile = apObjFile;
                 pFound->Bits32.mpSymEnt = apSymEnt;
             }
-            return true;
+            return K2STAT_NO_ERROR;
         }
         else if (!isWeak)
         {
@@ -210,7 +172,7 @@ AddOneObject32(
     UINT_PTR        symNameLen;
     Elf32_Sym *     pSym;
 
-    printf("k2export:AddOneObject32(\"%.*s\")\n", aObjectFileNameLen, apObjectFileName);
+//    printf("k2export:AddOneObject32(\"%.*s\")\n", aObjectFileNameLen, apObjectFileName);
 
     pObj = new OBJ_FILE;
     if (NULL == pObj)
@@ -300,7 +262,7 @@ AddOneObject64(
     K2ELF64PARSE    parse;
     K2STAT          stat;
 
-    printf("k2export:AddOneObject64(\"%.*s\")\n", aObjectFileNameLen, apObjectFileName);
+//    printf("k2export:AddOneObject64(\"%.*s\")\n", aObjectFileNameLen, apObjectFileName);
     stat = K2ELF64_Parse(apFileData, aFileDataBytes, &parse);
     if (K2STAT_IS_ERROR(stat))
     {
@@ -337,6 +299,28 @@ AddOneObject(
             return K2STAT_ERROR_BAD_ARGUMENT;
         }
         gOut.mFileClass = fileClass;
+        if (gOut.mFileClass == ELFCLASS32)
+        {
+            if (((Elf32_Ehdr *)apFileData)->e_machine == EM_X32)
+            {
+                gOut.mElfMachine = EM_X32;
+            }
+            else
+            {
+                gOut.mElfMachine = EM_A32;
+            }
+        }
+        else
+        {
+            if (((Elf32_Ehdr *)apFileData)->e_machine == EM_X64)
+            {
+                gOut.mElfMachine = EM_X64;
+            }
+            else
+            {
+                gOut.mElfMachine = EM_A64;
+            }
+        }
     }
 
     if (gOut.mFileClass == ELFCLASS32)

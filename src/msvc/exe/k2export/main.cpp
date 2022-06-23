@@ -123,5 +123,5 @@ int main(int argc, char **argv)
         args.Advance();
     }
 
-    return 0;
+    return DoExport();
 }

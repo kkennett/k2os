@@ -32,11 +32,11 @@
 
 #include "crtkern.h"
 
-void *                  __dso_handle;
+void *                              __dso_handle;
 
-K2OSKERN_SHARED         gShared;
+K2OSKERN_SHARED                     gShared;
 
-extern DLX_INFO const * const gpDlxInfo;
+extern DLX_ARCH_INFO const * const  gpDlxInfo;
 extern void *           __data_end;
 
 int  __cxa_atexit(__vfpv f, void *a, DLX * apDlx);

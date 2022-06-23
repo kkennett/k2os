@@ -258,7 +258,7 @@ LoadInputFile(
     DWORD           fpLen;
     char            fullPath[_MAX_PATH];
 
-    printf("k2export:LoadInputFile(\"%s\")\n", apFilePath);
+//    printf("k2export:LoadInputFile(\"%s\")\n", apFilePath);
 
     fpLen = GetFullPathName(apFilePath, _MAX_PATH - 1, fullPath, NULL);
     if ((0 == fpLen) ||

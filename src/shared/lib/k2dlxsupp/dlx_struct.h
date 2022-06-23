@@ -70,11 +70,11 @@ struct _DLX
     Elf32_Ehdr *                mpElf;
     Elf32_Shdr *                mpSecHdr;
 
-    DLX_INFO *                  mpInfo;         // the mpExpXXX inside this gets updated during link
+    DLX_INFO32 *                mpInfo;         // the mpExpXXX inside this gets updated during link
 
-    DLX_EXPORTS_SECTION *       mpExpCodeDataAddr;      // data addr of exports (Not link addr)
-    DLX_EXPORTS_SECTION *       mpExpReadDataAddr;
-    DLX_EXPORTS_SECTION *       mpExpDataDataAddr;
+    DLX_EXPORTS32_SECTION *     mpExpCodeDataAddr;      // data addr of exports (Not link addr)
+    DLX_EXPORTS32_SECTION *     mpExpReadDataAddr;
+    DLX_EXPORTS32_SECTION *     mpExpDataDataAddr;
 
     K2TREE_ANCHOR               SymTree[3];
 };

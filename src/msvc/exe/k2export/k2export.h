@@ -39,6 +39,45 @@
 #include <lib/k2parse.h>
 #include <lib/k2elf.h>
 #include <lib/k2tree.h>
+#include <lib/k2crc.h>
+
+typedef struct _OBJ_FILE OBJ_FILE;
+struct _OBJ_FILE
+{
+    K2ReadOnlyMappedFile *      mpParentFile;
+    char const *                mpObjName;
+    UINT_PTR                    mObjNameLen;
+    UINT_PTR                    mFileBytes;
+    union {
+        struct {
+            Elf32_Ehdr const *          mpRawHdr;
+            K2ELF32PARSE                Parse;
+        } Bits32;
+        struct {
+            Elf64_Ehdr const *          mpRawHdr;
+            K2ELF64PARSE                Parse;
+        } Bits64;
+    };
+};
+
+typedef struct _GLOBAL_SYMBOL GLOBAL_SYMBOL;
+struct _GLOBAL_SYMBOL
+{
+    OBJ_FILE *          mpObjFile;
+    char const *        mpSymName;
+    bool                mIsCode;
+    bool                mIsRead;
+    bool                mIsWeak;
+    K2TREE_NODE         TreeNode;
+    union {
+        struct {
+            Elf32_Sym const *   mpSymEnt;
+        } Bits32;
+        struct {
+            Elf64_Sym const *   mpSymEnt;
+        } Bits64;
+    };
+};
 
 typedef struct _EXPORT_SPEC EXPORT_SPEC;
 struct _EXPORT_SPEC
@@ -54,6 +93,26 @@ struct _EXPSECT
 {
     UINT_PTR        mCount;
     EXPORT_SPEC *   mpSpecList;
+
+    UINT_PTR        mIx;
+    UINT_PTR        mExpSymNameOffset;
+    UINT_PTR        mExpStrBytes;
+    UINT_PTR        mRelocIx;
+    char *          mpExpStrBase;
+
+    union {
+        struct {
+            Elf32_Rel *             mpRelocs;
+            DLX_EXPORTS32_SECTION * mpExpBase;
+        } Bits32;
+        struct {
+            Elf64_Rel *             mpRelocs;
+            DLX_EXPORTS64_SECTION * mpExpBase;
+        } Bits64;
+    };
+
+
+
 };
 
 #define SECIX_SEC_STR       1
@@ -81,8 +140,48 @@ struct _OUTCTX
     UINT_PTR                mTotalExports;          // for all mOutSec
 
     UINT_PTR                mFileClass;
+    UINT_PTR                mElfMachine;
 
     K2TREE_ANCHOR           SymbolTree;
+
+    UINT_PTR                mFileSizeBytes;
+    UINT_PTR                mSectionCount;
+    UINT_PTR                mSecStrTotalBytes;
+    UINT_PTR                mSymStrTotalBytes;
+    UINT_PTR                mIx;
+    UINT_PTR                mExpSymNameOffset;
+    UINT_PTR                mExpStrBytes;
+    UINT_PTR                mRelocIx;
+    UINT_PTR                mRelocType;
+    UINT_PTR                mRawWork;
+    UINT_PTR                mRawBase;
+    char *                  mpSecStrBase;
+    char *                  mpSecStrWork;
+    char *                  mpSymStrBase;
+    char *                  mpSymStrWork;
+
+    union {
+        struct {
+            Elf32_Ehdr *    mpFileHdr;
+            Elf32_Rel *     mpSecRelocBase;
+            Elf32_Rel *     mpSecRelocWork;
+            Elf32_Shdr *    mpSecHdrs;
+            Elf32_Sym *     mpSymWork;
+            Elf32_Sym *     mpSymBase;
+            DLX_INFO32      DlxInfo;
+            DLX_INFO32 *    mpInfo;
+        } Bits32;
+        struct {
+            Elf64_Ehdr *    mpFileHdr;
+            Elf64_Rel *     mpSecRelocBase;
+            Elf64_Rel *     pSecRelocWork;
+            Elf64_Shdr *    mpSecHdrs;
+            Elf64_Sym *     mpSymWork;
+            Elf64_Sym *     mpSymBase;
+            DLX_INFO64      DlxInfo;
+            DLX_INFO64 *    mpInfo;
+        } Bits64;
+    };
 };
 
 extern OUTCTX gOut;
@@ -92,5 +191,7 @@ K2STAT LoadDlxInfFile(char const *apArgument);
 K2STAT LoadInputFile(char const *apFilePath);
 
 K2STAT AddOneObject(K2ReadOnlyMappedFile *apSrcFile, char const *apObjectFileName, UINT_PTR aObjectFileNameLen, UINT8 const *apFileData, UINT_PTR aFileDataBytes);
+
+K2STAT DoExport(void);
 
 #endif // __K2EXPORT_H

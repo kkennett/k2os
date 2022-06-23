@@ -302,8 +302,8 @@ sParseDlxInf(
         lineNumber++;
     } while (left != 0);
 
-    printf("%d Code Exports\n", gOut.mOutSec[OUTSEC_CODE].mCount);
-    printf("%d Data Exports\n", gOut.mOutSec[OUTSEC_DATA].mCount);
+//    printf("%d Code Exports\n", gOut.mOutSec[OUTSEC_CODE].mCount);
+//    printf("%d Data Exports\n", gOut.mOutSec[OUTSEC_DATA].mCount);
 
     return K2STAT_NO_ERROR;
 }

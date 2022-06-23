@@ -96,7 +96,9 @@
 
 #define EM_NONE                         0
 #define EM_X32                          3
+#define EM_X64                          62
 #define EM_A32                          40
+#define EM_A64                          183
 
 #define ELF_LIBREC_LENGTH               60
 

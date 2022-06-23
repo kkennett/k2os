@@ -250,13 +250,13 @@ sGetImportByIndex(
     UINT32  aIndex
     )
 {
-    DLX_INFO *      pInfo;
+    DLX_INFO32 *    pInfo;
     UINT8 *         pWork;
     DLX_IMPORT *    pImport;
 
     pInfo = apDlx->mpInfo;
     
-    pWork = ((UINT8 *)pInfo) + sizeof(DLX_INFO) - sizeof(UINT32) + apDlx->mIntNameFieldLen;
+    pWork = ((UINT8 *)pInfo) + sizeof(DLX_INFO32) - sizeof(UINT32) + apDlx->mIntNameFieldLen;
     pImport = (DLX_IMPORT *)pWork;
     while (aIndex--)
     {
@@ -276,11 +276,11 @@ sLocateImports(
     Elf32_Shdr *            pSecHdr;
     UINT32                  secCount;
     UINT32                  secIx;
-    DLX_EXPORTS_SECTION *   pExpSec;
-    DLX_EXPORTS_SECTION *   pExpCheck;
+    DLX_EXPORTS32_SECTION * pExpSec;
+    DLX_EXPORTS32_SECTION * pExpCheck;
     K2_GUID128 *            pGuid;
     DLX *                   pImportFrom;
-    DLX_INFO *              pImportInfo;
+    DLX_INFO32 *            pImportInfo;
 
     secCount = apSector->Module.mpElf->e_shnum;
     pSecHdrArray = apSector->Module.mpSecHdr;
@@ -292,11 +292,11 @@ sLocateImports(
         {
             K2_ASSERT(pSecHdr->sh_link != 0);
 
-            pExpSec = (DLX_EXPORTS_SECTION *)apSector->mSecAddr[secIx];
+            pExpSec = (DLX_EXPORTS32_SECTION *)apSector->mSecAddr[secIx];
 
             pGuid = (K2_GUID128 *)(((UINT8 *)pExpSec) +
-                (sizeof(DLX_EXPORTS_SECTION) - sizeof(DLX_EXPORT_REF)) +
-                (sizeof(DLX_EXPORT_REF) * pExpSec->mCount));
+                (sizeof(DLX_EXPORTS32_SECTION) - sizeof(DLX_EXPORT32_REF)) +
+                (sizeof(DLX_EXPORT32_REF) * pExpSec->mCount));
 
             pImportFrom = sGetImportByIndex(&apSector->Module, pSecHdr->sh_link - 1);
 
@@ -360,10 +360,10 @@ sChangeAddresses(
     UINT32              symCount;
     Elf32_Sym *         pSym;
     Elf32_Word          symOffset;
-    DLX_EXPORT_REF *    pRef;
+    DLX_EXPORT32_REF *    pRef;
     K2STAT              status;
     UINT32              entryAddr;
-    DLX_INFO *          pInfo;
+    DLX_INFO32 *          pInfo;
 
     sectionCount = apSector->Module.mpElf->e_shnum;
     pSecHdrArray = apSector->Module.mpSecHdr;
@@ -403,14 +403,14 @@ sChangeAddresses(
                 if (pTrgSecHdr->sh_entsize != 0)
                 {
                     // fast link by offset
-                    pRef = (DLX_EXPORT_REF *)(pTrgSecHdr->sh_link + symOffset);
+                    pRef = (DLX_EXPORT32_REF *)(pTrgSecHdr->sh_link + symOffset);
                     pSym->st_value = pRef->mAddr;
                 }
                 else
                 {
                     // slow link by lookup
                     status = iK2DLXSUPP_FindExport(
-                        (DLX_EXPORTS_SECTION *)pTrgSecHdr->sh_link,
+                        (DLX_EXPORTS32_SECTION *)pTrgSecHdr->sh_link,
                         pSymStr + pSym->st_name,
                         &pSym->st_value);
                     if (K2STAT_IS_ERROR(status))

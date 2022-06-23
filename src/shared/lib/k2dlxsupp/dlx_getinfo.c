@@ -33,12 +33,12 @@
 
 K2STAT
 K2DLXSUPP_GetInfo(
-    DLX *               apDlx,
-    UINT32 *            apRetFlags,
-    DLX_pf_ENTRYPOINT * apRetEntrypoint,
-    DLX_SEGMENT_INFO *  apRetSegInfo,
-    UINT32 *            apRetPageAddr,
-    char const **       appRetFileName
+    DLX *                   apDlx,
+    UINT_PTR *              apRetFlags,
+    DLX_pf_ENTRYPOINT *     apRetEntrypoint,
+    DLX_ARCH_SEGMENT_INFO * apRetSegInfo,
+    UINT_PTR *              apRetPageAddr,
+    char const **           appRetFileName
     )
 {
     if (apRetFlags != NULL)
@@ -48,7 +48,7 @@ K2DLXSUPP_GetInfo(
         *apRetEntrypoint = 0;
     
     if (apRetSegInfo != NULL)
-        K2MEM_Zero(apRetSegInfo, sizeof(DLX_SEGMENT_INFO) * DlxSeg_Count);
+        K2MEM_Zero(apRetSegInfo, sizeof(DLX_ARCH_SEGMENT_INFO) * DlxSeg_Count);
 
     if (apDlx == NULL)
     {
@@ -78,7 +78,7 @@ K2DLXSUPP_GetInfo(
     if (!gpK2DLXSUPP_Vars->mHandedOff)
     {
         if (apRetSegInfo != NULL)
-            K2MEM_Copy(apRetSegInfo, apDlx->mpInfo->SegInfo, sizeof(DLX_SEGMENT_INFO) * DlxSeg_Count);
+            K2MEM_Copy(apRetSegInfo, apDlx->mpInfo->SegInfo, sizeof(DLX_ARCH_SEGMENT_INFO) * DlxSeg_Count);
 
         DLX_Release(apDlx);
     }

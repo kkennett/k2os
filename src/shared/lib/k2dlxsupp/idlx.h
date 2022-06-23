@@ -83,8 +83,8 @@ struct _K2DLXSUPP_VARS
 
 void
 iK2DLXSUPP_ReleaseImports(
-    DLX *   apDlx,
-    UINT32  aAcqCount
+    DLX *       apDlx,
+    UINT_PTR    aAcqCount
     );
 
 void
@@ -117,9 +117,9 @@ iK2DLXSUPP_FindAndAddRef(
 
 K2STAT
 iK2DLXSUPP_FindExport(
-    DLX_EXPORTS_SECTION const * apSec,
-    char const *                apName,
-    UINT32 *                    apRetAddr
+    DLX_ARCH_EXPORTS_SECTION const *    apSec,
+    char const *                        apName,
+    UINT_PTR *                          apRetAddr
     );
 
 void
@@ -129,7 +129,7 @@ iK2DLXSUPP_Cleanup(
 
 int
 iK2DLXSUPP_CompareUINT32(
-    UINT32          aKey,
+    UINT_PTR        aKey,
     K2TREE_NODE *   apDlx
     );
 

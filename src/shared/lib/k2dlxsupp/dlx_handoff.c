@@ -43,7 +43,7 @@ sHandoffOneDlxSector(
     UINT32          secIx;
     UINT32          segIx;
     UINT32          impIx;
-    DLX_INFO *      pInfo;
+    DLX_INFO32 *    pInfo;
     DLX_IMPORT *    pImport;
 
     sectionCount = apSector->Module.mpElf->e_shnum;
@@ -89,7 +89,7 @@ sHandoffOneDlxSector(
 
         pInfo = apSector->Module.mpInfo;
         pImport = (DLX_IMPORT *)
-            (((UINT8 *)pInfo) + (sizeof(DLX_INFO) - sizeof(UINT32)) + apSector->Module.mIntNameFieldLen);
+            (((UINT8 *)pInfo) + (sizeof(DLX_INFO32) - sizeof(UINT32)) + apSector->Module.mIntNameFieldLen);
         for (impIx = 0; impIx < pInfo->mImportCount; impIx++)
         {
             if (!ConvertLoadPtr((UINT32 *)&pImport->mReserved))

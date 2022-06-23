@@ -33,9 +33,9 @@
 
 K2STAT
 iK2DLXSUPP_FindExport(
-    DLX_EXPORTS_SECTION const * apSec,
-    char const *                apName,
-    UINT32 *                    apRetAddr
+    DLX_EXPORTS32_SECTION const *   apSec,
+    char const *                    apName,
+    UINT_PTR *                      apRetAddr
     )
 {
     UINT32          b;
@@ -68,12 +68,12 @@ iK2DLXSUPP_FindExport(
 K2STAT
 DLX_FindExport(
     DLX *           apDlx,
-    UINT32          aDlxSegment,
+    UINT_PTR        aDlxSegment,
     char const *    apExportName,
-    UINT32 *        apRetAddr
+    UINT_PTR *      apRetAddr
     )
 {
-    DLX_EXPORTS_SECTION const **  ppExp;
+    DLX_EXPORTS32_SECTION const **  ppExp;
     K2STAT                        status;
 
     if ((aDlxSegment < DlxSeg_Text) ||
@@ -92,11 +92,11 @@ DLX_FindExport(
         //
         // try data address first, then link address
         //
-        ppExp = (DLX_EXPORTS_SECTION const **)&apDlx->mpExpCodeDataAddr;
+        ppExp = (DLX_EXPORTS32_SECTION const **)&apDlx->mpExpCodeDataAddr;
         ppExp += (aDlxSegment - DlxSeg_Text);
         if (*ppExp == NULL)
         {
-            ppExp = (DLX_EXPORTS_SECTION const **)&apDlx->mpInfo->mpExpCode;
+            ppExp = (DLX_EXPORTS32_SECTION const **)&apDlx->mpInfo->mpExpCode;
             ppExp += (aDlxSegment - DlxSeg_Text);
             if (*ppExp == NULL)
             {
