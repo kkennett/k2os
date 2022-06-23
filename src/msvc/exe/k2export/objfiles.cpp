@@ -32,6 +32,161 @@
 
 #include "k2export.h"
 
+typedef struct _OBJ_FILE OBJ_FILE;
+struct _OBJ_FILE
+{
+    K2ReadOnlyMappedFile *      mpParentFile;
+    char const *                mpObjName;
+    UINT_PTR                    mObjNameLen;
+    UINT_PTR                    mFileBytes;
+    union {
+        struct {
+            Elf32_Ehdr const *          mpRawHdr;
+            K2ELF32PARSE                Parse;
+        } Bits32;
+        struct {
+            Elf64_Ehdr const *          mpRawHdr;
+            K2ELF64PARSE                Parse;
+        } Bits64;
+    };
+};
+
+typedef struct _GLOBAL_SYMBOL GLOBAL_SYMBOL;
+struct _GLOBAL_SYMBOL
+{
+    OBJ_FILE *          mpObjFile;
+    char const *        mpSymName;
+    bool                mIsCode;
+    bool                mIsRead;
+    bool                mIsWeak;
+    K2TREE_NODE         TreeNode;
+    union {
+        struct {
+            Elf32_Sym const *   mpSymEnt;
+        } Bits32;
+        struct {
+            Elf64_Sym const *   mpSymEnt;
+        } Bits64;
+    };
+};
+
+K2STAT
+AddOneGlobalSymbol32(
+    OBJ_FILE *          apObjFile,
+    char const *        apSymName,
+    Elf32_Sym const *   apSymEnt
+)
+{
+    Elf32_Shdr const *  pFoundSecHdr;
+    Elf32_Shdr const *  pSymSecHdr;
+    bool                isWeak;
+    bool                isCode;
+    bool                isRead;
+    GLOBAL_SYMBOL *     pGlob;
+    K2TREE_NODE *       pTreeNode;
+    GLOBAL_SYMBOL *     pFound;
+    UINT8 const *       pFoundData;
+    UINT8 const *       pSymData;
+
+    pSymSecHdr = (Elf32_Shdr const *)(apObjFile->Bits32.Parse.mpSectionHeaderTable + (apObjFile->Bits32.Parse.mSectionHeaderTableEntryBytes * apSymEnt->st_shndx));
+
+    isWeak = (ELF32_ST_BIND(apSymEnt->st_info) == STB_WEAK);
+    isCode = (pSymSecHdr->sh_flags & SHF_EXECINSTR) ? true : false;
+    if (isCode)
+        isRead = true;
+    else
+        isRead = (pSymSecHdr->sh_flags & SHF_WRITE) ? false : true;
+
+    pTreeNode = K2TREE_Find(&gOut.SymbolTree, (UINT_PTR)apSymName);
+    if (pTreeNode != NULL)
+    {
+        pFound = K2_GET_CONTAINER(GLOBAL_SYMBOL, pTreeNode, TreeNode);
+
+        if ((pFound->mIsCode != isCode) ||
+            (pFound->mIsRead != isRead))
+        {
+            printf("Symbol \"%s\" found with two different types:\n", apSymName);
+            printf("%c%c in %s(%.*s)\n",
+                pFound->mIsCode ? 'x' : '-',
+                pFound->mIsRead ? 'r' : '-',
+                pFound->mpObjFile->mpParentFile->FileName(), pFound->mpObjFile->mObjNameLen, pFound->mpObjFile->mpObjName);
+            printf("%c%c in %s(%.*s)\n",
+                isCode ? 'x' : '-',
+                isRead ? 'r' : '-',
+                apObjFile->mpParentFile->FileName(), apObjFile->mObjNameLen, apObjFile->mpObjName);
+            return false;
+        }
+
+        if (pFound->mIsWeak)
+        {
+            if (!isWeak)
+            {
+                /* found weak symbol strong name. alter tree node */
+                pFound->mIsWeak = false;
+                pFound->mpObjFile = apObjFile;
+                pFound->Bits32.mpSymEnt = apSymEnt;
+            }
+            return true;
+        }
+        else if (!isWeak)
+        {
+            //
+            // duplicate symbol
+            //
+            if ((pFound->mIsCode == isCode) &&
+                (pFound->Bits32.mpSymEnt->st_size == apSymEnt->st_size))
+            {
+                if (apSymEnt->st_size == 0)
+                    pFound = NULL;
+                else
+                {
+                    pFoundSecHdr = (Elf32_Shdr const *)(pFound->mpObjFile->Bits32.Parse.mpSectionHeaderTable + (pFound->Bits32.mpSymEnt->st_shndx * pFound->mpObjFile->Bits32.Parse.mSectionHeaderTableEntryBytes));
+                    pFoundData = ((UINT8 const *)pFound->mpObjFile->Bits32.Parse.mpRawFileData) + pFoundSecHdr->sh_offset;
+                    pFoundData += pFound->Bits32.mpSymEnt->st_value;
+
+                    pSymData = ((UINT8 const *)apObjFile->Bits32.Parse.mpRawFileData) + pSymSecHdr->sh_offset;
+                    pSymData += apSymEnt->st_value;
+
+                    if (!K2MEM_Compare(pFoundData, pSymData, apSymEnt->st_size))
+                    {
+                        //
+                        // symbol contents are identical
+                        //
+                        pFound = NULL;
+                    }
+                }
+            }
+            if (pFound)
+            {
+                printf("Duplicate symbol \"%s\" found:\n", apSymName);
+                printf("in  %s(%.*s)\n", pFound->mpObjFile->mpParentFile->FileName(), pFound->mpObjFile->mObjNameLen, pFound->mpObjFile->mpObjName);
+                printf("and %s(%.*s)\n", apObjFile->mpParentFile->FileName(), apObjFile->mObjNameLen, apObjFile->mpObjName);
+                return K2STAT_ERROR_BAD_ARGUMENT;
+            }
+            return K2STAT_NO_ERROR;
+        }
+    }
+
+    pGlob = new GLOBAL_SYMBOL;
+    if (pGlob == NULL)
+    {
+        printf("*** Memory allocation error\n");
+        return K2STAT_ERROR_OUT_OF_MEMORY;
+    }
+
+    pGlob->mpObjFile = apObjFile;
+    pGlob->Bits32.mpSymEnt = apSymEnt;
+    pGlob->mpSymName = apSymName;
+    pGlob->mIsWeak = isWeak;
+    pGlob->mIsCode = isCode;
+    pGlob->mIsRead = isRead;
+
+    pGlob->TreeNode.mUserVal = (UINT_PTR)apSymName;
+    K2TREE_Insert(&gOut.SymbolTree, (UINT_PTR)apSymName, &pGlob->TreeNode);
+
+    return K2STAT_NO_ERROR;
+}
+
 K2STAT
 AddOneObject32(
     K2ReadOnlyMappedFile *  apSrcFile,
@@ -41,7 +196,7 @@ AddOneObject32(
     UINT_PTR                aFileDataBytes
 )
 {
-    K2ELF32PARSE    parse;
+    OBJ_FILE *      pObj;
     K2STAT          stat;
     UINT_PTR        secIx;
     Elf32_Shdr *    pSecHdr;
@@ -56,53 +211,81 @@ AddOneObject32(
     Elf32_Sym *     pSym;
 
     printf("k2export:AddOneObject32(\"%.*s\")\n", aObjectFileNameLen, apObjectFileName);
-    stat = K2ELF32_Parse(apFileData, aFileDataBytes, &parse);
+
+    pObj = new OBJ_FILE;
+    if (NULL == pObj)
+    {
+        printf("*** Out of memory\n");
+        return K2STAT_ERROR_OUT_OF_MEMORY;
+    }
+
+    stat = K2STAT_NO_ERROR;
+
+    do {
+        K2MEM_Zero(pObj, sizeof(OBJ_FILE));
+        stat = K2ELF32_Parse(apFileData, aFileDataBytes, &pObj->Bits32.Parse);
+        if (K2STAT_IS_ERROR(stat))
+        {
+            printf("*** Could not parse input file as ELF (%.*s)\n", aObjectFileNameLen, apObjectFileName);
+            break;
+        }
+
+        pObj->mpParentFile = apSrcFile;
+        pObj->mpObjName = apObjectFileName;
+        pObj->mObjNameLen = aObjectFileNameLen;
+
+        for (secIx = 1; secIx < pObj->Bits32.Parse.mpRawFileData->e_shnum; secIx++)
+        {
+            pSecHdr = (Elf32_Shdr *)(pObj->Bits32.Parse.mpSectionHeaderTable + (pObj->Bits32.Parse.mSectionHeaderTableEntryBytes * secIx));
+            if (pSecHdr->sh_type != SHT_SYMTAB)
+                continue;
+
+            symBytes = pSecHdr->sh_entsize;
+            if (0 == symBytes)
+                symBytes = sizeof(Elf32_Sym);
+            symCount = pSecHdr->sh_size / symBytes;
+            if (1 >= symCount)
+                continue;
+
+            pStrSecHdr = (Elf32_Shdr *)(pObj->Bits32.Parse.mpSectionHeaderTable + (pObj->Bits32.Parse.mSectionHeaderTableEntryBytes * pSecHdr->sh_link));
+            pStr = ((char const *)pObj->Bits32.Parse.mpRawFileData) + pStrSecHdr->sh_offset;
+
+            pScan = ((UINT8 const *)pObj->Bits32.Parse.mpRawFileData) + pSecHdr->sh_offset;
+            do {
+                pSym = (Elf32_Sym *)pScan;
+                pScan += symBytes;
+
+                pSymName = pStr + pSym->st_name;
+
+                symBind = ELF32_ST_BIND(pSym->st_info);
+
+                if (((symBind == STB_GLOBAL) ||
+                    (symBind == STB_WEAK)) &&
+                    (pSym->st_shndx != 0))
+                {
+                    /* this is a global symbol in this object file */
+                    symNameLen = K2ASC_Len(pSymName);
+                    if ((symNameLen != 0) && (pSym->st_shndx < pObj->Bits32.Parse.mpRawFileData->e_shnum))
+                    {
+                        stat = AddOneGlobalSymbol32(pObj, pSymName, pSym);
+                        if (K2STAT_IS_ERROR(stat))
+                            break;
+                    }
+                }
+            } while (--symCount);
+
+            if (K2STAT_IS_ERROR(stat))
+                break;
+        }
+
+    } while (0);
+
     if (K2STAT_IS_ERROR(stat))
     {
-        printf("*** Could not parse input file as ELF (%.*s)\n", aObjectFileNameLen, apObjectFileName);
-        return stat;
+        delete pObj;
     }
 
-    for (secIx = 1; secIx < parse.mpRawFileData->e_shnum; secIx++)
-    {
-        pSecHdr = (Elf32_Shdr *)(parse.mpSectionHeaderTable + (parse.mSectionHeaderTableEntryBytes * secIx));
-        if (pSecHdr->sh_type != SHT_SYMTAB)
-            continue;
-
-        symBytes = pSecHdr->sh_entsize;
-        if (0 == symBytes)
-            symBytes = sizeof(Elf32_Sym);
-        symCount = pSecHdr->sh_size / symBytes;
-        if (1 >= symCount)
-            continue;
-
-        pStrSecHdr = (Elf32_Shdr *)(parse.mpSectionHeaderTable + (parse.mSectionHeaderTableEntryBytes * pSecHdr->sh_link));
-        pStr = ((char const *)parse.mpRawFileData) + pStrSecHdr->sh_offset;
-
-        pScan = ((UINT8 const *)parse.mpRawFileData) + pSecHdr->sh_offset;
-        do {
-            pSym = (Elf32_Sym *)pScan;
-            pScan += symBytes;
-
-            pSymName = pStr + pSym->st_name;
-
-            symBind = ELF32_ST_BIND(pSym->st_info);
-
-            if (((symBind == STB_GLOBAL) ||
-                (symBind == STB_WEAK)) &&
-                (pSym->st_shndx != 0))
-            {
-                /* this is a global symbol in this object file */
-                symNameLen = K2ASC_Len(pSymName);
-                if ((symNameLen != 0) && (pSym->st_shndx < parse.mpRawFileData->e_shnum))
-                {
-                    printf("  AddSymbol(%s)\n", pSymName);
-                }
-            }
-        } while (--symCount);
-    }
-
-    return K2STAT_NO_ERROR;
+    return stat;
 }
 
 K2STAT

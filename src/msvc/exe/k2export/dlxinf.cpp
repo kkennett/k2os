@@ -71,7 +71,7 @@ sInsertList(
         comp = K2ASC_Comp(apIns->mpName, pLook->mpName);
         if (comp == 0)
         {
-            printf("!!! Duplicated export on line %d\n", aLineNum);
+            printf("!!! Duplicated export on line %Id\n", aLineNum);
             return;  // duplicated symbol in export list
         }
 

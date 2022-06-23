@@ -81,6 +81,8 @@ struct _OUTCTX
     UINT_PTR                mTotalExports;          // for all mOutSec
 
     UINT_PTR                mFileClass;
+
+    K2TREE_ANCHOR           SymbolTree;
 };
 
 extern OUTCTX gOut;

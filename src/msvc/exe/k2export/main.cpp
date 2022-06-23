@@ -34,6 +34,12 @@
 
 OUTCTX gOut;
 
+int
+TreeStringCompare(UINT_PTR aKey, K2TREE_NODE *apNode)
+{
+    return K2ASC_Comp((char const *)aKey, (char const *)apNode->mUserVal);
+}
+
 int main(int argc, char **argv)
 {
     ArgParser   args;
@@ -63,6 +69,7 @@ int main(int argc, char **argv)
     }
 
     K2MEM_Zero(&gOut, sizeof(gOut));
+    K2TREE_Init(&gOut.SymbolTree, TreeStringCompare);
 
     //
     // parse args and load files
