@@ -117,11 +117,6 @@ struct _EXPSECT
 #define SECIX_ANCHOR        4
 #define SECIX_ANCHOR_RELOC  5
 
-#define OUTSEC_CODE         0
-#define OUTSEC_READ         1
-#define OUTSEC_DATA         2
-#define OUTSEC_COUNT        3
-
 typedef struct _OUTCTX OUTCTX;
 struct _OUTCTX
 {
@@ -131,7 +126,7 @@ struct _OUTCTX
 
     K2_GUID128              Id;
 
-    EXPSECT                 mOutSec[OUTSEC_COUNT];
+    EXPSECT                 mOutSec[XDLExportType_Count];
 
     UINT_PTR                mTotalExports;          // for all mOutSec
 

@@ -156,7 +156,7 @@ sEmitSection(
 
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_name = (Elf32_Word)(gOut.mpSecStrWork - gOut.mpSecStrBase);
     K2ASC_Copy(gOut.mpSecStrWork, sgpSecStr_Exp);
-    if (aIx == OUTSEC_CODE)
+    if (aIx == XDLExport_Text)
     {
         binding = ELF32_MAKE_SYMBOL_INFO(STB_GLOBAL, STT_FUNC);
         *(gOut.mpSecStrWork + 1) = 'c';
@@ -164,7 +164,7 @@ sEmitSection(
     else
     {
         binding = ELF32_MAKE_SYMBOL_INFO(STB_GLOBAL, STT_OBJECT);
-        if (aIx == OUTSEC_READ)
+        if (aIx == XDLExport_Read)
             *(gOut.mpSecStrWork + 1) = 'r';
         else
             *(gOut.mpSecStrWork + 1) = 'd';
@@ -177,9 +177,9 @@ sEmitSection(
 
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mRelocIx].sh_name = (Elf32_Word)(gOut.mpSecStrWork - gOut.mpSecStrBase);
     K2ASC_Copy(gOut.mpSecStrWork, sgpSecStr_Rel);
-    if (aIx == OUTSEC_CODE)
+    if (aIx == XDLExport_Text)
         *(gOut.mpSecStrWork + 1) = 'c';
-    else if (aIx == OUTSEC_READ)
+    else if (aIx == XDLExport_Read)
         *(gOut.mpSecStrWork + 1) = 'r';
     else
         *(gOut.mpSecStrWork + 1) = 'd';
@@ -222,9 +222,9 @@ sEmitSection(
     // name of symbol for export section
     pExpSecSymName = gOut.mpSymStrBase + gOut.mOutSec[aIx].mExpSymNameOffset;
     K2ASC_Copy(pExpSecSymName, sgpSymExp);
-    if (aIx == OUTSEC_CODE)
+    if (aIx == XDLExport_Text)
         *(pExpSecSymName + 4) = 'c';
-    else if (aIx == OUTSEC_READ)
+    else if (aIx == XDLExport_Read)
         *(pExpSecSymName + 4) = 'r';
     else
         *(pExpSecSymName + 4) = 'd';
@@ -308,7 +308,7 @@ sCreateOutputFile(
         gOut.mSecStrTotalBytes += K2ASC_Len(sgpSecStr_XDLAnchorReloc) + 1;
 
         // prep for export sections now
-        for (ix = 0;ix < OUTSEC_COUNT;ix++)
+        for (ix = 0;ix < XDLExportType_Count;ix++)
             sPrepSection(ix);
     }
 
@@ -353,7 +353,7 @@ sCreateOutputFile(
         gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_offset = gOut.mRawWork - gOut.mRawBase;
         gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_size = sizeof(Elf32_Sym) * 2;  // null symbol and dlx info symbol
         gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_info = 1;
-        for (ix = 0;ix < OUTSEC_COUNT;ix++)
+        for (ix = 0;ix < XDLExportType_Count;ix++)
         {
             if (gOut.mOutSec[ix].mCount != 0)
             {
@@ -375,14 +375,14 @@ sCreateOutputFile(
             gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_offset = gOut.mRawWork - gOut.mRawBase;
             gOut.Bits32.mpSecRelocBase = (Elf32_Rel *)gOut.mRawWork;
             gOut.Bits32.mpSecRelocWork = gOut.Bits32.mpSecRelocBase;
-            for (ix = 0;ix < OUTSEC_COUNT;ix++)
+            for (ix = 0;ix < XDLExportType_Count;ix++)
             {
                 if (gOut.mOutSec[ix].mCount > 0)
                     gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_size += sizeof(Elf32_Rel);
             }
             gOut.mRawWork += gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_size;
 
-            for (ix = 0;ix < OUTSEC_COUNT;ix++)
+            for (ix = 0;ix < XDLExportType_Count;ix++)
                 sPlaceSection(ix);
         }
 
@@ -463,7 +463,7 @@ sCreateOutputFile(
             gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_info = SECIX_ANCHOR;
             gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_entsize = sizeof(Elf32_Rel);
 
-            for (ix = 0;ix < OUTSEC_COUNT;ix++)
+            for (ix = 0;ix < XDLExportType_Count;ix++)
                 sEmitSection(ix);
         }
 
@@ -511,7 +511,7 @@ DoExport(
     if (gOut.mTotalExports > 0)
     {
         result = 0;
-        pSpec = gOut.mOutSec[OUTSEC_CODE].mpSpecList;
+        pSpec = gOut.mOutSec[XDLExport_Text].mpSpecList;
         while (pSpec != NULL)
         {
             pTreeNode = K2TREE_Find(&gOut.SymbolTree, (UINT_PTR)pSpec->mpName);
@@ -551,7 +551,7 @@ DoExport(
         //    printf("Code symbols all found ok\n");
 
         result = 0;
-        pSpec = gOut.mOutSec[OUTSEC_DATA].mpSpecList;
+        pSpec = gOut.mOutSec[XDLExport_Data].mpSpecList;
         pSpecEnd = NULL;
         pPrev = NULL;
         while (pSpec != NULL)
@@ -591,18 +591,18 @@ DoExport(
                     pHold = pSpec->mpNext;
 
                     if (pPrev == NULL)
-                        gOut.mOutSec[OUTSEC_DATA].mpSpecList = pSpec->mpNext;
+                        gOut.mOutSec[XDLExport_Data].mpSpecList = pSpec->mpNext;
                     else
                         pPrev->mpNext = pSpec->mpNext;
                     pSpec->mpNext = NULL;
-                    gOut.mOutSec[OUTSEC_DATA].mCount--;
+                    gOut.mOutSec[XDLExport_Data].mCount--;
 
                     if (pSpecEnd != NULL)
                         pSpecEnd->mpNext = pSpec;
                     else
-                        gOut.mOutSec[OUTSEC_READ].mpSpecList = pSpec;
+                        gOut.mOutSec[XDLExport_Read].mpSpecList = pSpec;
                     pSpecEnd = pSpec;
-                    gOut.mOutSec[OUTSEC_READ].mCount++;
+                    gOut.mOutSec[XDLExport_Read].mCount++;
 
                     pSpec = pHold;
                 }
@@ -615,7 +615,7 @@ DoExport(
         }
         if (result != 0)
             return result;
-        //    printf("Data symbols all found ok.  %d are read, %d are data\n", gOut.mOutSec[OUTSEC_READ].mCount, gOut.mOutSec[OUTSEC_DATA].mCount);
+        //    printf("Data symbols all found ok.  %d are read, %d are data\n", gOut.mOutSec[XDLExport_Read].mCount, gOut.mOutSec[XDLExport_Data].mCount);
     }
 
     return sCreateOutputFile() ? 0 : -106;

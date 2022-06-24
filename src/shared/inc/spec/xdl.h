@@ -52,11 +52,21 @@ typedef struct _XDL XDL;
 #define XDL_ELF_SHF_TYPE_IMPORTS    0x00200000
 #define XDL_ELF_SHF_TYPE_ANCHOR     0x00400000
 
+typedef enum _XDLExportType XDLExportType;
+enum _XDLExportType
+{
+    XDLExport_Text,
+    XDLExport_Read,
+    XDLExport_Data,
+
+    XDLExportType_Count
+};
+
 K2_PACKED_PUSH
 typedef struct _XDL_ELF_ANCHOR XDL_ELF_ANCHOR;
 struct _XDL_ELF_ANCHOR
 {
-    UINT64  mAnchor[3]; // code, read, and data exports anchor in ELF file
+    UINT64  mAnchor[XDLExportType_Count]; 
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
 

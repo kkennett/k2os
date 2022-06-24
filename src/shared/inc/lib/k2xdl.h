@@ -32,8 +32,6 @@
 #ifndef __K2XDL_H
 #define __K2XDL_H
 
-/* --------------------------------------------------------------------------------- */
-
 #include <k2systype.h>
 
 #include <lib/k2list.h>
@@ -42,9 +40,8 @@
 extern "C" {
 #endif
 
-//
-// XDL entrypoint
-//
+/* -------------------------------------------------------------------------------- - */
+
 #ifndef XDL_ENTRY_REASON_UNLOAD
 #define XDL_ENTRY_REASON_UNLOAD ((UINT_PTR)-1)
 #endif
@@ -53,7 +50,7 @@ extern "C" {
 #define XDL_ENTRY_REASON_LOAD   1
 #endif
 
-typedef K2STAT (K2_CALLCONV_REGS *XDL_pf_ENTRYPOINT)(XDL * apDlx, UINT_PTR aReason);
+typedef K2STAT (K2_CALLCONV_REGS *XDL_pf_ENTRYPOINT)(XDL * apXdl, UINT_PTR aReason);
 
 K2STAT
 K2_CALLCONV_REGS
@@ -62,13 +59,72 @@ xdl_entry(
     UINT_PTR    aReason
 );
 
+/* -------------------------------------------------------------------------------- - */
+
+K2STAT
+XDL_Acquire(
+    char const *    apFileSpec,
+    void *          apContext,
+    XDL **          appRetXdl,
+    UINT_PTR *      apRetEntryStackReq,
+    K2_GUID128 *    apRetID
+);
+
+K2STAT
+XDL_GetIdent(
+    XDL *           apXdl,
+    char *          apNameBuf,
+    UINT_PTR        aNameBufLen,
+    K2_GUID128  *   apRetID
+);
+
+K2STAT
+XDL_Release(
+    XDL *           apXdl
+);
+
+K2STAT
+XDL_FindExport(
+    XDL *           apXdl,
+    XDLExportType   aType,
+    char const *    apName,
+    UINT_PTR *      apRetAddr
+);
+
+K2STAT
+XDL_AcquireContaining(
+    UINT_PTR    aAddr,
+    XDL **      appRetXdl,
+    UINT_PTR *  apRetSegment
+);
+
+K2STAT
+XDL_FindAddrName(
+    UINT_PTR    aAddr,
+    char *      apRetNameBuffer,
+    UINT_PTR    aBufferLen
+);
+
+UINT_PTR
+XDL_AddrToName(
+    XDL *       apXdl,
+    UINT_PTR    aAddr,
+    UINT_PTR    aSegHint,
+    char *      apRetNameBuffer,
+    UINT_PTR    aBufferLen
+);
+
+/* -------------------------------------------------------------------------------- - */
+
 typedef UINT_PTR K2XDL_HOST_FILE;
+
+
+
+/* -------------------------------------------------------------------------------- - */
 
 #ifdef __cplusplus
 };  // extern "C"
 #endif
-
-/* --------------------------------------------------------------------------------- */
 
 #endif  // __K2XDL_H
 
