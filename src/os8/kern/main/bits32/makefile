@@ -35,7 +35,7 @@ include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 TARGET_TYPE = LIB
 K2_KERNEL := TRUE
 
-SOURCES += dlx_entry.c
+SOURCES += xdl_entry.c
 SOURCES += kernex.c
 SOURCES += seqlock.c 
 SOURCES += debug.c
@@ -57,7 +57,7 @@ SOURCES += thread.c
 SOURCES += timer.c
 SOURCES += sched_locked.c
 SOURCES += launch.c
-SOURCES += dlxsupp.c
+SOURCES += xdlsupp.c
 SOURCES += plat.c
 SOURCES += exec.c
 SOURCES += info.c

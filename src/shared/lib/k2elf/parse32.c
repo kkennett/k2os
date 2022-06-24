@@ -353,8 +353,7 @@ sValidateSymbolTable(
                                 return K2STAT_ERROR_ELF_INVALID_SYMBOL_SIZE;
                         }
                     }
-                    else if ((apFile->mpRawFileData->e_type == ET_EXEC) ||
-                             (apFile->mpRawFileData->e_type == DLX_ET_DLX))
+                    else if (apFile->mpRawFileData->e_type == ET_EXEC)
                     {
                         if ((ent.st_value < pTargetHdr->sh_addr) ||
                             (ent.st_value - pTargetHdr->sh_addr >= pTargetHdr->sh_size))

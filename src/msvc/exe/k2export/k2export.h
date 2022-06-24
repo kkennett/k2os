@@ -99,26 +99,23 @@ struct _EXPSECT
     UINT_PTR        mRelocIx;
     char *          mpExpStrBase;
 
+    XDL_EXPORTS_SECTION_HEADER * mpExpBase;
+
     union {
         struct {
-            Elf32_Rel *             mpRelocs;
-            DLX_EXPORTS32_SECTION * mpExpBase;
+            Elf32_Rel * mpRelocs;
         } Bits32;
         struct {
-            Elf64_Rel *             mpRelocs;
-            DLX_EXPORTS64_SECTION * mpExpBase;
+            Elf64_Rel * mpRelocs;
         } Bits64;
     };
-
-
-
 };
 
 #define SECIX_SEC_STR       1
 #define SECIX_SYM_STR       2
 #define SECIX_SYM           3
-#define SECIX_DLXINFO       4
-#define SECIX_DLXINFO_RELOC 5
+#define SECIX_ANCHOR        4
+#define SECIX_ANCHOR_RELOC  5
 
 #define OUTSEC_CODE         0
 #define OUTSEC_READ         1
@@ -159,6 +156,9 @@ struct _OUTCTX
     char *                  mpSymStrBase;
     char *                  mpSymStrWork;
 
+    XDL_ELF_ANCHOR          Anchor;
+    XDL_ELF_ANCHOR *        mpAnchor;
+
     union {
         struct {
             Elf32_Ehdr *    mpFileHdr;
@@ -167,8 +167,6 @@ struct _OUTCTX
             Elf32_Shdr *    mpSecHdrs;
             Elf32_Sym *     mpSymWork;
             Elf32_Sym *     mpSymBase;
-            DLX_INFO32      DlxInfo;
-            DLX_INFO32 *    mpInfo;
         } Bits32;
         struct {
             Elf64_Ehdr *    mpFileHdr;
@@ -177,8 +175,6 @@ struct _OUTCTX
             Elf64_Shdr *    mpSecHdrs;
             Elf64_Sym *     mpSymWork;
             Elf64_Sym *     mpSymBase;
-            DLX_INFO64      DlxInfo;
-            DLX_INFO64 *    mpInfo;
         } Bits64;
     };
 };

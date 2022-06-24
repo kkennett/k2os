@@ -44,11 +44,27 @@ extern "C" {
 
 typedef struct _XDL XDL;
 
-#define XDL_SECTOR_BITS        9
-#define XDL_SECTOR_BYTES       (1 << XDL_SECTOR_BITS)
-#define XDL_SECTOROFFSET_MASK  (XDL_SECTOR_BYTES - 1)
-#define XDL_SECTORINDEX_MASK   (~XDL_SECTOROFFSET_MASK)
-#define XDL_SECTORS_PER_PAGE   (K2_VA_MEMPAGE_BYTES / XDL_SECTOR_BYTES)
+//
+// Elf Extension definitions
+//
+#define XDL_ELF_SHF_TYPE_MASK       SHF_MASKOS
+#define XDL_ELF_SHF_TYPE_EXPORTS    0x00100000
+#define XDL_ELF_SHF_TYPE_IMPORTS    0x00200000
+#define XDL_ELF_SHF_TYPE_ANCHOR     0x00400000
+
+K2_PACKED_PUSH
+typedef struct _XDL_ELF_ANCHOR XDL_ELF_ANCHOR;
+struct _XDL_ELF_ANCHOR
+{
+    UINT64  mAnchor[3]; // code, read, and data exports anchor in ELF file
+} K2_PACKED_ATTRIB;
+K2_PACKED_POP
+
+#define XDL_SECTOR_BITS             9
+#define XDL_SECTOR_BYTES            (1 << XDL_SECTOR_BITS)
+#define XDL_SECTOROFFSET_MASK       (XDL_SECTOR_BYTES - 1)
+#define XDL_SECTORINDEX_MASK        (~XDL_SECTOROFFSET_MASK)
+#define XDL_SECTORS_PER_PAGE        (K2_VA_MEMPAGE_BYTES / XDL_SECTOR_BYTES)
 
 typedef enum _XDLSectionIx XDLSectionIx;
 enum _XDLSectionIx
@@ -78,7 +94,9 @@ struct _XDL_FILE_SECTION
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
 
-#define XDL_FILE_HEADER_FLAG_KERNEL_ONLY 0x0001
+#define XDL_FILE_HEADER_MARKER              K2_MAKEID4('K','2','O','S')
+
+#define XDL_FILE_HEADER_FLAG_KERNEL_ONLY    0x0001
 
 K2_PACKED_PUSH
 typedef struct _XDL_FILE_HEADER XDL_FILE_HEADER;
@@ -135,7 +153,7 @@ struct _XDL_EXPORTS_SECTION_HEADER
 {
     UINT32  mCount;
     UINT32  mCRC32;
-    UINT8   mExports[8];    // at least one XDL_EXPORT??_REF record
+    // followed by at least one XDL_EXPORT??_REF record
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
 

@@ -32,13 +32,13 @@
 
 include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
-TARGET_TYPE = DLX
+TARGET_TYPE = XDL
 
 TARGET_SPECIFIC_ARCH = X32
 
 K2_KERNEL := TRUE
 
-DLX_INF := ../../k2oskern.inf
+XDL_INF := ../../k2oskern.inf
 
 SOURCES += x32init.c
 SOURCES += x32setintr.c
@@ -68,7 +68,7 @@ STATIC_LIBS += @shared/lib/k2elf
 STATIC_LIBS += @shared/lib/k2heap
 STATIC_LIBS += @shared/lib/k2ramheap
 STATIC_LIBS += @shared/lib/k2ring
-STATIC_LIBS += @shared/lib/k2dlxsupp
+STATIC_LIBS += @shared/lib/k2xdlsupp
 STATIC_LIBS += @shared/lib/k2frame
 
 STATIC_KERNEL_LIBS += @$(K2_OS)/kern/main/bits32

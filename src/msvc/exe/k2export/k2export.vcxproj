@@ -162,7 +162,7 @@
     <ClInclude Include="k2export.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="dlxinf.cpp" />
+    <ClCompile Include="xdlinf.cpp" />
     <ClCompile Include="export.cpp" />
     <ClCompile Include="loadfile.cpp" />
     <ClCompile Include="main.cpp" />

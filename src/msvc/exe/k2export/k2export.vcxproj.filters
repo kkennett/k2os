@@ -23,7 +23,7 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="dlxinf.cpp">
+    <ClCompile Include="xdlinf.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="loadfile.cpp">

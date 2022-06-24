@@ -31,10 +31,10 @@
 #
 include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
-TARGET_TYPE = DLX
+TARGET_TYPE = XDL
 TARGET_SPECIFIC_ARCH = X32
 
-DLX_INF := ../../../k2oscrt_user.inf
+XDL_INF := ../../../k2oscrt_user.inf
 
 SOURCES += getfsdata.s
 SOURCES += x32trap.c
@@ -54,7 +54,7 @@ STATIC_LIBS += @shared/lib/k2crc
 # these are other libraries with pieces consumed here but 
 # not exported
 #
-STATIC_LIBS += @shared/lib/k2dlxsupp
+STATIC_LIBS += @shared/lib/k2xdlsupp
 STATIC_LIBS += @shared/lib/k2elf
 STATIC_LIBS += @shared/lib/k2bit
 STATIC_LIBS += @shared/lib/k2rofshelp

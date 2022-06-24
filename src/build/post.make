@@ -75,11 +75,11 @@ else
 					K2_TARGET_PATH := $(K2_TARGET_BASE)/elf/$(K2_BUILD_SPEC)
 				endif
 			else
-				ifeq ($(TARGET_TYPE),DLX)
+				ifeq ($(TARGET_TYPE),XDL)
 					ifneq ($(K2_KERNEL),)
-						K2_TARGET_PATH := $(K2_TARGET_BASE)/dlx/kern/$(K2_BUILD_SPEC)
+						K2_TARGET_PATH := $(K2_TARGET_BASE)/xdl/kern/$(K2_BUILD_SPEC)
 					else
-						K2_TARGET_PATH := $(K2_TARGET_BASE)/dlx/$(K2_BUILD_SPEC)
+						K2_TARGET_PATH := $(K2_TARGET_BASE)/xdl/$(K2_BUILD_SPEC)
 					endif
 				else
 					ifeq ($(TARGET_TYPE),IMAGE)
@@ -234,18 +234,18 @@ $(K2_TARGET_FULL_SPEC): $(OBJECTS) $(LIBRARIES) $(BUILD_CONTROL_FILES)
 endif
 
 #========================================================================================
-# TARGET_TYPE == DLX
+# TARGET_TYPE == XDL
 #========================================================================================
-ifeq ($(TARGET_TYPE),DLX)
+ifeq ($(TARGET_TYPE),XDL)
 
-ifeq ($(DLX_INF),)
-$(error No DLX_INF specified)
+ifeq ($(XDL_INF),)
+$(error No XDL_INF specified)
 endif
 
-GCCOPT += -DK2_DLX
+GCCOPT += -DK2_XDL
 
-ifeq ($(DLX_STACK),)
-DLX_STACK := 0
+ifeq ($(XDL_STACK),)
+XDL_STACK := 0
 endif
 
 ifeq ($(K2_ARCH_BITS),32)
@@ -268,7 +268,7 @@ CRTSTUB_OBJ :=
 
 else
 
-LDENTRY := -e __K2OS_dlx_crt
+LDENTRY := -e __K2OS_xdl_crt
 CRTSTUB_OBJ := $(K2_TARGET_BASE)/obj/$(K2_BUILD_SPEC)/$(K2_OS)/crtstub/crtstub.o
 ifneq ($(K2_KERNEL),)
 IMPORT_KERNEL_LIBS += @$(K2_OS)/kern/crt/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oscrt
@@ -280,7 +280,7 @@ endif
 
 #========================================================================================
 
-K2_TARGET_NAME_SPEC := $(K2_TARGET_NAME).dlx
+K2_TARGET_NAME_SPEC := $(K2_TARGET_NAME).xdl
 K2_TARGET_FULL_SPEC := $(K2_TARGET_PATH)/$(K2_TARGET_NAME_SPEC)
 K2_TARGET_ELFNAME_SPEC := $(K2_TARGET_NAME).elf
 K2_TARGET_ELFFULL_SPEC := $(K2_TARGET_PATH)/srcelf/$(K2_SUBPATH)/$(K2_TARGET_ELFNAME_SPEC)
@@ -290,15 +290,15 @@ default: $(K2_TARGET_FULL_SPEC)
 #========================================================================================
 
 ifneq ($(K2_KERNEL),)
-K2_TARGET_EXPORTLIB_PATH := $(K2_TARGET_BASE)/dlxlib/kern/$(K2_BUILD_SPEC)/$(K2_SUBPATH)
+K2_TARGET_EXPORTLIB_PATH := $(K2_TARGET_BASE)/xdllib/kern/$(K2_BUILD_SPEC)/$(K2_SUBPATH)
 else
-K2_TARGET_EXPORTLIB_PATH := $(K2_TARGET_BASE)/dlxlib/$(K2_BUILD_SPEC)/$(K2_SUBPATH)
+K2_TARGET_EXPORTLIB_PATH := $(K2_TARGET_BASE)/xdllib/$(K2_BUILD_SPEC)/$(K2_SUBPATH)
 endif
 
 K2_TARGET_EXPORTLIB = $(K2_TARGET_EXPORTLIB_PATH)/$(K2_TARGET_NAME).lib
 
-K2_TARGET_KERNEL_IMPORTLIB_PATH := $(K2_TARGET_BASE)/dlxlib/kern/$(K2_BUILD_SPEC)
-K2_TARGET_IMPORTLIB_PATH := $(K2_TARGET_BASE)/dlxlib/$(K2_BUILD_SPEC)
+K2_TARGET_KERNEL_IMPORTLIB_PATH := $(K2_TARGET_BASE)/xdllib/kern/$(K2_BUILD_SPEC)
+K2_TARGET_IMPORTLIB_PATH := $(K2_TARGET_BASE)/xdllib/$(K2_BUILD_SPEC)
 
 #========================================================================================
 
@@ -309,7 +309,7 @@ $(CRTSTUB_OBJ) : always
 #========================================================================================
 
 $(K2_TARGET_IMPORTLIB_PATH)/%.lib: always 
-	@MAKE -S -C $(K2_ROOT)/src/$(subst $(K2_TARGET_BASE)/dlxlib/$(K2_BUILD_SPEC)/,,$(@D))
+	@MAKE -S -C $(K2_ROOT)/src/$(subst $(K2_TARGET_BASE)/xdllib/$(K2_BUILD_SPEC)/,,$(@D))
 	@echo.
 
 ONE_K2_IMPORT_LIB = $(K2_TARGET_IMPORTLIB_PATH)/$(basename $(1))/$(notdir $(1)).lib
@@ -319,7 +319,7 @@ IMPORT_LIBRARIES = $(foreach libdep, $(IMPORT_LIBS), $(EXPAND_ONE_IMPORT_LIB))
 #========================================================================================
 
 $(K2_TARGET_KERNEL_IMPORTLIB_PATH)/%.lib: always 
-	@MAKE -S -C $(K2_ROOT)/src/$(subst $(K2_TARGET_BASE)/dlxlib/kern/$(K2_BUILD_SPEC)/,,$(@D))
+	@MAKE -S -C $(K2_ROOT)/src/$(subst $(K2_TARGET_BASE)/xdllib/kern/$(K2_BUILD_SPEC)/,,$(@D))
 	@echo.
 
 ONE_K2_IMPORT_KERNEL_LIB = $(K2_TARGET_KERNEL_IMPORTLIB_PATH)/$(basename $(1))/$(notdir $(1)).lib
@@ -334,22 +334,22 @@ else
 LIBRARIES = $(STATIC_LIBRARIES) $(IMPORT_LIBRARIES)
 endif
 
-DLX_INF_O := $(K2_OBJECT_PATH)/exp_$(K2_TARGET_NAME).o
-EXPORT_CMD := k2export -i $(DLX_INF) -o $(DLX_INF_O) $(LIBGCC_PATH) $(OBJECTS) $(LIBRARIES) $(CRTSTUB_OBJ)
+XDL_INF_O := $(K2_OBJECT_PATH)/exp_$(K2_TARGET_NAME).o
+EXPORT_CMD := k2export -i $(XDL_INF) -o $(XDL_INF_O) $(LIBGCC_PATH) $(OBJECTS) $(LIBRARIES) $(CRTSTUB_OBJ)
 
-$(K2_TARGET_ELFFULL_SPEC): $(OBJECTS) $(LIBRARIES) $(CRTSTUB_OBJ) $(DLX_INF) $(BUILD_CONTROL_FILES)
+$(K2_TARGET_ELFFULL_SPEC): $(OBJECTS) $(LIBRARIES) $(CRTSTUB_OBJ) $(XDL_INF) $(BUILD_CONTROL_FILES)
 	@-if not exist $(subst /,\,$(K2_TARGET_PATH)) md $(subst /,\,$(K2_TARGET_PATH))
 	@-if not exist $(subst /,\,$(K2_TARGET_EXPORTLIB_PATH)) md $(subst /,\,$(K2_TARGET_EXPORTLIB_PATH))
 	@-if not exist $(subst /,\,$(K2_TARGET_PATH)/srcelf/$(K2_SUBPATH)) md $(subst /,\,$(K2_TARGET_PATH)/srcelf/$(K2_SUBPATH))
 	@-if not exist $(subst /,\,$(K2_OBJECT_PATH)) md $(subst /,\,$(K2_OBJECT_PATH))
-	@echo -------- Create Exports for DLX from ELF $@ --------
+	@echo -------- Create Exports for XDL from ELF $@ --------
 	$(EXPORT_CMD)
-	@echo -------- Linking ELF for DLX $@ --------
-	@ld $(LDOPT) $(LDENTRY) -o $@ -( $(LIBGCC_PATH) $(OBJECTS) $(LIBRARIES) $(CRTSTUB_OBJ) $(DLX_INF_O) -)
+	@echo -------- Linking ELF for XDL $@ --------
+	@ld $(LDOPT) $(LDENTRY) -o $@ -( $(LIBGCC_PATH) $(OBJECTS) $(LIBRARIES) $(CRTSTUB_OBJ) $(XDL_INF_O) -)
 
 $(K2_TARGET_FULL_SPEC): $(K2_TARGET_ELFFULL_SPEC)
-	@echo -------- Creating DLX from ELF for $@ --------
-	@k2elf2dlx $(K2_SPEC_KERNEL) -s $(DLX_STACK) -i $(K2_TARGET_ELFFULL_SPEC) -o $(K2_TARGET_FULL_SPEC) -l $(K2_TARGET_EXPORTLIB)
+	@echo -------- Creating XDL from ELF for $@ --------
+	@k2elf2xdl $(K2_SPEC_KERNEL) -s $(XDL_STACK) -i $(K2_TARGET_ELFFULL_SPEC) -o $(K2_TARGET_FULL_SPEC) -l $(K2_TARGET_EXPORTLIB)
 	
 endif
 
@@ -377,7 +377,7 @@ $(K2_TARGET_ELFFULL_SPEC): $(OBJECTS) $(STATIC_LIBRARIES) $(BUILD_CONTROL_FILES)
 	@-if not exist $(subst /,\,$(K2_TARGET_PATH)) md $(subst /,\,$(K2_TARGET_PATH))
 	@-if not exist $(subst /,\,$(K2_TARGET_PATH)/srcelf/$(K2_SUBPATH)) md $(subst /,\,$(K2_TARGET_PATH)/srcelf/$(K2_SUBPATH))
 	@-if not exist $(subst /,\,$(K2_OBJECT_PATH)) md $(subst /,\,$(K2_OBJECT_PATH))
-	@echo -------- Linking ELF for DLX $@ --------
+	@echo -------- Linking ELF for XDL $@ --------
 	@ld $(LDOPT) $(LDENTRY) -o $@ -( $(LIBGCC_PATH) $(OBJECTS) $(STATIC_LIBRARIES) -)
 
 $(K2_TARGET_FULL_SPEC): $(K2_TARGET_ELFFULL_SPEC)

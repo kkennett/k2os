@@ -36,7 +36,7 @@
 
 #include "crtroot.h"
 
-#include <lib/k2dlxsupp.h>
+#include <lib/k2xdl.h>
 #include <lib/k2elf.h>
 #include <lib/k2bit.h>
 #include <lib/k2rofshelp.h>

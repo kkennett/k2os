@@ -32,12 +32,12 @@
 
 include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
-TARGET_TYPE = DLX
+TARGET_TYPE = XDL
 
 #
 # Link to kernel
 #
-DLX_INF := k2osacpi.inf
+XDL_INF := k2osacpi.inf
 
 GCCOPT += -I $(K2_ROOT)/src/$(K2_OS)/user/k2osacpi/acpica/source/include
 GCCOPT += -I $(K2_ROOT)/src/$(K2_OS)/user/k2osacpi/acpica/source/include/platform
@@ -47,7 +47,7 @@ GCCOPT += -DACPI_USE_NATIVE_DIVIDE
 # ACPICA adaptation 
 #
 
-SOURCES += dlx_entry.c 
+SOURCES += xdl_entry.c 
 
 SOURCES += cache.c
 SOURCES += initterm.c

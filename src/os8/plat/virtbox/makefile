@@ -36,11 +36,11 @@ TARGET_SPECIFIC_ARCH = X32
 
 TARGET_TYPE = IMAGE
 
-IMAGE_PLAT_DLX = @$(K2_OS)/plat/virtbox/kern/k2osplat
+IMAGE_PLAT_XDL = @$(K2_OS)/plat/virtbox/kern/k2osplat
 
-BUILTIN_DLX += @$(K2_OS)/user/driver/pcibus
-BUILTIN_DLX += @$(K2_OS)/user/k2osdrv
-BUILTIN_DLX += @$(K2_OS)/user/k2osrpc
+BUILTIN_XDL += @$(K2_OS)/user/driver/pcibus
+BUILTIN_XDL += @$(K2_OS)/user/k2osdrv
+BUILTIN_XDL += @$(K2_OS)/user/k2osrpc
 
 include $(K2_ROOT)/src/build/post.make
 

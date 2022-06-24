@@ -90,8 +90,8 @@ struct _K2OS_UEFI_LOADINFO32
     UINT32                  mMarker;
     UINT32                  mCpuCoreCount;
     K2EFI_SYSTEM_TABLE *    mpEFIST;
-    DLX_pf_ENTRYPOINT       mKernDlxEntry;
-    DLX_pf_ENTRYPOINT       mSysVirtEntry;
+    UINT32                  mKernXdlEntry;
+    UINT32                  mSysVirtEntry;
     UINT32                  mKernArenaLow;
     UINT32                  mKernArenaHigh;
     UINT32                  mBuiltinRofsPhys;
@@ -107,7 +107,7 @@ struct _K2OS_UEFI_LOADINFO32
     UINT32                  mFwTabPageCount;
     UINT32                  mFwFacsPhys;
     UINT32                  mFwXFacsPhys;
-    DLX *                   mpDlxCrt;
+    XDL *                   mpXdlCrt;
     UINT32                  mReserved;
     K2OS_BOOT_GRAPHICS      BootGraf;
 };
@@ -118,8 +118,8 @@ struct _K2OS_UEFI_LOADINFO64
     UINT32                  mMarker;
     UINT32                  mCpuCoreCount;
     K2EFI_SYSTEM_TABLE *    mpEFIST;
-    DLX_pf_ENTRYPOINT       mKernDlxEntry;
-    DLX_pf_ENTRYPOINT       mSysVirtEntry;
+    UINT64                  mKernXdlEntry;
+    UINT64                  mSysVirtEntry;
     UINT64                  mKernArenaLow;
     UINT64                  mKernArenaHigh;
     UINT64                  mBuiltinRofsPhys;
@@ -135,7 +135,7 @@ struct _K2OS_UEFI_LOADINFO64
     UINT64                  mFwTabPageCount;
     UINT64                  mFwFacsPhys;
     UINT64                  mFwXFacsPhys;
-    DLX *                   mpDlxCrt;
+    XDL *                   mpXdlCrt;
     K2OS_BOOT_GRAPHICS      BootGraf;
 };
 K2_STATIC_ASSERT(sizeof(K2OS_UEFI_LOADINFO64) < (K2_VA_MEMPAGE_BYTES / 2));

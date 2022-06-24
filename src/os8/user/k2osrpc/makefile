@@ -32,11 +32,11 @@
 
 include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
-TARGET_TYPE = DLX
+TARGET_TYPE = XDL
 
-DLX_INF := k2osrpc.inf
+XDL_INF := k2osrpc.inf
 
-SOURCES += dlx_entry.c 
+SOURCES += xdl_entry.c 
 SOURCES += debug.c
 SOURCES += object.c 
 SOURCES += thread.c

@@ -32,13 +32,13 @@
 
 include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
-TARGET_TYPE = DLX
+TARGET_TYPE = XDL
 
 TARGET_SPECIFIC_ARCH = X32
 
 K2_KERNEL := TRUE
 
-DLX_INF := ../../../../inc/inf/k2osplat.inf
+XDL_INF := ../../../../inc/inf/k2osplat.inf
 
 SOURCES += virtbox.c
 

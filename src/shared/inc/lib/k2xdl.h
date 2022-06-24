@@ -29,41 +29,46 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include "idlx.h"
+#ifndef __K2XDL_H
+#define __K2XDL_H
+
+/* --------------------------------------------------------------------------------- */
+
+#include <k2systype.h>
+
+#include <lib/k2list.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+//
+// XDL entrypoint
+//
+#ifndef XDL_ENTRY_REASON_UNLOAD
+#define XDL_ENTRY_REASON_UNLOAD ((UINT_PTR)-1)
+#endif
+
+#ifndef XDL_ENTRY_REASON_LOAD
+#define XDL_ENTRY_REASON_LOAD   1
+#endif
+
+typedef K2STAT (K2_CALLCONV_REGS *XDL_pf_ENTRYPOINT)(XDL * apDlx, UINT_PTR aReason);
 
 K2STAT
-DLX_GetIdent(
-    DLX *           apDlx,
-    char *          apNameBuf,
-    UINT32          aNameBufLen,
-    K2_GUID128  *   apRetID
-)
-{
-    if (apDlx == NULL)
-        return K2DLXSUPP_ERRORPOINT(K2STAT_ERROR_BAD_ARGUMENT);
+K2_CALLCONV_REGS
+xdl_entry(
+    XDL *       apXdl,
+    UINT_PTR    aReason
+);
 
-    if (apRetID != NULL)
-    {
-        K2MEM_Zero(apRetID, sizeof(K2_GUID128));
-    }
+typedef UINT_PTR K2XDL_HOST_FILE;
 
-    apDlx = iK2DLXSUPP_FindAndAddRef(apDlx);
+#ifdef __cplusplus
+};  // extern "C"
+#endif
 
-    if (apDlx == NULL)
-        return K2DLXSUPP_ERRORPOINT(K2STAT_ERROR_NOT_FOUND);
+/* --------------------------------------------------------------------------------- */
 
-    if ((apNameBuf != NULL) && (aNameBufLen > 0))
-    {
-        K2ASC_CopyLen(apNameBuf, apDlx->mpInfo->mFileName, aNameBufLen);
-    }
-
-    if (apRetID != NULL)
-    {
-        *apRetID = apDlx->mpInfo->ID;
-    }
-
-    DLX_Release(apDlx);
-
-    return K2STAT_NO_ERROR;
-}
+#endif  // __K2XDL_H
 

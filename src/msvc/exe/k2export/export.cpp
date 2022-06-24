@@ -34,13 +34,13 @@
 static char const * const sgpSecStr_SecStr = ".sechdrstr";
 static char const * const sgpSecStr_SymStr = ".symstr";
 static char const * const sgpSecStr_Sym = ".symtable";
-static char const * const sgpSecStr_DLXInfo = ".dlxinfo";
-static char const * const sgpSecStr_DLXInfoReloc = ".dlxinfo.rel";
+static char const * const sgpSecStr_XDLAnchor = ".xdlanchor";
+static char const * const sgpSecStr_XDLAnchorReloc = ".xdlanchor.rel";
 static char const * const sgpSecStr_Exp = ".?export";
 static char const * const sgpSecStr_Rel = ".?export.rel";
 
-static char const * const sgpSymExp = "dlx_?export";
-static char const * const sgpSymInfo = "gpDlxInfo";
+static char const * const sgpSymExp = "xdl_?export";
+static char const * const sgpSymInfo = "gpXdlAnchor";
 
 static
 void
@@ -67,8 +67,8 @@ sPrepSection(
 
     // data in export section
     startOffset = gOut.mFileSizeBytes;
-    gOut.mFileSizeBytes += sizeof(DLX_EXPORTS32_SECTION) - sizeof(DLX_EXPORT32_REF);
-    gOut.mFileSizeBytes += gOut.mOutSec[aIx].mCount * sizeof(DLX_EXPORT32_REF);
+    gOut.mFileSizeBytes += sizeof(XDL_EXPORTS_SECTION_HEADER);
+    gOut.mFileSizeBytes += gOut.mOutSec[aIx].mCount * sizeof(XDL_EXPORT32_REF);
     startOffset = gOut.mFileSizeBytes - startOffset;
     work = 0;
     pSpec = gOut.mOutSec[aIx].mpSpecList;
@@ -122,9 +122,9 @@ sPlaceSection(
     secBase = gOut.mRawWork;
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_offset = gOut.mRawWork - gOut.mRawBase;
 
-    gOut.mOutSec[aIx].Bits32.mpExpBase = (DLX_EXPORTS32_SECTION *)gOut.mRawWork;
-    gOut.mRawWork += sizeof(DLX_EXPORTS32_SECTION) - sizeof(DLX_EXPORT32_REF);
-    gOut.mRawWork += gOut.mOutSec[aIx].mCount * sizeof(DLX_EXPORT32_REF);
+    gOut.mOutSec[aIx].mpExpBase = (XDL_EXPORTS_SECTION_HEADER *)gOut.mRawWork;
+    gOut.mRawWork += sizeof(XDL_EXPORTS_SECTION_HEADER);
+    gOut.mRawWork += gOut.mOutSec[aIx].mCount * sizeof(XDL_EXPORT32_REF);
 
     gOut.mOutSec[aIx].mpExpStrBase = (char *)gOut.mRawWork;
     gOut.mRawWork += gOut.mOutSec[aIx].mExpStrBytes;
@@ -145,7 +145,7 @@ sEmitSection(
     )
 {
     Elf32_Rel *         pReloc;
-    DLX_EXPORT32_REF *  pRef;
+    XDL_EXPORT32_REF *  pRef;
     EXPORT_SPEC *       pSpec;
     UINT_PTR            symIx;
     UINT8               binding;
@@ -171,7 +171,7 @@ sEmitSection(
     }
     gOut.mpSecStrWork += K2ASC_Len(sgpSecStr_Exp) + 1;
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_type = SHT_PROGBITS;
-    gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_flags = SHF_ALLOC | DLX_SHF_TYPE_EXPORTS;
+    gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_flags = SHF_ALLOC | XDL_ELF_SHF_TYPE_EXPORTS;
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_addr = (Elf32_Addr)gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_offset;
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_addralign = 4;
 
@@ -192,12 +192,12 @@ sEmitSection(
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mRelocIx].sh_entsize = sizeof(Elf32_Rel);
 
     pReloc = gOut.mOutSec[aIx].Bits32.mpRelocs;
-    pRef = &gOut.mOutSec[aIx].Bits32.mpExpBase->Export[0];
+    pRef = (XDL_EXPORT32_REF *)(((UINT8 *)gOut.mOutSec[aIx].mpExpBase) + sizeof(XDL_EXPORTS_SECTION_HEADER));
     pSpec = gOut.mOutSec[aIx].mpSpecList;
     while (pSpec != NULL)
     {
         K2ASC_Copy(gOut.mpSymStrBase + pSpec->mSymNameOffset, pSpec->mpName);
-        K2ASC_Copy(((char *)gOut.mOutSec[aIx].Bits32.mpExpBase) + pSpec->mExpNameOffset, pSpec->mpName);
+        K2ASC_Copy(((char *)gOut.mOutSec[aIx].mpExpBase) + pSpec->mExpNameOffset, pSpec->mpName);
 
         pRef->mNameOffset = pSpec->mExpNameOffset;
 
@@ -209,15 +209,15 @@ sEmitSection(
         gOut.Bits32.mpSymWork->st_info = binding;
                 
         pReloc->r_info = ELF32_MAKE_RELOC_INFO(symIx, gOut.mRelocType);
-        pReloc->r_offset = ((UINT_PTR)&pRef->mAddr) - ((UINT_PTR)gOut.mOutSec[aIx].Bits32.mpExpBase);
+        pReloc->r_offset = ((UINT_PTR)&pRef->mAddr) - ((UINT_PTR)gOut.mOutSec[aIx].mpExpBase);
 
         pRef++;
         gOut.Bits32.mpSymWork++;
         pReloc++;
         pSpec = pSpec->mpNext;
     }
-    gOut.mOutSec[aIx].Bits32.mpExpBase->mCount = gOut.mOutSec[aIx].mCount;
-    gOut.mOutSec[aIx].Bits32.mpExpBase->mCRC32 = K2CRC_Calc32(0, gOut.mOutSec[aIx].mpExpStrBase, gOut.mOutSec[aIx].mExpStrBytes);
+    gOut.mOutSec[aIx].mpExpBase->mCount = gOut.mOutSec[aIx].mCount;
+    gOut.mOutSec[aIx].mpExpBase->mCRC32 = K2CRC_Calc32(0, gOut.mOutSec[aIx].mpExpStrBase, gOut.mOutSec[aIx].mExpStrBytes);
 
     // name of symbol for export section
     pExpSecSymName = gOut.mpSymStrBase + gOut.mOutSec[aIx].mExpSymNameOffset;
@@ -241,13 +241,8 @@ sEmitSection(
 
     // reloc for export section to pointer in dlx info
     gOut.Bits32.mpSecRelocWork->r_info = ELF32_MAKE_RELOC_INFO(symIx, gOut.mRelocType);
-    gOut.Bits32.mpSecRelocWork->r_offset = K2_FIELDOFFSET(DLX_INFO32, mpExpCode) + (aIx * sizeof(void *));
+    gOut.Bits32.mpSecRelocWork->r_offset = (aIx * sizeof(UINT64));
     gOut.Bits32.mpSecRelocWork++;
-
-    // object file, so reloc target does not hold file link address
-//    DLX_EXPORTS32_SECTION ** ppExpSec;
-//    ppExpSec = &gOut.Bits32.mpInfo->mpExpCode;
-//    ppExpSec[aIx] = (DLX_EXPORTS32_SECTION *)gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_offset;
 }
 
 static
@@ -286,7 +281,7 @@ sCreateOutputFile(
         K2ASC_Len(sgpSecStr_SecStr) + 1 +
         K2ASC_Len(sgpSecStr_SymStr) + 1 +
         K2ASC_Len(sgpSecStr_Sym) + 1 +
-        K2ASC_Len(sgpSecStr_DLXInfo) + 1;
+        K2ASC_Len(sgpSecStr_XDLAnchor) + 1;
 
     // symbol strings section 2
     gOut.mFileSizeBytes += sizeof(Elf32_Shdr);
@@ -301,7 +296,7 @@ sCreateOutputFile(
     // info section 4
     gOut.mFileSizeBytes += sizeof(Elf32_Shdr);
     gOut.mSectionCount++;
-    gOut.mFileSizeBytes += sizeof(DLX_INFO32) - sizeof(UINT32);
+    gOut.mFileSizeBytes += sizeof(XDL_ELF_ANCHOR);
     gOut.mFileSizeBytes += sizeof(Elf32_Sym); // section symbol
     gOut.mSymStrTotalBytes += K2ASC_Len(sgpSymInfo) + 1; 
 
@@ -310,7 +305,7 @@ sCreateOutputFile(
         // info relocs section 5
         gOut.mFileSizeBytes += sizeof(Elf32_Shdr);
         gOut.mSectionCount++;
-        gOut.mSecStrTotalBytes += K2ASC_Len(sgpSecStr_DLXInfoReloc) + 1;
+        gOut.mSecStrTotalBytes += K2ASC_Len(sgpSecStr_XDLAnchorReloc) + 1;
 
         // prep for export sections now
         for (ix = 0;ix < OUTSEC_COUNT;ix++)
@@ -369,23 +364,23 @@ sCreateOutputFile(
         gOut.Bits32.mpSymWork = gOut.Bits32.mpSymBase + 2;    // null symbol and dlx info symbol
         gOut.mRawWork += gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_size;
 
-        gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_offset = gOut.mRawWork - gOut.mRawBase;
-        gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_addr = (Elf32_Addr)gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_offset;
-        gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_size = sizeof(DLX_INFO32) - sizeof(UINT32);
-        gOut.Bits32.mpInfo = (DLX_INFO32 *)gOut.mRawWork;
-        gOut.mRawWork += gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_size;
+        gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_offset = gOut.mRawWork - gOut.mRawBase;
+        gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_addr = (Elf32_Addr)gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_offset;
+        gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_size = sizeof(XDL_ELF_ANCHOR);
+        gOut.mpAnchor = (XDL_ELF_ANCHOR *)gOut.mRawWork;
+        gOut.mRawWork += gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_size;
 
         if (gOut.mTotalExports > 0)
         {
-            gOut.Bits32.mpSecHdrs[SECIX_DLXINFO_RELOC].sh_offset = gOut.mRawWork - gOut.mRawBase;
+            gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_offset = gOut.mRawWork - gOut.mRawBase;
             gOut.Bits32.mpSecRelocBase = (Elf32_Rel *)gOut.mRawWork;
             gOut.Bits32.mpSecRelocWork = gOut.Bits32.mpSecRelocBase;
             for (ix = 0;ix < OUTSEC_COUNT;ix++)
             {
                 if (gOut.mOutSec[ix].mCount > 0)
-                    gOut.Bits32.mpSecHdrs[SECIX_DLXINFO_RELOC].sh_size += sizeof(Elf32_Rel);
+                    gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_size += sizeof(Elf32_Rel);
             }
-            gOut.mRawWork += gOut.Bits32.mpSecHdrs[SECIX_DLXINFO_RELOC].sh_size;
+            gOut.mRawWork += gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_size;
 
             for (ix = 0;ix < OUTSEC_COUNT;ix++)
                 sPlaceSection(ix);
@@ -440,33 +435,33 @@ sCreateOutputFile(
         gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_entsize = sizeof(Elf32_Sym);
 
         // dlx info
-        gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_name = ((UINT_PTR)gOut.mpSecStrWork) - ((UINT_PTR)gOut.mpSecStrBase);
-        K2ASC_Copy(gOut.mpSecStrWork, sgpSecStr_DLXInfo);
-        gOut.mpSecStrWork += K2ASC_Len(sgpSecStr_DLXInfo) + 1;
-        gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_flags = SHF_ALLOC | DLX_SHF_TYPE_DLXINFO;
-        gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_type = SHT_PROGBITS;
-        gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_addralign = 4;
+        gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_name = ((UINT_PTR)gOut.mpSecStrWork) - ((UINT_PTR)gOut.mpSecStrBase);
+        K2ASC_Copy(gOut.mpSecStrWork, sgpSecStr_XDLAnchor);
+        gOut.mpSecStrWork += K2ASC_Len(sgpSecStr_XDLAnchor) + 1;
+        gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_flags = SHF_ALLOC | XDL_ELF_SHF_TYPE_ANCHOR;
+        gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_type = SHT_PROGBITS;
+        gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_addralign = 4;
 
         // dlx info symbol is always symbol 1, and its string is always at offset 1
         gOut.Bits32.mpSymBase[1].st_name = 1;
         K2ASC_Copy(gOut.mpSymStrBase + gOut.Bits32.mpSymBase[1].st_name, sgpSymInfo);
-        gOut.Bits32.mpSymBase[1].st_shndx = SECIX_DLXINFO;
-        gOut.Bits32.mpSymBase[1].st_size = sizeof(DLX_INFO32) - sizeof(UINT32);
+        gOut.Bits32.mpSymBase[1].st_shndx = SECIX_ANCHOR;
+        gOut.Bits32.mpSymBase[1].st_size = sizeof(XDL_ELF_ANCHOR);
         // object file (REL, not EXEC), so symbol values are section relative, not absolute
-        gOut.Bits32.mpSymBase[1].st_value = 0; // gOut.Bits32.mpSecHdrs[SECIX_DLXINFO].sh_addr;
+        gOut.Bits32.mpSymBase[1].st_value = 0; // gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_addr;
         gOut.Bits32.mpSymBase[1].st_info = ELF32_MAKE_SYMBOL_INFO(STB_GLOBAL, STT_OBJECT);
-        K2MEM_Copy(gOut.Bits32.mpInfo, &gOut.Bits32.DlxInfo, sizeof(DLX_INFO32) - sizeof(UINT32));
+        K2MEM_Copy(gOut.mpAnchor, &gOut.Anchor, sizeof(XDL_ELF_ANCHOR));
 
         if (gOut.mTotalExports > 0)
         {
-            gOut.Bits32.mpSecHdrs[SECIX_DLXINFO_RELOC].sh_name = ((UINT_PTR)gOut.mpSecStrWork) - ((UINT_PTR)gOut.mpSecStrBase);
-            K2ASC_Copy(gOut.mpSecStrWork, sgpSecStr_DLXInfoReloc);
-            gOut.mpSecStrWork += K2ASC_Len(sgpSecStr_DLXInfoReloc) + 1;
-            gOut.Bits32.mpSecHdrs[SECIX_DLXINFO_RELOC].sh_type = SHT_REL;
-            gOut.Bits32.mpSecHdrs[SECIX_DLXINFO_RELOC].sh_addralign = 4;
-            gOut.Bits32.mpSecHdrs[SECIX_DLXINFO_RELOC].sh_link = SECIX_SYM;
-            gOut.Bits32.mpSecHdrs[SECIX_DLXINFO_RELOC].sh_info = SECIX_DLXINFO;
-            gOut.Bits32.mpSecHdrs[SECIX_DLXINFO_RELOC].sh_entsize = sizeof(Elf32_Rel);
+            gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_name = ((UINT_PTR)gOut.mpSecStrWork) - ((UINT_PTR)gOut.mpSecStrBase);
+            K2ASC_Copy(gOut.mpSecStrWork, sgpSecStr_XDLAnchorReloc);
+            gOut.mpSecStrWork += K2ASC_Len(sgpSecStr_XDLAnchorReloc) + 1;
+            gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_type = SHT_REL;
+            gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_addralign = 4;
+            gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_link = SECIX_SYM;
+            gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_info = SECIX_ANCHOR;
+            gOut.Bits32.mpSecHdrs[SECIX_ANCHOR_RELOC].sh_entsize = sizeof(Elf32_Rel);
 
             for (ix = 0;ix < OUTSEC_COUNT;ix++)
                 sEmitSection(ix);
@@ -542,7 +537,7 @@ DoExport(
                 else
                 {
                     pSecHdr = (Elf32_Shdr *)(pGlob->mpObjFile->Bits32.Parse.mpSectionHeaderTable + (pGlob->mpObjFile->Bits32.Parse.mSectionHeaderTableEntryBytes * pGlob->Bits32.mpSymEnt->st_shndx));
-                    if ((pSecHdr->sh_flags & DLX_SHF_TYPE_MASK) == DLX_SHF_TYPE_IMPORTS)
+                    if ((pSecHdr->sh_flags & XDL_ELF_SHF_TYPE_MASK) == XDL_ELF_SHF_TYPE_IMPORTS)
                     {
                         printf("** Exported global code symbol \"%s\" cannot be an import\n", pSpec->mpName);
                         result = -107;
@@ -584,7 +579,7 @@ DoExport(
                 else
                 {
                     pSecHdr = (Elf32_Shdr *)(pGlob->mpObjFile->Bits32.Parse.mpSectionHeaderTable + (pGlob->mpObjFile->Bits32.Parse.mSectionHeaderTableEntryBytes * pGlob->Bits32.mpSymEnt->st_shndx));
-                    if ((pSecHdr->sh_flags & DLX_SHF_TYPE_MASK) == DLX_SHF_TYPE_IMPORTS)
+                    if ((pSecHdr->sh_flags & XDL_ELF_SHF_TYPE_MASK) == XDL_ELF_SHF_TYPE_IMPORTS)
                     {
                         printf("** Exported global data or read symbol \"%s\" cannot be an import\n", pSpec->mpName);
                         result = -107;

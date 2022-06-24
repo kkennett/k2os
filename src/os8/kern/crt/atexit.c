@@ -36,14 +36,14 @@ struct _DTOR
 {
     __vfpv  mFunc;
     void *  mArg;
-    DLX *   mpDlx;
+    XDL *   mpXdl;
     DTOR *  mpNext;
 };
 
 static DTOR *       sgpDTORList;
 static K2OS_CRITSEC sgSec;
 
-int __cxa_atexit(__vfpv f, void *a, DLX *apDlx)
+int __cxa_atexit(__vfpv f, void *a, XDL *apXdl)
 {
     DTOR *  pDTOR;
 
@@ -53,7 +53,7 @@ int __cxa_atexit(__vfpv f, void *a, DLX *apDlx)
 
     pDTOR->mFunc = f;
     pDTOR->mArg = a;
-    pDTOR->mpDlx = apDlx;
+    pDTOR->mpXdl = apXdl;
 
     gShared.FuncTab.CritSecEnter(&sgSec);
 
@@ -65,7 +65,7 @@ int __cxa_atexit(__vfpv f, void *a, DLX *apDlx)
     return 0;
 }
 
-void __call_dtors(DLX *apDlx)
+void __call_dtors(XDL *apXdl)
 {
     DTOR *pPrev;
     DTOR *pScan;
@@ -85,7 +85,7 @@ void __call_dtors(DLX *apDlx)
     {
         do
         {
-            if (pScan->mpDlx == apDlx)
+            if (pScan->mpXdl == apXdl)
             {
                 if (pCallEnd == NULL)
                     pCall = pScan;

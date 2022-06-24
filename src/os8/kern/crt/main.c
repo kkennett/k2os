@@ -32,33 +32,33 @@
 
 #include "crtkern.h"
 
-void *                              __dso_handle;
+void *          __dso_handle;
 
-K2OSKERN_SHARED                     gShared;
+K2OSKERN_SHARED gShared;
 
-extern DLX_ARCH_INFO const * const  gpDlxInfo;
-extern void *           __data_end;
+extern XDL_ELF_ANCHOR const * const gpXdlAnchor;
+extern void *   __data_end;
 
-int  __cxa_atexit(__vfpv f, void *a, DLX * apDlx);
-void __call_dtors(DLX *apDlx);
+int  __cxa_atexit(__vfpv f, void *a, XDL * apDlx);
+void __call_dtors(XDL *apDlx);
 
 #if K2_TARGET_ARCH_IS_ARM
 #if K2_TARGET_ARCH_IS_32BIT
 
 int __aeabi_atexit(void *object, __vfpv destroyer, void *dso_handle)
 {
-    return __cxa_atexit(destroyer, object, (DLX *)dso_handle);
+    return __cxa_atexit(destroyer, object, (XDL *)dso_handle);
 }
 
 #endif
 #endif
 
-DLX *
-DLX_GetModule(
+XDL *
+XDL_GetModule(
     void
 )
 {
-    return (DLX *)__dso_handle;
+    return (XDL *)__dso_handle;
 }
 
 static 
@@ -83,12 +83,12 @@ sInitialize(
 )
 {
     K2STAT              status;
-    DLX_pf_ENTRYPOINT   kernDlxEntry;
+    XDL_pf_ENTRYPOINT   kernXdlEntry;
 
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_MARKER                          == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mMarker));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_CPU_CORE_COUNT                  == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mCpuCoreCount));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_EFIST                           == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mpEFIST));
-    K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_KERNDLXENTRY                    == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mKernDlxEntry));
+    K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_KERNXDLENTRY                    == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mKernXdlEntry));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_SYSVIRTENTRY                    == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mSysVirtEntry));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_KERN_ARENA_LOW                  == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mKernArenaLow));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_KERN_ARENA_HIGH                 == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mKernArenaHigh));
@@ -105,7 +105,7 @@ sInitialize(
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_FWTAB_PAGE_COUNT                == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mFwTabPageCount));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_FWFACS_PHYS                     == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mFwFacsPhys));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_XFWFACS_PHYS                    == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mFwXFacsPhys));
-    K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_DLXCRT                          == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mpDlxCrt));
+    K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_XDLCRT                          == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, mpXdlCrt));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_FRAMEBUFFERPHYS        == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, BootGraf.mFrameBufferPhys));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_FRAMEBUFFERBYTES       == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, BootGraf.mFrameBufferBytes));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_MODE_VERSION           == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, BootGraf.ModeInfo.Version));
@@ -120,9 +120,9 @@ sInitialize(
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_BGRT_BMP_WIDTH         == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, BootGraf.mBgrtBmpWidth));
     K2_ASSERT(K2OS_UEFI_LOADINFO_OFFSET_BOOTGRAF_BGRT_BMP_HEIGHT        == K2_FIELDOFFSET(K2OS_UEFI_LOADINFO, BootGraf.mBgrtBmpHeight));
 
-    kernDlxEntry = (DLX_pf_ENTRYPOINT)gShared.LoadInfo.mKernDlxEntry;
+    kernXdlEntry = (XDL_pf_ENTRYPOINT)gShared.LoadInfo.mKernXdlEntry;
 
-    status = kernDlxEntry(NULL, (UINT_PTR)&gShared);
+    status = kernXdlEntry(NULL, (UINT_PTR)&gShared);
     K2_ASSERT(!K2STAT_IS_ERROR(status));
 
     K2_Assert = gShared.FuncTab.Assert;
@@ -141,7 +141,7 @@ k2oscrt_kern_common_entry(
     //
     // save builtin module handle 
     //
-    __dso_handle = (void *)apUEFI->mpDlxCrt;
+    __dso_handle = (void *)apUEFI->mpXdlCrt;
 
     //
     // copy in our copy of load info from transition page 
@@ -168,7 +168,7 @@ k2oscrt_kern_common_entry(
     // it in executing code will cause a fault.
     //
     if (apUEFI == (K2OS_UEFI_LOADINFO const *)0xFEEDF00D)
-        apUEFI = (K2OS_UEFI_LOADINFO const *)gpDlxInfo;
+        apUEFI = (K2OS_UEFI_LOADINFO const *)gpXdlAnchor;
 
     //
     // Exec will never exit

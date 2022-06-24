@@ -34,7 +34,7 @@
 #define __KERNSHARED_H
 
 #include <kern/k2osplat.h>
-#include <lib/k2dlxsupp.h>
+#include <lib/k2xdl.h>
 
 /* --------------------------------------------------------------------------------- */
 

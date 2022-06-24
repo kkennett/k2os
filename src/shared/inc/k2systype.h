@@ -32,7 +32,7 @@
 #ifndef __K2SYSTYPE_H
 #define __K2SYSTYPE_H
 
-#include <spec/dlx.h>
+#include <spec/xdl.h>
 
 //
 //------------------------------------------------------------------------

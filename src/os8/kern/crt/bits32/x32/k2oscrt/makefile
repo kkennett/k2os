@@ -31,11 +31,11 @@
 #
 include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
-TARGET_TYPE = DLX
+TARGET_TYPE = XDL
 TARGET_SPECIFIC_ARCH = X32
 K2_KERNEL := TRUE
 
-DLX_INF := ../../../k2oscrt_kern.inf
+XDL_INF := ../../../k2oscrt_kern.inf
 
 SOURCES += x32entry_asm.s
 SOURCES += x32entry.c

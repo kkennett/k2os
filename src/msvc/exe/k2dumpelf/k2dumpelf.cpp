@@ -377,108 +377,13 @@ DumpElf32(
     UINT32 sizeRead = 0;
     UINT32 sizeData = 0;
     UINT32 align32;
-    UINT_PTR alignptr;
     UINT32 ix;
     char const *pNames;
-    DLX_INFO32 const *pDlxInfo;
-    DLX_IMPORT const *pImport;
     K2Elf32File *pElfFile;
     stat = K2Elf32File::Create(apParse, &pElfFile);
     if (!K2STAT_IS_ERROR(stat))
     {
         do {
-            if (pElfFile->Header().e_type == DLX_ET_DLX)
-            {
-                printf("DLX FILE\n");
-
-                if (pElfFile->Header().e_ident[EI_OSABI] != DLX_ELFOSABI_K2)
-                {
-                    printf("  *** Incorrect OSABI in header\n");
-                    break;
-                }
-
-                if (pElfFile->Header().e_ident[EI_ABIVERSION] != DLX_ELFOSABIVER_DLX)
-                {
-                    printf("  *** Incorrect OSABIVERSION in header\n");
-                    break;
-                }
-
-                if (pElfFile->Header().e_shnum < 3)
-                {
-                    printf("  *** Number of section headers is too small.\n");
-                    break;
-                }
-
-                if (pElfFile->Header().e_shstrndx != DLX_SHN_SHSTR)
-                {
-                    printf("  *** section header strings are not in the right place.\n");
-                    break;
-                }
-
-                Elf32_Shdr const &dlxInfoSecHdr = pElfFile->Section(DLX_SHN_DLXINFO).Header();
-
-                if (dlxInfoSecHdr.sh_flags != (DLX_SHF_TYPE_DLXINFO | SHF_ALLOC))
-                {
-                    printf("  *** DLXINFO section flags are incorrect.\n");
-                    break;
-                }
-
-                if (pElfFile->Header().e_flags & DLX_EF_KERNEL_ONLY)
-                {
-                    printf("  KERNEL MODE\n");
-                }
-                else
-                {
-                    printf("  USER MODE\n");
-                }
-
-                pDlxInfo = (DLX_INFO32 const *)pElfFile->Section(DLX_SHN_DLXINFO).RawData();
-                printf("  ID       %08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X\n",
-                    pDlxInfo->ID.mData1, pDlxInfo->ID.mData2, pDlxInfo->ID.mData3,
-                    pDlxInfo->ID.mData4[0], pDlxInfo->ID.mData4[1],
-                    pDlxInfo->ID.mData4[2], pDlxInfo->ID.mData4[3],
-                    pDlxInfo->ID.mData4[4], pDlxInfo->ID.mData4[5],
-                    pDlxInfo->ID.mData4[6], pDlxInfo->ID.mData4[7]);
-
-                printf("  FILENAME \"%s\"\n", pDlxInfo->mFileName);
-
-                printf("  STACKREQ %d\n", pDlxInfo->mEntryStackReq);
-
-                printf("  %d IMPORTS\n", pDlxInfo->mImportCount);
-
-                if (pDlxInfo->mImportCount)
-                {
-                    alignptr = ((UINT_PTR)pDlxInfo) + sizeof(DLX_INFO32) + strlen(pDlxInfo->mFileName) - 4;
-                    alignptr = (alignptr + 4) & ~3;
-                    pImport = (DLX_IMPORT const *)alignptr;
-                    for (ix = 0; ix < pDlxInfo->mImportCount; ix++)
-                    {
-                        printf("    %02d: %08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X %s\n", ix,
-                            pImport->ID.mData1, pImport->ID.mData2, pImport->ID.mData3,
-                            pImport->ID.mData4[0], pImport->ID.mData4[1],
-                            pImport->ID.mData4[2], pImport->ID.mData4[3],
-                            pImport->ID.mData4[4], pImport->ID.mData4[5],
-                            pImport->ID.mData4[6], pImport->ID.mData4[7],
-                            pImport->mFileName);
-                        alignptr += pImport->mSizeBytes;
-                        K2_ASSERT((alignptr & 3) == 0);
-                        pImport = (DLX_IMPORT const *)alignptr;
-                    }
-                }
-
-                printf("  SEGMENTS:\n");
-                for (ix = 0; ix < DlxSeg_Count; ix++)
-                {
-                    printf("    %d: crc %08X file %08X offs %08X link %08X mem %08X\n",
-                        ix,
-                        pDlxInfo->SegInfo[ix].mCRC32,
-                        pDlxInfo->SegInfo[ix].mFileBytes,
-                        pDlxInfo->SegInfo[ix].mFileOffset,
-                        pDlxInfo->SegInfo[ix].mLinkAddr,
-                        pDlxInfo->SegInfo[ix].mMemActualBytes);
-                }
-            }
-
             printf("  ENTRY: %08X\n", pElfFile->Header().e_entry);
 
             printf("  SECTIONS:\n");

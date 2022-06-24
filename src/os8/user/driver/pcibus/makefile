@@ -31,9 +31,9 @@
 #
 include $(K2_ROOT)/src/$(K2_OS)/build/k2ospre.make
 
-TARGET_TYPE = DLX
+TARGET_TYPE = XDL
 
-DLX_INF := pcibus.inf
+XDL_INF := pcibus.inf
 
 SOURCES += driverThread.c
 
