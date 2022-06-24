@@ -32,7 +32,6 @@
 #ifndef __K2EXPORT_H
 #define __K2EXPORT_H
 
-#include <k2systype.h>
 #include <lib/k2win32.h>
 #include <lib/k2mem.h>
 #include <lib/k2asc.h>
