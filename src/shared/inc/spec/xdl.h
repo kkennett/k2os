@@ -47,10 +47,9 @@ typedef struct _XDL XDL;
 //
 // Elf Extension definitions
 //
-#define XDL_ELF_SHF_TYPE_MASK       SHF_MASKOS
+#define XDL_ELF_SHF_TYPE_MASK       0x00300000
 #define XDL_ELF_SHF_TYPE_EXPORTS    0x00100000
 #define XDL_ELF_SHF_TYPE_IMPORTS    0x00200000
-#define XDL_ELF_SHF_TYPE_ANCHOR     0x00400000
 
 typedef enum _XDLExportType XDLExportType;
 enum _XDLExportType
@@ -81,14 +80,10 @@ enum _XDLSectionIx
 {
     XDLSectionIx_Text,          // code sectors
     XDLSectionIx_Read,          // read only data sectors
-    XDLSectionIx_Exports,       // export record sectors
-    XDLSectionIx_InitData,      // initialized data sectors
-    XDLSectionIx_OtherLoad,     // undefined must-load sectors
-    XDLSectionIx_UninitData,    // uninitialized data (offset and count always zero)
-    XDLSectionIx_DebugInfo,     // module-specific debug info sectors
+    XDLSectionIx_Data,          // initialized data sectors
+    XDLSectionIx_DebugInfo,     // discardable - module-specific debug info sectors
     XDLSectionIx_Relocs,        // discardable - all info to permit relocation sectors
     XDLSectionIx_Imports,       // discardable - import records
-    XDLSectionIx_Security,      // discardable - security validation information
     XDLSectionIx_Other,         // discardable - other data for file (only)
 
     XDLSectionIx_Count
@@ -114,7 +109,7 @@ struct _XDL_FILE_HEADER
 {
     UINT32              mHeaderCrc32;
     UINT32              mMarker;            // 'K2OS'
-    UINT64              mPlacement;
+    UINT64              mPlacement;         // if nonzero, mPlacement must == &mPlacement, and mFirstSectionSectorOffset must be 8 (4kB, 1 page)
     UINT32              mHeaderSizeBytes;
     UINT8               mElfClass;
     UINT8               mElfMachine;
@@ -122,8 +117,9 @@ struct _XDL_FILE_HEADER
     UINT64              mEntryPoint;
     UINT32              mEntryStackReq;
     UINT32              mImportCount;
-    UINT64              mFirstSectionOffset;    // offset to XDLSectionIx_Text. all sections forced linear after that
+    UINT64              mFirstSectionSectorOffset;    // offset to XDLSectionIx_Text. all sections forced linear after that
     XDL_FILE_SECTION    Section[XDLSectionIx_Count];
+    K2_GUID128          Id;
     char                mFileName[4];           // undecorated base name, null terminated, at least 4 bytes
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP

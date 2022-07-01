@@ -29,36 +29,13 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __K2ELF2XDL_H
-#define __K2ELF2XDL_H
 
-#include <lib/k2win32.h>
-#include <lib/k2mem.h>
-#include <lib/k2asc.h>
-#include <lib/k2parse.h>
-#include <lib/k2elf.h>
-#include <lib/k2tree.h>
+#include "k2elf2xdl.h"
 
-typedef struct _OUTCTX OUTCTX;
-struct _OUTCTX
+K2STAT
+Convert64(
+    void
+)
 {
-    bool                                mSpecKernel;
-    char const *                        mpOutputFilePath;
-    INT_PTR                             mSpecStack;
-    char const *                        mpImportLibFilePath;
-
-    K2ReadOnlyMappedFile *              mpElfFile;
-    UINT_PTR                            mElfAnchorSectionIx;
-    XDL_ELF_ANCHOR const *              mpElfAnchor;
-    XDL_EXPORTS_SECTION_HEADER const *  mpElfExpSecHdr[XDLExportType_Count];
-    UINT_PTR                            mElfExpSecIx[XDLExportType_Count];
-
-};
-
-extern OUTCTX gOut;
-
-K2STAT Convert32(void);
-K2STAT Convert64(void);
-
-#endif // #ifndef __K2ELF2XDL_H
-
+    return K2STAT_ERROR_NOT_IMPL;
+}

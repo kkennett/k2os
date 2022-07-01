@@ -162,6 +162,8 @@
     <ClInclude Include="k2elf2xdl.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="convert32.cpp" />
+    <ClCompile Include="convert64.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

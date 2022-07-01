@@ -42,8 +42,9 @@ TreeStringCompare(UINT_PTR aKey, K2TREE_NODE *apNode)
 
 int main(int argc, char **argv)
 {
-    ArgParser   args;
-    
+    ArgParser       args;
+    UINT8 const *   pData;
+
     if (!args.Init(argc, argv))
     {
         printf("*** Could not set up argument parser.\n");
@@ -69,11 +70,11 @@ int main(int argc, char **argv)
 
     K2MEM_Zero(&gOut, sizeof(gOut));
 
-//	@k2elf2xdl $(K2_SPEC_KERNEL) -s $(XDL_STACK) -i $(K2_TARGET_ELFFULL_SPEC) -o $(K2_TARGET_FULL_SPEC) -l $(K2_TARGET_EXPORTLIB)
+    //	@k2elf2xdl $(K2_SPEC_KERNEL) -s $(XDL_STACK) -i $(K2_TARGET_ELFFULL_SPEC) -o $(K2_TARGET_FULL_SPEC) -l $(K2_TARGET_EXPORTLIB)
 
-    //
-    // parse args and load files
-    //
+        //
+        // parse args and load files
+        //
     while (args.Left())
     {
         char const *pArg = args.Arg();
@@ -164,5 +165,23 @@ int main(int argc, char **argv)
         return K2STAT_ERROR_BAD_ARGUMENT;
     }
 
-    return K2STAT_NO_ERROR;
+    if (gOut.mpElfFile->FileBytes() < K2ELF32_MIN_FILE_SIZE)
+    {
+        printf("*** input elf file is too small to be valid\n");
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    pData = (UINT8 const *)gOut.mpElfFile->DataPtr();
+    if (pData[EI_CLASS] == ELFCLASS32)
+    {
+        return Convert32();
+    }
+    else if (pData[EI_CLASS] == ELFCLASS64)
+    {
+        return Convert64();
+    }
+
+    printf("*** input file is eitehr not an ELF file or has unknown class (%d)\n", pData[EI_CLASS]);
+
+    return K2STAT_ERROR_BAD_ARGUMENT;
 }

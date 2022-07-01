@@ -34,10 +34,10 @@
 static char const * const sgpSecStr_SecStr = ".sechdrstr";
 static char const * const sgpSecStr_SymStr = ".symstr";
 static char const * const sgpSecStr_Sym = ".symtable";
-static char const * const sgpSecStr_XDLAnchor = ".xdlanchor";
-static char const * const sgpSecStr_XDLAnchorReloc = ".xdlanchor.rel";
-static char const * const sgpSecStr_Exp = ".?export";
-static char const * const sgpSecStr_Rel = ".?export.rel";
+static char const * const sgpSecStr_XDLAnchor = ".rodata.xdlanchor";
+static char const * const sgpSecStr_XDLAnchorReloc = ".rel.rodata.xdlanchor";
+static char const * const sgpSecStr_Exp = ".rodata.exp.?";
+static char const * const sgpSecStr_Rel = ".rel.rodata.?";
 
 static char const * const sgpSymExp = "xdl_?export";
 static char const * const sgpSymInfo = "gpXdlAnchor";
@@ -159,30 +159,36 @@ sEmitSection(
     if (aIx == XDLExport_Text)
     {
         binding = ELF32_MAKE_SYMBOL_INFO(STB_GLOBAL, STT_FUNC);
-        *(gOut.mpSecStrWork + 1) = 'c';
+        *(gOut.mpSecStrWork + 12) = 'c';
     }
     else
     {
         binding = ELF32_MAKE_SYMBOL_INFO(STB_GLOBAL, STT_OBJECT);
         if (aIx == XDLExport_Read)
-            *(gOut.mpSecStrWork + 1) = 'r';
+            *(gOut.mpSecStrWork + 12) = 'r';
         else
-            *(gOut.mpSecStrWork + 1) = 'd';
+            *(gOut.mpSecStrWork + 12) = 'd';
     }
     gOut.mpSecStrWork += K2ASC_Len(sgpSecStr_Exp) + 1;
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_type = SHT_PROGBITS;
-    gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_flags = SHF_ALLOC | XDL_ELF_SHF_TYPE_EXPORTS;
+    gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_flags = SHF_ALLOC;
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_addr = (Elf32_Addr)gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_offset;
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mIx].sh_addralign = 4;
 
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mRelocIx].sh_name = (Elf32_Word)(gOut.mpSecStrWork - gOut.mpSecStrBase);
     K2ASC_Copy(gOut.mpSecStrWork, sgpSecStr_Rel);
     if (aIx == XDLExport_Text)
-        *(gOut.mpSecStrWork + 1) = 'c';
+    {
+        *(gOut.mpSecStrWork + 12) = 'c';
+    }
     else if (aIx == XDLExport_Read)
-        *(gOut.mpSecStrWork + 1) = 'r';
+    {
+        *(gOut.mpSecStrWork + 12) = 'r';
+    }
     else
-        *(gOut.mpSecStrWork + 1) = 'd';
+    {
+        *(gOut.mpSecStrWork + 12) = 'd';
+    }
     gOut.mpSecStrWork += K2ASC_Len(sgpSecStr_Rel) + 1;
 
     gOut.Bits32.mpSecHdrs[gOut.mOutSec[aIx].mRelocIx].sh_type = SHT_REL;
@@ -434,15 +440,15 @@ sCreateOutputFile(
         gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_link = SECIX_SYM_STR;
         gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_entsize = sizeof(Elf32_Sym);
 
-        // dlx info
+        // xdl anchor
         gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_name = ((UINT_PTR)gOut.mpSecStrWork) - ((UINT_PTR)gOut.mpSecStrBase);
         K2ASC_Copy(gOut.mpSecStrWork, sgpSecStr_XDLAnchor);
         gOut.mpSecStrWork += K2ASC_Len(sgpSecStr_XDLAnchor) + 1;
-        gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_flags = SHF_ALLOC | XDL_ELF_SHF_TYPE_ANCHOR;
+        gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_flags = SHF_ALLOC;
         gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_type = SHT_PROGBITS;
         gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_addralign = 4;
 
-        // dlx info symbol is always symbol 1, and its string is always at offset 1
+        // xdl anchor symbol is always symbol 1, and its string is always at offset 1
         gOut.Bits32.mpSymBase[1].st_name = 1;
         K2ASC_Copy(gOut.mpSymStrBase + gOut.Bits32.mpSymBase[1].st_name, sgpSymInfo);
         gOut.Bits32.mpSymBase[1].st_shndx = SECIX_ANCHOR;

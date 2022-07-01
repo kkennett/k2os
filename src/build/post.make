@@ -343,7 +343,7 @@ $(K2_TARGET_ELFFULL_SPEC): $(OBJECTS) $(LIBRARIES) $(CRTSTUB_OBJ) $(XDL_INF) $(B
 	@-if not exist $(subst /,\,$(K2_TARGET_PATH)/srcelf/$(K2_SUBPATH)) md $(subst /,\,$(K2_TARGET_PATH)/srcelf/$(K2_SUBPATH))
 	@-if not exist $(subst /,\,$(K2_OBJECT_PATH)) md $(subst /,\,$(K2_OBJECT_PATH))
 	@echo -------- Create Exports for XDL from ELF $@ --------
-	$(EXPORT_CMD)
+	@$(EXPORT_CMD)
 	@echo -------- Linking ELF for XDL $@ --------
 	@ld $(LDOPT) $(LDENTRY) -o $@ -( $(LIBGCC_PATH) $(OBJECTS) $(LIBRARIES) $(CRTSTUB_OBJ) $(XDL_INF_O) -)
 
