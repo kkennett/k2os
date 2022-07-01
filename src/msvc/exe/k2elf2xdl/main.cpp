@@ -223,7 +223,7 @@ int main(int argc, char **argv)
         pPath++;
     }
     *pConv = 0;
-    printf("  TARGET NAME = \"%s\" (%d)\n", gOut.mTargetName, gOut.mTargetNameLen);
+//    printf("  TARGET NAME = \"%s\" (%d)\n", gOut.mTargetName, gOut.mTargetNameLen);
 
     pData = (UINT8 const *)gOut.mpElfFile->DataPtr();
     if (pData[EI_CLASS] == ELFCLASS32)

@@ -32,7 +32,7 @@
 
 #include "k2elf2xdl.h"
 
-#define DUMP_EXPORTS     1
+#define DUMP_EXPORTS     0
 
 typedef union _WORKPTR WORKPTR;
 union _WORKPTR
@@ -93,7 +93,7 @@ CreateImportLibrary32(
 
     K2TREE_Init(&symTree, TreeStrCompare);
 
-    printf("--- Create import library\n");
+//    printf("--- Create import library\n");
 
     pSrcPtr = (UINT64 *)gOut.mpElfAnchor;
     totalExportCount = 0;
@@ -150,7 +150,7 @@ CreateImportLibrary32(
     {
         return K2STAT_NO_ERROR;
     }
-    printf("%d Total Exports\n", totalExportCount);
+//    printf("%d Total Exports\n", totalExportCount);
     K2_ASSERT(totalExportCount == symTree.mNodeCount);
 
     // start with empty symbol string table
@@ -424,7 +424,7 @@ CreateImportLibrary32(
         return HRESULT_FROM_WIN32(GetLastError());
     }
 
-    printf("Wrote out import library \"%s\"\n", gOut.mpImportLibFilePath);
+//    printf("Wrote out import library \"%s\"\n", gOut.mpImportLibFilePath);
 
     delete[]((UINT8 *)workFile.mAsPtr);
 
