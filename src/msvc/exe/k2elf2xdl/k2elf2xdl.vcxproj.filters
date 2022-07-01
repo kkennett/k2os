@@ -29,5 +29,14 @@
     <ClCompile Include="convert64.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="data32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="import32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="output32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

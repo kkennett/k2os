@@ -65,7 +65,8 @@ K2_PACKED_PUSH
 typedef struct _XDL_ELF_ANCHOR XDL_ELF_ANCHOR;
 struct _XDL_ELF_ANCHOR
 {
-    UINT64  mAnchor[XDLExportType_Count]; 
+    UINT64      mAnchor[XDLExportType_Count]; 
+    K2_GUID128  Id;
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
 
@@ -102,6 +103,8 @@ K2_PACKED_POP
 #define XDL_FILE_HEADER_MARKER              K2_MAKEID4('K','2','O','S')
 
 #define XDL_FILE_HEADER_FLAG_KERNEL_ONLY    0x0001
+
+#define XDL_NAME_MAX_LEN                    63
 
 K2_PACKED_PUSH
 typedef struct _XDL_FILE_HEADER XDL_FILE_HEADER;

@@ -29,45 +29,38 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __K2ELF2XDL_H
-#define __K2ELF2XDL_H
 
-#include <lib/k2win32.h>
-#include <lib/k2mem.h>
-#include <lib/k2asc.h>
-#include <lib/k2parse.h>
-#include <lib/k2elf.h>
-#include <lib/k2tree.h>
-#include <lib/k2crc.h>
+#include "k2elf2xdl.h"
 
-typedef struct _OUTCTX OUTCTX;
-struct _OUTCTX
+UINT8 const *
+LoadAddrToDataPtr32(
+    K2ELF32PARSE *  apParse,
+    UINT_PTR        aLoadAddr,
+    UINT_PTR *      apRetSecIx
+)
 {
-    bool                                mSpecKernel;
-    char const *                        mpOutputFilePath;
-    INT_PTR                             mSpecStack;
-    char const *                        mpImportLibFilePath;
+    UINT32              secIx;
+    Elf32_Shdr const *  pSecHdr;
 
-    K2ReadOnlyMappedFile *              mpElfFile;
-    UINT_PTR                            mElfAnchorSectionIx;
-    XDL_ELF_ANCHOR const *              mpElfAnchor;
-    XDL_EXPORTS_SECTION_HEADER const *  mpElfExpSecHdr[XDLExportType_Count];
-    UINT_PTR                            mElfExpSecIx[XDLExportType_Count];
+    if (apRetSecIx != NULL)
+        *apRetSecIx = 0;
 
-    UINT_PTR                            mTargetNameLen;
-    char                                mTargetName[XDL_NAME_MAX_LEN + 1];
-};
+    for (secIx = 1; secIx < apParse->mpRawFileData->e_shnum; secIx++)
+    {
+        pSecHdr = K2ELF32_GetSectionHeader(apParse, secIx);
+        if ((pSecHdr->sh_flags & SHF_ALLOC) &&
+            (pSecHdr->sh_type != SHT_NOBITS))
+        {
+            if ((aLoadAddr >= pSecHdr->sh_addr) &&
+                ((aLoadAddr - pSecHdr->sh_addr) < pSecHdr->sh_size))
+            {
+                if (apRetSecIx != NULL)
+                    *apRetSecIx = secIx;
+                return (((UINT8 *)apParse->mpRawFileData) + pSecHdr->sh_offset) + (aLoadAddr - pSecHdr->sh_addr);
+            }
+        }
+    }
 
-extern OUTCTX gOut;
-
-int TreeStrCompare(UINT_PTR aKey, K2TREE_NODE * apNode);
-
-K2STAT Convert64(void);
-
-K2STAT          Convert32(void);
-K2STAT          CreateOutputFile32(K2ELF32PARSE *apParse);
-UINT8 const *   LoadAddrToDataPtr32(K2ELF32PARSE *apParse, UINT_PTR aLoadAddr, UINT_PTR *apRetSecIx);
-K2STAT          CreateImportLibrary32(K2ELF32PARSE *apParse);
-
-#endif // #ifndef __K2ELF2XDL_H
+    return NULL;
+}
 

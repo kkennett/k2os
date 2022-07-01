@@ -35,7 +35,10 @@
 OUTCTX gOut;
 
 int
-TreeStringCompare(UINT_PTR aKey, K2TREE_NODE *apNode)
+TreeStrCompare(
+    UINT_PTR        aKey, 
+    K2TREE_NODE *   apNode
+)
 {
     return K2ASC_Comp((char const *)aKey, (char const *)apNode->mUserVal);
 }
@@ -44,6 +47,10 @@ int main(int argc, char **argv)
 {
     ArgParser       args;
     UINT8 const *   pData;
+    char            ch;
+    char const *    pPath;
+    char const *    pScan;
+    char *          pConv;
 
     if (!args.Init(argc, argv))
     {
@@ -170,6 +177,53 @@ int main(int argc, char **argv)
         printf("*** input elf file is too small to be valid\n");
         return K2STAT_ERROR_BAD_ARGUMENT;
     }
+
+    // get the target name (extensionless and lower case)
+    pPath = pScan = gOut.mpElfFile->FileName();
+    while (*pScan)
+        pScan++;
+    do
+    {
+        pScan--;
+        ch = *pScan;
+        if ((ch == '/') || (ch == '\\'))
+        {
+            pScan++;
+            break;
+        }
+    } while (pScan != pPath);
+    if (pScan == pPath)
+    {
+        printf("*** Could not parse target XDL name from input ELF path\n");
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+    pPath = pScan;
+    ch = *pScan;
+    do {
+        if ('.' == ch)
+            break;
+        pScan++;
+        ch = *pScan;
+    } while (0 != ch);
+    gOut.mTargetNameLen = (UINT_PTR)(pScan - pPath);
+    if (0 == gOut.mTargetNameLen)
+    {
+        printf("*** No filename part in input ELF file paht\n");
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+    if (XDL_NAME_MAX_LEN < gOut.mTargetNameLen)
+    {
+        printf("*** input ELF filename part is too long for XDL\n");
+    }
+    pConv = &gOut.mTargetName[0];
+    while (pPath != pScan)
+    {
+        *pConv = K2ASC_ToLower(*pPath);
+        pConv++;
+        pPath++;
+    }
+    *pConv = 0;
+    printf("  TARGET NAME = \"%s\" (%d)\n", gOut.mTargetName, gOut.mTargetNameLen);
 
     pData = (UINT8 const *)gOut.mpElfFile->DataPtr();
     if (pData[EI_CLASS] == ELFCLASS32)

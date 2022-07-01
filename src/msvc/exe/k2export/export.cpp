@@ -457,6 +457,7 @@ sCreateOutputFile(
         gOut.Bits32.mpSymBase[1].st_value = 0; // gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_addr;
         gOut.Bits32.mpSymBase[1].st_info = ELF32_MAKE_SYMBOL_INFO(STB_GLOBAL, STT_OBJECT);
         K2MEM_Copy(gOut.mpAnchor, &gOut.Anchor, sizeof(XDL_ELF_ANCHOR));
+        K2MEM_Copy(&gOut.mpAnchor->Id, &gOut.Id, sizeof(K2_GUID128));
 
         if (gOut.mTotalExports > 0)
         {

@@ -32,96 +32,6 @@
 
 #include "k2elf2xdl.h"
 
-#define DUMP_EXPORTS     0
-
-K2STAT
-CreateOutputFile32(
-    K2ELF32PARSE *  apParse
-)
-{
-    return K2STAT_ERROR_NOT_IMPL;
-}
-
-UINT8 const *
-LoadAddrToDataPtr(
-    K2ELF32PARSE *  apParse,
-    UINT_PTR        aLoadAddr,
-    UINT_PTR *      apRetSecIx
-)
-{
-    UINT32              secIx;
-    Elf32_Shdr const *  pSecHdr;
-
-    if (apRetSecIx != NULL)
-        *apRetSecIx = 0;
-
-    for (secIx = 1; secIx < apParse->mpRawFileData->e_shnum; secIx++)
-    {
-        pSecHdr = K2ELF32_GetSectionHeader(apParse, secIx);
-        if ((pSecHdr->sh_flags & SHF_ALLOC) &&
-            (pSecHdr->sh_type != SHT_NOBITS))
-        {
-            if ((aLoadAddr >= pSecHdr->sh_addr) &&
-                ((aLoadAddr - pSecHdr->sh_addr) < pSecHdr->sh_size))
-            {
-                if (apRetSecIx != NULL)
-                    *apRetSecIx = secIx;
-                return (((UINT8 *)apParse->mpRawFileData) + pSecHdr->sh_offset) + (aLoadAddr - pSecHdr->sh_addr);
-            }
-        }
-    }
-
-    return NULL;
-}
-
-K2STAT
-CreateImportLibrary32(
-    K2ELF32PARSE *  apParse
-)
-{
-    UINT64 const *                      pSrcPtr;
-    UINT_PTR                            ixExpSec;
-    XDL_EXPORTS_SECTION_HEADER const *  pExpHdr;
-#if DUMP_EXPORTS
-    XDL_EXPORT32_REF *                  pExpRef;
-    UINT_PTR                            ixExp;
-    char const *                        pExpStr;
-#endif
-
-    printf("--- Create import library\n");
-
-    pSrcPtr = (UINT64 *)gOut.mpElfAnchor;
-    for (ixExpSec = 0; ixExpSec < XDLExportType_Count; ixExpSec++)
-    {
-        if (pSrcPtr[ixExpSec] != NULL)
-        {
-            pExpHdr = gOut.mpElfExpSecHdr[ixExpSec] =
-                (XDL_EXPORTS_SECTION_HEADER const *)LoadAddrToDataPtr(apParse, (UINT_PTR)pSrcPtr[ixExpSec], &gOut.mElfExpSecIx[ixExpSec]);
-            if (pExpHdr == NULL)
-            {
-                printf("*** Exports type %d could not be found in ELF file\n", ixExpSec);
-                return K2STAT_ERROR_NOT_FOUND;
-            }
-#if DUMP_EXPORTS
-            printf("Found Exports type %d at %08X from %08X\n", ixExpSec, (UINT_PTR)pExpHdr, (UINT_PTR)pSrcPtr[ixExpSec]);
-            printf("  Count %d\n", pExpHdr->mCount);
-            printf("  Crc32 %08X\n", pExpHdr->mCRC32);
-            pExpRef = (XDL_EXPORT32_REF *)(((UINT8 const *)pExpHdr) + sizeof(XDL_EXPORTS_SECTION_HEADER));
-            for (ixExp = 0; ixExp < pExpHdr->mCount; ixExp++)
-            {
-                pExpStr = ((char const *)pExpHdr) + pExpRef->mNameOffset;
-                printf("    %08X %08X(%d) %s\n", pExpRef->mAddr, pExpRef->mNameOffset, pExpRef->mNameOffset, pExpStr);
-                pExpRef++;
-            }
-#endif
-        }
-    }
-
-
-
-    return K2STAT_ERROR_NOT_IMPL;
-}
-
 K2STAT
 FindSetAnchor32(
     K2ELF32PARSE *  apParse
@@ -167,7 +77,7 @@ FindSetAnchor32(
                     if ((pSym->st_size == sizeof(XDL_ELF_ANCHOR)) &&
                         (0 == K2ASC_Comp("gpXdlAnchor", pStr + pSym->st_name)))
                     {
-                        gOut.mpElfAnchor = (XDL_ELF_ANCHOR *)LoadAddrToDataPtr(apParse, pSym->st_value, NULL);
+                        gOut.mpElfAnchor = (XDL_ELF_ANCHOR *)LoadAddrToDataPtr32(apParse, pSym->st_value, NULL);
                         if (NULL == gOut.mpElfAnchor)
                         {
                             printf("*** Could not get address of elf anchor by symbol\n");

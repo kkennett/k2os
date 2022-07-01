@@ -92,7 +92,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);k2win32.lib;k2mem.lib;k2parse.lib;k2tree.lib;k2atomic.lib;k2asc.lib;k2elf.lib</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);k2win32.lib;k2mem.lib;k2parse.lib;k2tree.lib;k2atomic.lib;k2asc.lib;k2elf.lib;k2crc.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy $(TargetPath) $(SolutionDir)..\..\k2tools</Command>
@@ -113,7 +113,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);k2win32.lib;k2mem.lib;k2parse.lib;k2tree.lib;k2atomic.lib;k2asc.lib;k2elf.lib</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);k2win32.lib;k2mem.lib;k2parse.lib;k2tree.lib;k2atomic.lib;k2asc.lib;k2elf.lib;k2crc.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy $(TargetPath) $(SolutionDir)..\..\k2tools</Command>
@@ -130,7 +130,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);k2win32.lib;k2mem.lib;k2parse.lib;k2tree.lib;k2atomic.lib;k2asc.lib;k2elf.lib</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);k2win32.lib;k2mem.lib;k2parse.lib;k2tree.lib;k2atomic.lib;k2asc.lib;k2elf.lib;k2crc.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy $(TargetPath) $(SolutionDir)..\..\k2tools</Command>
@@ -151,7 +151,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);k2win32.lib;k2mem.lib;k2parse.lib;k2tree.lib;k2atomic.lib;k2asc.lib;k2elf.lib</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);k2win32.lib;k2mem.lib;k2parse.lib;k2tree.lib;k2atomic.lib;k2asc.lib;k2elf.lib;k2crc.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy $(TargetPath) $(SolutionDir)..\..\k2tools</Command>
@@ -164,7 +164,10 @@
   <ItemGroup>
     <ClCompile Include="convert32.cpp" />
     <ClCompile Include="convert64.cpp" />
+    <ClCompile Include="data32.cpp" />
+    <ClCompile Include="import32.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="output32.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
