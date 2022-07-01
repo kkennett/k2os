@@ -143,6 +143,18 @@ int main(int argc, char **argv)
                 gOut.mpImportLibFilePath = args.Arg();
                 break;
 
+            case 'p':
+            case 'P':
+                args.Advance();
+                if (gOut.mUsePlacement)
+                {
+                    printf("*** More than one placement specified on command line\n");
+                    return K2STAT_ERROR_ALREADY_EXISTS;
+                }
+                gOut.mPlacement = K2ASC_NumValue32(args.Arg());
+                gOut.mUsePlacement = true;
+                break;
+
             default:
                 printf("*** unrecognized switch on command line ('%c')\n", pArg[1]);
                 return K2STAT_ERROR_BAD_ARGUMENT;

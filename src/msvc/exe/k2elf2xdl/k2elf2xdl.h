@@ -56,6 +56,9 @@ struct _OUTCTX
 
     UINT_PTR                            mTargetNameLen;
     char                                mTargetName[XDL_NAME_MAX_LEN + 1];
+
+    bool                                mUsePlacement;
+    UINT64                              mPlacement;
 };
 
 extern OUTCTX gOut;
