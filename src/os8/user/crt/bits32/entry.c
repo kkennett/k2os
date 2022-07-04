@@ -87,7 +87,7 @@ __k2oscrt_user_entry(
     //
     // init dynamic loader and self-init this module
     //
-    CrtDlx_Init(apROFS);
+    CrtXdl_Init(apROFS);
 
     //
     // init process memory so heap allocations will work

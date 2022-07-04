@@ -46,11 +46,11 @@ static K2LIST_ANCHOR sgPhysFreeList[BUDDY_BUCKET_COUNT];
 static char const * sgK2TypeNames[] =
 {
     "PAGING          ",
-    "DLX_TEXT        ",
-    "DLX_READ        ",
-    "DLX_DATA        ",
-    "DLX_PAGE        ",
-    "DLX_LOADER      ",
+    "XDL_TEXT        ",
+    "XDL_READ        ",
+    "XDL_DATA        ",
+    "XDL_PAGE        ",
+    "XDL_LOADER      ",
     "ZERO            ",
     "CORES           ",
     "PHYS_TRACK      ",

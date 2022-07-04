@@ -277,7 +277,7 @@ KernUser_Init(
 
     //
     // create the ranges for the segments and initialze them with the correct data
-    // from the DLX file
+    // from the XDL file
     //
     gData.User.mpCrtPageArray[0] = KernUser_AllocStockPageArray(
         gData.User.mCrtTextPagesCount,

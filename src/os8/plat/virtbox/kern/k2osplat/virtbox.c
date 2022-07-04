@@ -148,8 +148,8 @@ K2OSPLAT_ForcedDriverQuery(
 
 K2STAT
 K2_CALLCONV_REGS
-dlx_entry(
-    DLX *   apDlx,
+xdl_entry(
+    XDL *   apXdl,
     UINT32  aReason
 )
 {

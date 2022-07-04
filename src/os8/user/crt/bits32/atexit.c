@@ -36,7 +36,7 @@ struct _DTOR
 {
     __vfpv  mFunc;
     void *  mArg;
-    DLX *   mpDlx;
+    XDL *   mpXdl;
     DTOR *  mpNext;
 };
 
@@ -53,7 +53,7 @@ void CrtAtExit_Init(void)
         K2OS_Process_Exit(K2OS_Thread_GetLastStatus());
 }
 
-int __cxa_atexit(__vfpv f, void *a, DLX *apDlx)
+int __cxa_atexit(__vfpv f, void *a, XDL *apXdl)
 {
     DTOR *  pDTOR;
 
@@ -63,7 +63,7 @@ int __cxa_atexit(__vfpv f, void *a, DLX *apDlx)
 
     pDTOR->mFunc = f;
     pDTOR->mArg = a;
-    pDTOR->mpDlx = apDlx;
+    pDTOR->mpXdl = apXdl;
 
     K2OS_CritSec_Enter(&sgSec);
 
@@ -75,7 +75,7 @@ int __cxa_atexit(__vfpv f, void *a, DLX *apDlx)
     return 0;
 }
 
-void __call_dtors(DLX *apDlx)
+void __call_dtors(XDL *apXdl)
 {
     DTOR *pPrev;
     DTOR *pScan;
@@ -95,7 +95,7 @@ void __call_dtors(DLX *apDlx)
     {
         do
         {
-            if (pScan->mpDlx == apDlx)
+            if (pScan->mpXdl == apXdl)
             {
                 if (pCallEnd == NULL)
                     pCall = pScan;

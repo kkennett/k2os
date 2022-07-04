@@ -33,7 +33,7 @@
 #include <k2systype.h>
 
 //
-// this is statically linked into every DLX.  This is not built by the windows
+// this is statically linked into every XDL.  This is not built by the windows
 // compiler.
 //
 #ifdef _MSC_VER 
@@ -112,7 +112,7 @@ __aeabi_atexit(
     void *  dso_handle
 )
 {
-    return __cxa_atexit(destroyer, object, (DLX *)dso_handle);
+    return __cxa_atexit(destroyer, object, (XDL *)dso_handle);
 }
 
 #else

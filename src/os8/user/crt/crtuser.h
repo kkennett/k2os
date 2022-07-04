@@ -62,8 +62,8 @@ typedef void(*__vfpv)(void *);
 
 void    CrtAtExit_Init(void);
 
-void    CrtDlx_Init(K2ROFS const * apROFS);
-K2STAT  CrtDlx_Acquire(char const *apFileSpec, DLX ** appRetDlx, UINT_PTR * apRetEntryStackReq, K2_GUID128 * apRetID);
+void    CrtXdl_Init(K2ROFS const * apROFS);
+K2STAT  CrtXdl_Acquire(char const *apFileSpec, XDL ** appRetXdl, UINT_PTR * apRetEntryStackReq, K2_GUID128 * apRetID);
 
 void    CrtHeap_Init(void);
 

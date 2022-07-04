@@ -53,7 +53,7 @@ struct _CRT_HOST_FILE
 };
 
 K2STAT 
-CrtDlx_CritSec(
+CrtXdl_CritSec(
     BOOL aEnter
 )
 {
@@ -65,7 +65,7 @@ CrtDlx_CritSec(
 }
 
 K2STAT 
-CrtDlx_AcqAlreadyLoaded(
+CrtXdl_AcqAlreadyLoaded(
     void *              apAcqContext, 
     K2DLXSUPP_HOST_FILE aHostFile
 )
@@ -74,7 +74,7 @@ CrtDlx_AcqAlreadyLoaded(
 }
 
 K2STAT 
-CrtDlx_Open(
+CrtXdl_Open(
     void *                  apAcqContext,
     char const *            apFileSpec,
     char const *            apNamePart,
@@ -89,7 +89,7 @@ CrtDlx_Open(
     UINT_PTR            specLen;
     char *              pTemp;
 
-//    CrtDbg_Printf("CrtDlx_Open(%08X, %s)\n", apAcqContext, apFileSpec);
+//    CrtDbg_Printf("CrtXdl_Open(%08X, %s)\n", apAcqContext, apFileSpec);
 
     if (NULL == apAcqContext)
     {
@@ -153,12 +153,12 @@ CrtDlx_Open(
         pCrtHostFile->mKeepSymbols = FALSE;
         K2MEM_Zero(pCrtHostFile->mSegAddr, sizeof(UINT32) * DlxSeg_Count);
 
-        apRetResult->mHostFile = (K2DLXSUPP_HOST_FILE)pCrtHostFile;
+        apRetResult->mHostFile = (K2XDL_HOST_FILE)pCrtHostFile;
         apRetResult->mFileSectorCount = K2ROFS_FILESECTORS(pFile);
         apRetResult->mModulePageDataAddr = segAddr;
         apRetResult->mModulePageLinkAddr = segAddr;
 
-//        CrtDbg_Printf("CrtDlx_Open(%08X, %s) -> %08X\n", apAcqContext, apFileSpec, pCrtHostFile);
+//        CrtDbg_Printf("CrtXdl_Open(%08X, %s) -> %08X\n", apAcqContext, apFileSpec, pCrtHostFile);
 
         return K2STAT_NO_ERROR;
     }
@@ -171,7 +171,7 @@ CrtDlx_Open(
 }
 
 K2STAT 
-CrtDlx_ReadSectors(
+CrtXdl_ReadSectors(
     void *              apAcqContext, 
     K2DLXSUPP_HOST_FILE aHostFile, 
     void *              apBuffer, 
@@ -214,7 +214,7 @@ CrtDlx_ReadSectors(
 }
 
 K2STAT 
-CrtDlx_Prepare(
+CrtXdl_Prepare(
     void *              apAcqContext, 
     K2DLXSUPP_HOST_FILE aHostFile, 
     DLX_INFO *          apInfo, 
@@ -279,7 +279,7 @@ CrtDlx_Prepare(
 }
 
 BOOL 
-CrtDlx_PreCallback(
+CrtXdl_PreCallback(
     void *              apAcqContext, 
     K2DLXSUPP_HOST_FILE aHostFile, 
     BOOL                aIsLoad, 
@@ -290,7 +290,7 @@ CrtDlx_PreCallback(
 }
 
 K2STAT 
-CrtDlx_PostCallback(
+CrtXdl_PostCallback(
     void *              apAcqContext, 
     K2DLXSUPP_HOST_FILE aHostFile, 
     K2STAT              aUserStatus, 
@@ -301,7 +301,7 @@ CrtDlx_PostCallback(
 }
 
 K2STAT
-CrtDlx_Finalize(
+CrtXdl_Finalize(
     void *              apAcqContext,
     K2DLXSUPP_HOST_FILE aHostFile,
     K2DLXSUPP_SEGALLOC *apUpdateAlloc
@@ -365,7 +365,7 @@ CrtDlx_Finalize(
 }
 
 K2STAT 
-CrtDlx_RefChange(
+CrtXdl_RefChange(
     K2DLXSUPP_HOST_FILE aHostFile, 
     DLX *               apDlx, 
     INT32               aRefChange
@@ -375,7 +375,7 @@ CrtDlx_RefChange(
 }
 
 K2STAT 
-CrtDlx_Purge(
+CrtXdl_Purge(
     K2DLXSUPP_HOST_FILE aHostFile
 )
 {
@@ -406,7 +406,7 @@ CrtDlx_Purge(
 }
 
 K2STAT 
-CrtDlx_ErrorPoint(
+CrtXdl_ErrorPoint(
     char const *    apFile, 
     int             aLine, 
     K2STAT          aStatus
@@ -418,12 +418,12 @@ CrtDlx_ErrorPoint(
             (0 == K2ASC_CompIns(apFile, "dlx_acquire.c")))
             return aStatus;
     }
-    CrtDbg_Printf("CRTDLX ERROR %s:%d (%08X)\n", apFile, aLine, aStatus);
+    CrtDbg_Printf("CRTXDL ERROR %s:%d (%08X)\n", apFile, aLine, aStatus);
     return aStatus;
 }
 
 void 
-CrtDlx_Init(
+CrtXdl_Init(
     K2ROFS const * apROFS
 )
 {
@@ -455,17 +455,17 @@ CrtDlx_Init(
 
     K2MEM_Zero(&sgDlxHost, sizeof(sgDlxHost));
     sgDlxHost.mHostSizeBytes = sizeof(sgDlxHost);
-    sgDlxHost.CritSec = CrtDlx_CritSec;
-    sgDlxHost.AcqAlreadyLoaded = CrtDlx_AcqAlreadyLoaded;
-    sgDlxHost.Open = CrtDlx_Open;
-    sgDlxHost.ReadSectors = CrtDlx_ReadSectors;
-    sgDlxHost.Prepare = CrtDlx_Prepare;
-    sgDlxHost.PreCallback = CrtDlx_PreCallback;
-    sgDlxHost.PostCallback = CrtDlx_PostCallback;
-    sgDlxHost.Finalize = CrtDlx_Finalize;
-    sgDlxHost.RefChange = CrtDlx_RefChange;
-    sgDlxHost.Purge = CrtDlx_Purge;
-    sgDlxHost.ErrorPoint = CrtDlx_ErrorPoint;
+    sgDlxHost.CritSec = CrtXdl_CritSec;
+    sgDlxHost.AcqAlreadyLoaded = CrtXdl_AcqAlreadyLoaded;
+    sgDlxHost.Open = CrtXdl_Open;
+    sgDlxHost.ReadSectors = CrtXdl_ReadSectors;
+    sgDlxHost.Prepare = CrtXdl_Prepare;
+    sgDlxHost.PreCallback = CrtXdl_PreCallback;
+    sgDlxHost.PostCallback = CrtXdl_PostCallback;
+    sgDlxHost.Finalize = CrtXdl_Finalize;
+    sgDlxHost.RefChange = CrtXdl_RefChange;
+    sgDlxHost.Purge = CrtXdl_Purge;
+    sgDlxHost.ErrorPoint = CrtXdl_ErrorPoint;
 
     stat = K2DLXSUPP_Init(sgpLoaderPage, &sgDlxHost, TRUE, FALSE, &preloadSelf);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
@@ -473,11 +473,11 @@ CrtDlx_Init(
     //
     // tell the kernel where everything is for us for debugging purposes
     //
-    CrtKern_SysCall1(K2OS_SYSCALL_ID_CRT_INITDLX, (UINT_PTR)preloadSelf.mpListAnchorOut);
+    CrtKern_SysCall1(K2OS_SYSCALL_ID_CRT_INITXDL, (UINT_PTR)preloadSelf.mpListAnchorOut);
 }
 
 K2STAT  
-CrtDlx_Acquire(
+CrtXdl_Acquire(
     char const *    apFilePath,
     DLX **          appRetDlx,
     UINT32 *        apRetEntryStackReq,
@@ -539,7 +539,7 @@ K2OS_Dlx_Acquire(
 
     pDlx = NULL;
 
-    stat = CrtDlx_Acquire(apFilePath, &pDlx, NULL, NULL);
+    stat = CrtXdl_Acquire(apFilePath, &pDlx, NULL, NULL);
 
     if (K2STAT_IS_ERROR(stat))
         return NULL;

@@ -102,7 +102,7 @@ CrtLaunch_Startup(
 
         val32 = 0;
         sgpClientDlx = NULL;
-        stat = CrtDlx_Acquire(gpLaunchInfo->mPath, &sgpClientDlx, &val32, NULL);
+        stat = CrtXdl_Acquire(gpLaunchInfo->mPath, &sgpClientXdl, &val32, NULL);
 //        K2_ASSERT(!K2STAT_IS_ERROR(stat));
         if (K2STAT_IS_ERROR(stat))
         {
