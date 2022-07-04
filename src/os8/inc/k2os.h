@@ -47,7 +47,7 @@ extern "C" {
 
 typedef void * K2OS_TOKEN;
 typedef void * K2OS_MAILBOX;
-typedef void * K2OS_DLX;
+typedef void * K2OS_XDL;
 typedef void * K2OS_IPCEND;
 
 #define K2OS_MSG_CONTROL_SYSTEM_FLAG     0x80000000
@@ -437,12 +437,12 @@ BOOL K2_CALLCONV_REGS K2OS_Intr_End(K2OS_INTERRUPT_TOKEN aInterruptToken);
 //------------------------------------------------------------------------
 //
 
-K2OS_DLX    K2_CALLCONV_REGS K2OS_Dlx_Acquire(char const *apFilePath);
-BOOL        K2_CALLCONV_REGS K2OS_Dlx_AddRef(K2OS_DLX aDlx);
-K2OS_DLX    K2_CALLCONV_REGS K2OS_Dlx_AddRefContaining(UINT_PTR aAddr);
-BOOL        K2_CALLCONV_REGS K2OS_Dlx_Release(K2OS_DLX aDlx);
-UINT_PTR                     K2OS_Dlx_FindExport(K2OS_DLX aDlx, BOOL aIsText, char const *apExportName);
-BOOL                         K2OS_Dlx_GetIdent(K2OS_DLX aDlx, char * apNameBuf, UINT_PTR aNameBufLen, K2_GUID128  *apRetID);
+K2OS_XDL    K2_CALLCONV_REGS K2OS_Xdl_Acquire(char const *apFilePath);
+BOOL        K2_CALLCONV_REGS K2OS_Xdl_AddRef(K2OS_XDL aXdl);
+K2OS_XDL    K2_CALLCONV_REGS K2OS_Xdl_AddRefContaining(UINT_PTR aAddr);
+BOOL        K2_CALLCONV_REGS K2OS_Xdl_Release(K2OS_XDL aXdl);
+UINT_PTR                     K2OS_Xdl_FindExport(K2OS_XDL aXdl, BOOL aIsText, char const *apExportName);
+BOOL                         K2OS_Xdl_GetIdent(K2OS_XDL aXdl, char * apNameBuf, UINT_PTR aNameBufLen, K2_GUID128  *apRetID);
 
 //
 //------------------------------------------------------------------------

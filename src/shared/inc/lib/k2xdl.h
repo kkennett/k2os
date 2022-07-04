@@ -65,7 +65,7 @@ struct _K2XDL_OPENRESULT
 typedef struct _K2XDL_SECTION_ADDRS K2XDL_SECTION_ADDRS;
 struct _K2XDL_SECTION_ADDRS
 {
-    UINT_PTR        mDataAddr[XDLSectionIx_Count];
+    UINT_PTR        mDataAddr[XDLSegmentIx_Count];
 };
 
 typedef K2STAT (*K2XDL_pf_CritSec)(BOOL aEnter);

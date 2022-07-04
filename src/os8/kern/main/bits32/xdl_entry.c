@@ -84,7 +84,7 @@ xdl_entry(
     //
     // first init is with no support functions.  reinit will not get called
     //
-    KernDlx_AtXdlEntry();
+    KernXdl_AtXdlEntry();
     KernArch_AtXdlEntry();
     KernCpu_AtXdlEntry();
 

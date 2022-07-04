@@ -51,7 +51,6 @@ typedef struct _XDL XDL;
 #define XDL_ELF_SHF_TYPE_EXPORTS    0x00100000
 #define XDL_ELF_SHF_TYPE_IMPORTS    0x00200000
 
-typedef enum _XDLExportType XDLExportType;
 enum _XDLExportType
 {
     XDLExport_Text,
@@ -60,6 +59,7 @@ enum _XDLExportType
 
     XDLExportType_Count
 };
+typedef enum _XDLExportType XDLExportType;
 
 K2_PACKED_PUSH
 typedef struct _XDL_ELF_ANCHOR XDL_ELF_ANCHOR;
@@ -76,19 +76,19 @@ K2_PACKED_POP
 #define XDL_SECTORINDEX_MASK        (~XDL_SECTOROFFSET_MASK)
 #define XDL_SECTORS_PER_PAGE        (K2_VA_MEMPAGE_BYTES / XDL_SECTOR_BYTES)
 
-typedef enum _XDLSectionIx XDLSectionIx;
-enum _XDLSectionIx
+enum _XDLSegmentIx
 {
-    XDLSectionIx_Text,          // code sectors
-    XDLSectionIx_Read,          // read only data sectors
-    XDLSectionIx_Data,          // initialized data sectors
-    XDLSectionIx_DebugInfo,     // discardable - module-specific debug info sectors
-    XDLSectionIx_Relocs,        // discardable - all info to permit relocation sectors
-    XDLSectionIx_Imports,       // discardable - import records
-    XDLSectionIx_Other,         // discardable - other data for file (only)
+    XDLSegmentIx_Text,          // code sectors
+    XDLSegmentIx_Read,          // read only data sectors
+    XDLSegmentIx_Data,          // initialized data sectors
+    XDLSegmentIx_DebugInfo,     // discardable - module-specific debug info sectors
+    XDLSegmentIx_Relocs,        // discardable - all info to permit relocation sectors
+    XDLSegmentIx_Imports,       // discardable - import records
+    XDLSegmentIx_Other,         // discardable - other data for file (only)
 
-    XDLSectionIx_Count
+    XDLSegmentIx_Count
 };
+typedef enum _XDLSegmentIx XDLSegmentIx;
 
 K2_PACKED_PUSH
 typedef struct _XDL_FILE_SECTION XDL_FILE_SECTION;
@@ -120,8 +120,8 @@ struct _XDL_FILE_HEADER
     UINT64              mEntryPoint;
     UINT32              mEntryStackReq;
     UINT32              mImportCount;
-    UINT64              mFirstSectionSectorOffset;    // offset to XDLSectionIx_Text. all sections forced linear after that
-    XDL_FILE_SECTION    Section[XDLSectionIx_Count];
+    UINT64              mFirstSectionSectorOffset;    // offset to XDLSegmentIx_Text. all sections forced linear after that
+    XDL_FILE_SECTION    Section[XDLSegmentIx_Count];
     K2_GUID128          Id;
     UINT64              mReadExpOffset[XDLExportType_Count];
     UINT32              mNameLen;
@@ -190,7 +190,7 @@ K2STAT K2_CALLCONV_REGS xdl_entry(XDL *apXdl, UINT_PTR aReason);
 
 K2STAT  XDL_Acquire(char const *apFilePath, UINT_PTR aContext, XDL **appRetXdl);
 K2STAT  XDL_Release(XDL *apXdl);
-K2STAT  XDL_GetHeaderPtr(XDL *apXdl, XDL_FILE_HEADER **appRetHeaderPtr);
+K2STAT  XDL_GetHeaderPtr(XDL *apXdl, XDL_FILE_HEADER const **appRetHeaderPtr);
 K2STAT  XDL_FindExport(XDL *apXdl, XDLExportType aType, char const *apName, UINT_PTR *apRetAddr);
 K2STAT  XDL_AcquireContaining(UINT_PTR aAddr, XDL **appRetXdl, UINT_PTR *apRetSection);
 K2STAT  XDL_FindAddrName(UINT_PTR aAddr, char *apRetNameBuffer, UINT_PTR aBufferLen);

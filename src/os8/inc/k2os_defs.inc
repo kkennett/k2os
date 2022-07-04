@@ -55,11 +55,11 @@
 // that are provided by operating system vendors."
 //
 #define K2OS_EFIMEMTYPE_PAGING          0x80000000  //  page directory and page tables
-#define K2OS_EFIMEMTYPE_DLX_TEXT        0x80000001  //  dlx code
-#define K2OS_EFIMEMTYPE_DLX_READ        0x80000002  //  dlx read-only
-#define K2OS_EFIMEMTYPE_DLX_DATA        0x80000003  //  dlx read/write
-#define K2OS_EFIMEMTYPE_DLX_PAGE        0x80000004  //  loader DLX page
-#define K2OS_EFIMEMTYPE_DLX_LOADER      0x80000005  //  loader master page
+#define K2OS_EFIMEMTYPE_XDL_TEXT        0x80000001  //  xdl code
+#define K2OS_EFIMEMTYPE_XDL_READ        0x80000002  //  xdl read-only
+#define K2OS_EFIMEMTYPE_XDL_DATA        0x80000003  //  xdl read/write
+#define K2OS_EFIMEMTYPE_XDL_PAGE        0x80000004  //  loader XDL page
+#define K2OS_EFIMEMTYPE_XDL_LOADER      0x80000005  //  loader master page
 #define K2OS_EFIMEMTYPE_ZERO            0x80000006  //  one and only zero page
 #define K2OS_EFIMEMTYPE_CORES           0x80000007  //  4 pages per core
 #define K2OS_EFIMEMTYPE_PHYS_TRACK      0x80000008  //  used for tracking physical memory

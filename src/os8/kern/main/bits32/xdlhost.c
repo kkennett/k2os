@@ -31,7 +31,9 @@
 //
 
 #include "kern.h"
-#include "../../shared/lib/k2dlxsupp/dlx_struct.h"
+#include "../../shared/lib/k2xdl/xdl_struct.h"
+
+#if 0
 
 void
 KernDlxSupp_TrackBuiltIn(
@@ -413,4 +415,35 @@ KernDlx_Init(
         KernDlx_AddOneBuiltinDlx(pDlxTrack);
 
     } while (pListLink != NULL);
+}
+
+#endif
+
+UINT32
+KernXdl_FindClosestSymbol(
+    K2OSKERN_OBJ_PROCESS *  apCurProc,
+    UINT32                  aAddr,
+    char *                  apRetSymName,
+    UINT32                  aRetSymNameBufLen
+)
+{
+    if (0 != aRetSymNameBufLen)
+        *apRetSymName = 0;
+    return 0;
+}
+
+void
+KernXdl_Init(
+    void
+)
+{
+
+}
+
+void
+KernXdl_AtXdlEntry(
+    void
+)
+{
+
 }

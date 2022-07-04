@@ -33,18 +33,9 @@
 #ifndef __IXDL_H
 #define __IXDL_H
 
-#include <lib/k2xdl.h>
-
-struct _XDL
-{
-    XDL_FILE_HEADER                 FileHdr;        // must be first thing in structure
-    K2XDL_LOADCTX const *           mpLoadCtx;
-    K2XDL_SECTION_ADDRS             SectionAddrs;
-    K2XDL_HOST_FILE                 mHostFile;
-    UINT_PTR                        mFileSectorCount;
-    XDL_EXPORTS_SECTION_HEADER *    mpExpHdr[XDLExportType_Count];
+#include "xdl_struct.h"
 
 
-};
+
 
 #endif // __IXDL_H

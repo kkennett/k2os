@@ -188,8 +188,8 @@ KernIntr_OnSystemCall(
 
     switch (callId)
     {
-    case K2OS_SYSCALL_ID_CRT_INITDLX:
-        apCallingThread->ProcRef.Ptr.AsProc->mpUserDlxList = (K2LIST_ANCHOR *)apCallingThread->mSysCall_Arg0;
+    case K2OS_SYSCALL_ID_CRT_INITXDL:
+        apCallingThread->ProcRef.Ptr.AsProc->mpUserXdlList = (K2LIST_ANCHOR *)apCallingThread->mSysCall_Arg0;
         *apRetFastResult = 1;
         return;
 

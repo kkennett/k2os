@@ -64,7 +64,7 @@ K2_STATIC_ASSERT(sizeof(K2OS_USER_THREAD_PAGE) < K2_VA_MEMPAGE_BYTES);
 
 /* --------------------------------------------------------------------------------- */
 
-#define K2OS_SYSCALL_ID_CRT_INITDLX                 0
+#define K2OS_SYSCALL_ID_CRT_INITXDL                 0
 #define K2OS_SYSCALL_ID_PROCESS_EXIT                1
 #define K2OS_SYSCALL_ID_PROCESS_START               2
 #define K2OS_SYSCALL_ID_OUTPUT_DEBUG                3

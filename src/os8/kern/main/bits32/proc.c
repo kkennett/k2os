@@ -2797,7 +2797,7 @@ KernProc_Cleanup(
     }
 
     // dont need this anymore
-    apProc->mpUserDlxList = NULL;
+    apProc->mpUserXdlList = NULL;
 
     // release tracking memory for process' user virtual space
     pListLink = apProc->Virt.Locked.BlockList.mpHead;

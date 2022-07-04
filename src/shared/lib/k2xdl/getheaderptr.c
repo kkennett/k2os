@@ -34,8 +34,8 @@
 
 K2STAT  
 XDL_GetHeaderPtr(
-    XDL *               apXdl, 
-    XDL_FILE_HEADER **  appRetHeaderPtr
+    XDL *                   apXdl, 
+    XDL_FILE_HEADER const **appRetHeaderPtr
 )
 {
     return K2STAT_ERROR_NOT_IMPL;

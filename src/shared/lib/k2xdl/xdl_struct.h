@@ -30,35 +30,21 @@
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#include "kern.h"
+#ifndef __XDL_STRUCT_H
+#define __XDL_STRUCT_H
 
-void 
-K2_CALLCONV_REGS 
-Kern_Exec(
-    void
-)
+#include <lib/k2xdl.h>
+
+struct _XDL
 {
-    KernPhys_Init();
-    KernVirt_Init();
-    KernPlat_Init();
+    XDL_FILE_HEADER                 FileHdr;        // must be first thing in structure
+    K2XDL_LOADCTX const *           mpLoadCtx;
+    K2XDL_SECTION_ADDRS             SectionAddrs;
+    K2XDL_HOST_FILE                 mHostFile;
+    UINT_PTR                        mFileSectorCount;
+    XDL_EXPORTS_SECTION_HEADER *    mpExpHdr[XDLExportType_Count];
 
-    KernBootGraf_Init();
 
-    KernObj_Init();
-    KernSched_Init();
-    KernIntr_Init();
-    KernFileSys_Init();
-    KernXdl_Init();
-    KernUser_Init();
-    KernProc_Init();
-    KernIface_Init();
-    KTRACE_INIT;
+};
 
-    //
-    // off we go
-    //
-    KernArch_LaunchCpuCores();
-
-    while (1);
-}
-
+#endif // __XDL_STRUCT_H

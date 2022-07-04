@@ -67,72 +67,69 @@ KernPlat_Init(
     void
 )
 {
-    DLX_pf_ENTRYPOINT       platEntryPoint;
+    XDL_pf_ENTRYPOINT       platEntryPoint;
     K2STAT                  stat;
     K2OSPLAT_pf_Init        fInit;
     K2OSPLAT_pf_DebugOut    fDebugOut;
     K2OS_PLATINIT_MAP *     pMaps;
     K2OS_PLATINIT_MAP *     pIter;
+    XDL_FILE_HEADER const * pXdlHeader;
 
     K2OSKERN_SeqInit(&gData.Plat.SeqLock);
     K2TREE_Init(&gData.Plat.Locked.Tree, NULL);
 
     //
-    // loader should have checked all this in UEFI whe HAL DLX was loaded
+    // loader should have checked all this in UEFI when PLAT XDL was loaded
     // but we check stuff again here
     //
-    stat = DLX_FindExport(
-        gData.Dlx.mpPlat,
-        DlxSeg_Text,
+    stat = XDL_FindExport(
+        gData.Xdl.mpPlat,
+        XDLSegmentIx_Text,
         "K2OSPLAT_Init",
         (UINT32 *)&fInit);
     while (K2STAT_IS_ERROR(stat));
 
-    stat = DLX_FindExport(
-        gData.Dlx.mpPlat,
-        DlxSeg_Text,
+    stat = XDL_FindExport(
+        gData.Xdl.mpPlat,
+        XDLSegmentIx_Text,
         "K2OSPLAT_DebugOut",
         (UINT32 *)&fDebugOut);
     while (K2STAT_IS_ERROR(stat));
 
-    stat = DLX_FindExport(
-        gData.Dlx.mpPlat,
-        DlxSeg_Text,
+    stat = XDL_FindExport(
+        gData.Xdl.mpPlat,
+        XDLSegmentIx_Text,
         "K2OSPLAT_DebugIn",
         (UINT32 *)&gData.mpShared->FuncTab.DebugIn);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
-    stat = DLX_FindExport(
-        gData.Dlx.mpPlat,
-        DlxSeg_Text,
+    stat = XDL_FindExport(
+        gData.Xdl.mpPlat,
+        XDLSegmentIx_Text,
         "K2OSPLAT_ForcedDriverQuery",
         (UINT32 *)&gData.Plat.mfForcedDriverQuery);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
-    stat = DLX_FindExport(
-        gData.Dlx.mpPlat,
-        DlxSeg_Text,
+    stat = XDL_FindExport(
+        gData.Xdl.mpPlat,
+        XDLSegmentIx_Text,
         "K2OSPLAT_OnIrq",
         (UINT32 *)&gData.Intr.mfPlatOnIrq);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
-    stat = DLX_FindExport(
-        gData.Dlx.mpPlat,
-        DlxSeg_Text,
+    stat = XDL_FindExport(
+        gData.Xdl.mpPlat,
+        XDLSegmentIx_Text,
         "K2OSPLAT_GetResTable",
         (UINT32 *)&gData.Plat.mfGetResTable);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
-    stat = K2DLXSUPP_GetInfo(
-        gData.Dlx.mpPlat,
-        NULL,
-        &platEntryPoint,
-        NULL,
-        NULL,
-        NULL);
+    stat = XDL_GetHeaderPtr(gData.Xdl.mpPlat, &pXdlHeader);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
-    stat = platEntryPoint(gData.Dlx.mpPlat, DLX_ENTRY_REASON_LOAD);
+    platEntryPoint = (XDL_pf_ENTRYPOINT)(UINT_PTR)pXdlHeader->mEntryPoint;
+
+    stat = platEntryPoint(gData.Xdl.mpPlat, XDL_ENTRY_REASON_LOAD);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
     pMaps = fInit(NULL);

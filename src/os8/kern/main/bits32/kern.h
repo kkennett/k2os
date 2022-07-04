@@ -442,7 +442,7 @@ typedef struct _K2OSKERN_XDL_TRACK   K2OSKERN_XDL_TRACK;
 
 struct _K2OSKERN_XDL_SEGMENT
 {
-    XDLSectionIx    mXdlSectionIx;
+    XDLSegmentIx    mXDLSegmentIx;
     K2TREE_NODE     KernSegTreeNode;    // userval is base address
     UINT32          mSizeBytes;
 };
@@ -789,7 +789,7 @@ struct _K2OSKERN_OBJ_PROCESS
     K2OSKERN_OBJREF                 FileSysMapRef;
     K2OSKERN_OBJREF                 CrtMapRef[4];
 
-    K2LIST_ANCHOR *                 mpUserDlxList;
+    K2LIST_ANCHOR *                 mpUserXdlList;
 
     K2OSKERN_PROCVIRT               Virt;
     K2OSKERN_PROCPAGELIST           PageList;
@@ -1937,10 +1937,10 @@ void K2_CALLCONV_REGS KernCritSec_Leave(K2OS_CRITSEC *apSec);
 /* --------------------------------------------------------------------------------- */
 
 //
-// dlxsupp.c
+// xdlhost.c
 //
-void    KernDlx_AtXdlEntry(void);
-void    KernDlx_Init(void);
+void    KernXdl_AtXdlEntry(void);
+void    KernXdl_Init(void);
 
 /* --------------------------------------------------------------------------------- */
 
