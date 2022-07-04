@@ -40,7 +40,7 @@ sEmitSymbolName(
 )
 {
     *pBuffer = 0;
-    KernDlx_FindClosestSymbol(apProc, aAddr, pBuffer, X32_SYM_NAME_MAX_LEN);
+    KernXdl_FindClosestSymbol(apProc, aAddr, pBuffer, X32_SYM_NAME_MAX_LEN);
     if (*pBuffer == 0)
     {
         K2OSKERN_Debug("?(%08X)", aAddr);

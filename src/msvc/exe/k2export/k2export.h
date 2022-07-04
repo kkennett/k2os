@@ -122,7 +122,7 @@ struct _OUTCTX
 {
     char const *            mpOutputFilePath;
 
-    K2ReadWriteMappedFile * mpMappedDlxInf;
+    K2ReadWriteMappedFile * mpMappedXdlInf;
 
     K2_GUID128              Id;
 
@@ -176,7 +176,7 @@ struct _OUTCTX
 
 extern OUTCTX gOut;
 
-K2STAT LoadDlxInfFile(char const *apArgument);
+K2STAT LoadXdlInfFile(char const *apArgument);
 
 K2STAT LoadInputFile(char const *apFilePath);
 

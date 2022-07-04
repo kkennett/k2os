@@ -245,7 +245,7 @@ sEmitSection(
     gOut.Bits32.mpSymWork->st_info = ELF32_MAKE_SYMBOL_INFO(STB_GLOBAL, STT_OBJECT);
     gOut.Bits32.mpSymWork++;
 
-    // reloc for export section to pointer in dlx info
+    // reloc for export section to pointer in xdlanchor
     gOut.Bits32.mpSecRelocWork->r_info = ELF32_MAKE_RELOC_INFO(symIx, gOut.mRelocType);
     gOut.Bits32.mpSecRelocWork->r_offset = (aIx * sizeof(UINT64));
     gOut.Bits32.mpSecRelocWork++;
@@ -357,7 +357,7 @@ sCreateOutputFile(
         gOut.mRawWork += gOut.Bits32.mpSecHdrs[SECIX_SYM_STR].sh_size;
 
         gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_offset = gOut.mRawWork - gOut.mRawBase;
-        gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_size = sizeof(Elf32_Sym) * 2;  // null symbol and dlx info symbol
+        gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_size = sizeof(Elf32_Sym) * 2;  // null symbol and xdl anchor symbol
         gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_info = 1;
         for (ix = 0;ix < XDLExportType_Count;ix++)
         {
@@ -367,7 +367,7 @@ sCreateOutputFile(
             }
         }
         gOut.Bits32.mpSymBase = (Elf32_Sym *)gOut.mRawWork;
-        gOut.Bits32.mpSymWork = gOut.Bits32.mpSymBase + 2;    // null symbol and dlx info symbol
+        gOut.Bits32.mpSymWork = gOut.Bits32.mpSymBase + 2;    // null symbol and xdl anchor symbol
         gOut.mRawWork += gOut.Bits32.mpSecHdrs[SECIX_SYM].sh_size;
 
         gOut.Bits32.mpSecHdrs[SECIX_ANCHOR].sh_offset = gOut.mRawWork - gOut.mRawBase;

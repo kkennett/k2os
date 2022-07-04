@@ -42,11 +42,10 @@ K2_CACHEINFO const * gpK2OSKERN_CacheInfo;
 //
 KERN_DATA gData;
 
-
 K2STAT 
 K2_CALLCONV_REGS 
-dlx_entry(
-    DLX *   apDlx,
+xdl_entry(
+    XDL *   apXdl,
     UINT32  aReason
     )
 {
@@ -85,9 +84,9 @@ dlx_entry(
     //
     // first init is with no support functions.  reinit will not get called
     //
-    KernDlx_AtDlxEntry();
-    KernArch_AtDlxEntry();
-    KernCpu_AtDlxEntry();
+    KernDlx_AtXdlEntry();
+    KernArch_AtXdlEntry();
+    KernCpu_AtXdlEntry();
 
     return 0;
 }

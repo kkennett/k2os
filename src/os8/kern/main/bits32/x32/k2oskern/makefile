@@ -68,7 +68,7 @@ STATIC_LIBS += @shared/lib/k2elf
 STATIC_LIBS += @shared/lib/k2heap
 STATIC_LIBS += @shared/lib/k2ramheap
 STATIC_LIBS += @shared/lib/k2ring
-STATIC_LIBS += @shared/lib/k2xdlsupp
+STATIC_LIBS += @shared/lib/k2xdl
 STATIC_LIBS += @shared/lib/k2frame
 
 STATIC_KERNEL_LIBS += @$(K2_OS)/kern/main/bits32

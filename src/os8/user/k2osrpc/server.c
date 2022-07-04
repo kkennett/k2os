@@ -2337,7 +2337,7 @@ K2OSRPC_ServerClass_Compare(
 }
 
 K2STAT 
-K2OSRPC_Server_AtDlxEntry(
+K2OSRPC_Server_AtXdlEntry(
     UINT32 aReason
 )
 {

@@ -52,36 +52,36 @@ default: $(K2_TARGET_FULL_SPEC)
 
 #========================================================================================
 
-STOCK_IMAGE_KERN_DLX := @$(K2_OS)/kern/crt/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oscrt
-STOCK_IMAGE_KERN_DLX += @$(K2_OS)/kern/main/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oskern 
-BUILTIN_DLX += @$(K2_OS)/user/crt/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oscrt
-BUILTIN_DLX += @$(K2_OS)/user/k2osacpi
-BUILTIN_DLX += @$(K2_OS)/user/root 
+STOCK_IMAGE_KERN_XDL := @$(K2_OS)/kern/crt/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oscrt
+STOCK_IMAGE_KERN_XDL += @$(K2_OS)/kern/main/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oskern 
+BUILTIN_XDL += @$(K2_OS)/user/crt/bits$(K2_ARCH_BITS)/$(K2_ARCH)/k2oscrt
+BUILTIN_XDL += @$(K2_OS)/user/k2osacpi
+BUILTIN_XDL += @$(K2_OS)/user/root 
 
-ONE_K2_STOCK_KERNEL_DLX = stock_$(basename $(1))
-EXPAND_ONE_STOCK_KERNEL_DLX = $(if $(findstring @,$(dlxdep)), $(call ONE_K2_STOCK_KERNEL_DLX,$(subst @,,$(dlxdep))),$(dlxdep))
-BUILT_IMAGE_PLAT_DLX = $(foreach dlxdep, $(firstword $(IMAGE_PLAT_DLX)), $(EXPAND_ONE_STOCK_KERNEL_DLX))
-BUILT_STOCK_IMAGE_KERN_DLX = $(foreach dlxdep, $(STOCK_IMAGE_KERN_DLX), $(EXPAND_ONE_STOCK_KERNEL_DLX))
+ONE_K2_STOCK_KERNEL_XDL = stock_$(basename $(1))
+EXPAND_ONE_STOCK_KERNEL_XDL = $(if $(findstring @,$(dlxdep)), $(call ONE_K2_STOCK_KERNEL_XDL,$(subst @,,$(dlxdep))),$(dlxdep))
+BUILT_IMAGE_PLAT_XDL = $(foreach dlxdep, $(firstword $(IMAGE_PLAT_XDL)), $(EXPAND_ONE_STOCK_KERNEL_XDL))
+BUILT_STOCK_IMAGE_KERN_XDL = $(foreach dlxdep, $(STOCK_IMAGE_KERN_XDL), $(EXPAND_ONE_STOCK_KERNEL_XDL))
 
-$(BUILT_IMAGE_PLAT_DLX) $(BUILT_STOCK_IMAGE_KERN_DLX):
+$(BUILT_IMAGE_PLAT_XDL) $(BUILT_STOCK_IMAGE_KERN_XDL):
 	@MAKE -S -C $(K2_ROOT)/src/$(subst stock_,,$@)
 	@-if not exist $(subst /,\,$(K2_TARGET_OS_KERN_PATH)) md $(subst /,\,$(K2_TARGET_OS_KERN_PATH))
 	@copy /Y $(subst /,\,$(K2_TARGET_BASE)/dlx/kern/$(K2_BUILD_SPEC)/$(@F).dlx) $(subst /,\,$(K2_TARGET_OS_KERN_PATH)) 1>NUL
 	@echo.
 
 CHECK_REF_ONE_K2_PLAT = checkplat_$(1)
-CHECK_PLAT_DLX = $(if $(findstring @,$(platdlx)), $(call CHECK_REF_ONE_K2_PLAT,$(subst @,,$(platdlx))),$(platdlx))
-CHECK_PLAT = $(foreach platdlx, $(firstword $(IMAGE_PLAT_DLX)), $(CHECK_PLAT_DLX))
+CHECK_PLAT_XDL = $(if $(findstring @,$(platdlx)), $(call CHECK_REF_ONE_K2_PLAT,$(subst @,,$(platdlx))),$(platdlx))
+CHECK_PLAT = $(foreach platdlx, $(firstword $(IMAGE_PLAT_XDL)), $(CHECK_PLAT_XDL))
 $(CHECK_PLAT):
-	@$(foreach wrong_thing, $(subst k2osplat,,$(@F)), $(error IMAGE_PLAT_DLX must end in DLX named 'k2osplat'))
+	@$(foreach wrong_thing, $(subst k2osplat,,$(@F)), $(error IMAGE_PLAT_XDL must end in XDL named 'k2osplat'))
 
 #========================================================================================
 
-ONE_K2_BULITIN_KERNEL_DLX = builtin_kern_$(basename $(1))
-EXPAND_ONE_BUILTIN_KERNEL_DLX = $(if $(findstring @,$(dlxdep)), $(call ONE_K2_BULITIN_KERNEL_DLX,$(subst @,,$(dlxdep))),$(dlxdep))
-BUILTIN_KERNEL_DRIVER_DLX = $(foreach dlxdep, $(BUILTIN_KERNEL_DRIVERS), $(EXPAND_ONE_BUILTIN_KERNEL_DLX))
+ONE_K2_BULITIN_KERNEL_XDL = builtin_kern_$(basename $(1))
+EXPAND_ONE_BUILTIN_KERNEL_XDL = $(if $(findstring @,$(dlxdep)), $(call ONE_K2_BULITIN_KERNEL_XDL,$(subst @,,$(dlxdep))),$(dlxdep))
+BUILTIN_KERNEL_DRIVER_XDL = $(foreach dlxdep, $(BUILTIN_KERNEL_DRIVERS), $(EXPAND_ONE_BUILTIN_KERNEL_XDL))
 
-$(BUILTIN_KERNEL_DRIVER_DLX):
+$(BUILTIN_KERNEL_DRIVER_XDL):
 	@-if not exist $(subst /,\,$(K2_TARGET_BUILTIN_KERN_PATH)) md $(subst /,\,$(K2_TARGET_BUILTIN_KERN_PATH))
 	@MAKE -S -C $(K2_ROOT)/src/$(subst builtin_kern_,,$@)
 	@copy /Y $(subst /,\,$(K2_TARGET_BASE)/dlx/kern/$(K2_BUILD_SPEC)/$(@F).dlx) $(subst /,\,$(K2_TARGET_BUILTIN_KERN_PATH)) 1>NUL
@@ -89,11 +89,11 @@ $(BUILTIN_KERNEL_DRIVER_DLX):
 
 #========================================================================================
 
-ONE_K2_BULITIN_DLX = builtin_user_$(basename $(1))
-EXPAND_ONE_BUILTIN_DLX = $(if $(findstring @,$(dlxdep)), $(call ONE_K2_BULITIN_DLX,$(subst @,,$(dlxdep))),$(dlxdep))
-BUILT_BUILTIN_DLX = $(foreach dlxdep, $(BUILTIN_DLX), $(EXPAND_ONE_BUILTIN_DLX))
+ONE_K2_BULITIN_XDL = builtin_user_$(basename $(1))
+EXPAND_ONE_BUILTIN_XDL = $(if $(findstring @,$(dlxdep)), $(call ONE_K2_BULITIN_XDL,$(subst @,,$(dlxdep))),$(dlxdep))
+BUILT_BUILTIN_XDL = $(foreach dlxdep, $(BUILTIN_XDL), $(EXPAND_ONE_BUILTIN_XDL))
 
-$(BUILT_BUILTIN_DLX):
+$(BUILT_BUILTIN_XDL):
 	@-if not exist $(subst /,\,$(K2_TARGET_BUILTIN_PATH)) md $(subst /,\,$(K2_TARGET_BUILTIN_PATH))
 	@MAKE -S -C $(K2_ROOT)/src/$(subst builtin_user_,,$@)
 	@copy /Y $(subst /,\,$(K2_TARGET_BASE)/dlx/$(K2_BUILD_SPEC)/$(@F).dlx) $(subst /,\,$(K2_TARGET_BUILTIN_PATH)) 1>NUL
@@ -101,7 +101,7 @@ $(BUILT_BUILTIN_DLX):
 
 #========================================================================================
 
-$(K2_TARGET_FULL_SPEC): $(CHECK_PLAT) $(BUILTIN_KERNEL_DRIVER_DLX) $(BUILT_IMAGE_PLAT_DLX) $(BUILT_STOCK_IMAGE_KERN_DLX) $(BUILT_BUILTIN_DLX) $(BUILD_CONTROL_FILES)
+$(K2_TARGET_FULL_SPEC): $(CHECK_PLAT) $(BUILTIN_KERNEL_DRIVER_XDL) $(BUILT_IMAGE_PLAT_XDL) $(BUILT_STOCK_IMAGE_KERN_XDL) $(BUILT_BUILTIN_XDL) $(BUILD_CONTROL_FILES)
 	@-if not exist $(subst /,\,$(K2_TARGET_OUT_PATH)) md $(subst /,\,$(K2_TARGET_OUT_PATH))
 	@-if not exist $(subst /,\,$(K2_TARGET_DISK_PATH)) md $(subst /,\,$(K2_TARGET_DISK_PATH))
 	@-if not exist $(subst /,\,$(K2_TARGET_BUILTIN_PATH)) md $(subst /,\,$(K2_TARGET_BUILTIN_PATH))

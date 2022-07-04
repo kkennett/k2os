@@ -437,24 +437,22 @@ K2_STATIC_ASSERT(sizeof(K2OSKERN_COREMEMORY) == (4 * K2_VA_MEMPAGE_BYTES));
 
 /* --------------------------------------------------------------------------------- */
 
-typedef struct _K2OSKERN_DLX_SEGMENT K2OSKERN_DLX_SEGMENT;
-typedef struct _K2OSKERN_DLX_TRACK   K2OSKERN_DLX_TRACK;
+typedef struct _K2OSKERN_XDL_SEGMENT K2OSKERN_XDL_SEGMENT;
+typedef struct _K2OSKERN_XDL_TRACK   K2OSKERN_XDL_TRACK;
 
-struct _K2OSKERN_DLX_SEGMENT
+struct _K2OSKERN_XDL_SEGMENT
 {
-    DlxSegmentIndex mIndex;
+    XDLSectionIx    mXdlSectionIx;
     K2TREE_NODE     KernSegTreeNode;    // userval is base address
     UINT32          mSizeBytes;
 };
 
-struct _K2OSKERN_DLX_TRACK
+struct _K2OSKERN_XDL_TRACK
 {
     K2OSKERN_OBJ_HEADER     Hdr;
-    DLX *                   mpDlx;      // lives at start of dlx page
-    char const *            mpFileName; // lives inside header in dlx page
 
-    K2OSKERN_DLX_SEGMENT    Seg[DlxSeg_Count];
-    
+    XDL_FILE_HEADER *       mpFileHdr;
+
     K2LIST_LINK             KernLoadedListLink;
 };
 
@@ -1344,7 +1342,7 @@ typedef struct _KERN_DATA_FILESYS   KERN_DATA_FILESYS;
 typedef struct _KERN_DATA_SCHED     KERN_DATA_SCHED;
 typedef struct _KERN_DATA_USER      KERN_DATA_USER;
 typedef struct _KERN_DATA_IFACE     KERN_DATA_IFACE;
-typedef struct _KERN_DATA_DLX       KERN_DATA_DLX;
+typedef struct _KERN_DATA_XDL       KERN_DATA_XDL;
 typedef struct _KERN_DATA_INTR      KERN_DATA_INTR;
 typedef struct _KERN_DATA_PLAT      KERN_DATA_PLAT;
 typedef struct _KERN_DATA_BOOTGRAF  KERN_DATA_BOOTGRAF;
@@ -1369,22 +1367,22 @@ struct _KERN_DATA_TIMER
     K2OSKERN_CPUCORE_EVENT  SchedEvent;
 };
 
-struct _KERN_DATA_DLX
+struct _KERN_DATA_XDL
 {
     K2OS_CRITSEC        Sec;
 
     K2OSKERN_SEQLOCK    KernLoadedListSeqLock;
     K2LIST_ANCHOR       KernLoadedList;
 
-    K2DLXSUPP_HOST      Host;
+    K2XDL_HOST          Host;
 
-    K2OSKERN_DLX_TRACK  TrackCrt;
+    K2OSKERN_XDL_TRACK  TrackCrt;
 
-    DLX *               mpPlat;
-    K2OSKERN_DLX_TRACK  TrackPlat;
+    XDL *               mpPlat;
+    K2OSKERN_XDL_TRACK  TrackPlat;
 
-    DLX *               mpKern;
-    K2OSKERN_DLX_TRACK  TrackKern;
+    XDL *               mpKern;
+    K2OSKERN_XDL_TRACK  TrackKern;
 
     K2TREE_ANCHOR       KernSegTree;
 };
@@ -1522,7 +1520,7 @@ struct _KERN_DATA
 
     KERN_DATA_DEBUG     Debug;
     KERN_DATA_TIMER     Timer;
-    KERN_DATA_DLX       Dlx;
+    KERN_DATA_XDL       Xdl;
     KERN_DATA_PHYS      Phys;
     KERN_DATA_VIRT      Virt;
     KERN_DATA_PROC      Proc;
@@ -1569,7 +1567,7 @@ void                     KernEx_PanicDump(K2OSKERN_CPUCORE volatile *apThisCore)
 //
 // <arch>/k2oskern/*
 //
-void    KernArch_AtDlxEntry(void);
+void    KernArch_AtXdlEntry(void);
 UINT32  KernArch_MakePTE(UINT32 aPhysAddr, UINT32 aPageMapAttr);
 UINT32  KernArch_DevIrqToVector(UINT32 aDevIrq);
 UINT32  KernArch_VectorToDevIrq(UINT32 aVector);
@@ -1638,11 +1636,11 @@ void    KernDbg_RawDumpLockStack(K2OSKERN_CPUCORE volatile *apThisCore);
 /* --------------------------------------------------------------------------------- */
 
 //
-// dlxsupp.c
+// xdl.c
 //
 
-void   KernDlxSupp_AtReInit(DLX *apDlx, UINT32 aModulePageLinkAddr, K2DLXSUPP_HOST_FILE *apInOutHostFile);
-UINT32 KernDlx_FindClosestSymbol(K2OSKERN_OBJ_PROCESS *apCurProc, UINT32 aAddr, char *apRetSymName, UINT32 aRetSymNameBufLen);
+void   KernXdlSupp_AtReInit(XDL *apXdl, UINT32 aModulePageLinkAddr, K2XDL_HOST_FILE *apInOutHostFile);
+UINT32 KernXdl_FindClosestSymbol(K2OSKERN_OBJ_PROCESS *apCurProc, UINT32 aAddr, char *apRetSymName, UINT32 aRetSymNameBufLen);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -1689,7 +1687,7 @@ BOOL   K2_CALLCONV_REGS KernHeap_Free(void *aPtr);
 //
 // cpu.c
 //
-void    KernCpu_AtDlxEntry(void);
+void    KernCpu_AtXdlEntry(void);
 void    KernCpu_DrainEvents(K2OSKERN_CPUCORE volatile *apThisCore);
 BOOL    KernCpu_ExecOneDpc(K2OSKERN_CPUCORE volatile *apThisCore, KernDpcPrioType aPrio);
 void    KernCpu_QueueDpc(K2OSKERN_DPC *apDpc, K2OSKERN_pf_DPC *apKey, KernDpcPrioType aPrio);
@@ -1941,7 +1939,7 @@ void K2_CALLCONV_REGS KernCritSec_Leave(K2OS_CRITSEC *apSec);
 //
 // dlxsupp.c
 //
-void    KernDlx_AtDlxEntry(void);
+void    KernDlx_AtXdlEntry(void);
 void    KernDlx_Init(void);
 
 /* --------------------------------------------------------------------------------- */

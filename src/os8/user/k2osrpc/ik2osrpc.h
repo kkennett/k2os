@@ -189,13 +189,13 @@ K2OSRPC_ClientUsage_Release(
 //------------------------------------------------------------------------
 //
 
-K2STAT K2OSRPC_Client_AtDlxEntry(UINT32 aReason);
+K2STAT K2OSRPC_Client_AtXdlEntry(UINT32 aReason);
 
 //
 //------------------------------------------------------------------------
 //
 
-K2STAT K2OSRPC_Server_AtDlxEntry(UINT32 aReason);
+K2STAT K2OSRPC_Server_AtXdlEntry(UINT32 aReason);
 
 //
 //------------------------------------------------------------------------

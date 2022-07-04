@@ -144,9 +144,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\shared\inc\lib\k2xdl.h" />
+    <ClInclude Include="..\..\..\shared\lib\k2xdl\ixdl.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\shared\lib\k2xdl\k2xdl.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\acqcontain.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\acquire.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\findaddr.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\findexport.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\getheaderptr.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\handoff.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\init.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\release.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

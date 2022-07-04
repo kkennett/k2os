@@ -80,7 +80,7 @@ KernDlxSupp_AtReInit(
 }
 
 UINT32 
-KernDlx_FindClosestSymbol(
+KernXdl_FindClosestSymbol(
     K2OSKERN_OBJ_PROCESS *  apCurProc,
     UINT32                  aAddr,
     char *                  apRetSymName,
@@ -313,7 +313,7 @@ KernDlxSupp_ErrorPoint(
 }
 
 void
-KernDlx_AtDlxEntry(
+KernDlx_AtXdlEntry(
     void
 )
 {

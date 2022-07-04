@@ -107,7 +107,7 @@ KernArch_GetIoTable(
 }
 
 void 
-KernArch_AtDlxEntry(
+KernArch_AtXdlEntry(
     void
 )
 {

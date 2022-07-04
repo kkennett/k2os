@@ -29,48 +29,15 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __K2ELF2XDL_H
-#define __K2ELF2XDL_H
 
-#include <lib/k2win32.h>
-#include <lib/k2mem.h>
-#include <lib/k2asc.h>
-#include <lib/k2parse.h>
-#include <lib/k2elf.h>
-#include <lib/k2tree.h>
-#include <lib/k2crc.h>
+#include "ixdl.h"
 
-typedef struct _OUTCTX OUTCTX;
-struct _OUTCTX
+K2STAT 
+K2XDL_Handoff(
+    XDL **                  appEntryXdl, 
+    K2XDL_pf_ConvertLoadPtr ConvertLoadPtr, 
+    XDL_pf_ENTRYPOINT *     apRetEntrypoint
+)
 {
-    bool                                mSpecKernel;
-    char const *                        mpOutputFilePath;
-    INT_PTR                             mSpecStack;
-    char const *                        mpImportLibFilePath;
-
-    K2ReadOnlyMappedFile *              mpElfFile;
-    UINT_PTR                            mElfAnchorSectionIx;
-    XDL_ELF_ANCHOR const *              mpElfAnchor;
-    XDL_EXPORTS_SECTION_HEADER const *  mpElfExpSecHdr[XDLExportType_Count];
-    UINT_PTR                            mElfRoSecIx;
-
-    UINT_PTR                            mTargetNameLen;
-    char                                mTargetName[XDL_NAME_MAX_LEN + 1];
-
-    bool                                mUsePlacement;
-    UINT64                              mPlacement;
-};
-
-extern OUTCTX gOut;
-
-int TreeStrCompare(UINT_PTR aKey, K2TREE_NODE * apNode);
-
-K2STAT Convert64(void);
-
-K2STAT          Convert32(void);
-K2STAT          CreateOutputFile32(K2ELF32PARSE *apParse);
-UINT8 const *   LoadAddrToDataPtr32(K2ELF32PARSE *apParse, UINT_PTR aLoadAddr, UINT_PTR *apRetSecIx);
-K2STAT          CreateImportLibrary32(K2ELF32PARSE *apParse);
-
-#endif // #ifndef __K2ELF2XDL_H
-
+    return K2STAT_ERROR_NOT_IMPL;
+}

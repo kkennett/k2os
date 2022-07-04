@@ -942,7 +942,7 @@ K2OSRPC_ClientUsage_Release(
 }
 
 K2STAT
-K2OSRPC_Client_AtDlxEntry(
+K2OSRPC_Client_AtXdlEntry(
     UINT32 aReason
 )
 {

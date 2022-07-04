@@ -34,7 +34,7 @@
 enum InfSection
 {
     ExpNone=0,
-    ExpDLX,
+    ExpXDL,
     ExpCode,
     ExpData
 };
@@ -95,7 +95,7 @@ sInsertList(
 
 static
 bool
-sSectionDLX(
+sSectionXDL(
     UINT_PTR    aLineNumber,
     char *      apLine,
     UINT_PTR    aLineLen
@@ -107,7 +107,7 @@ sSectionDLX(
     _K2PARSE_Token(&apLine, &aLineLen, &pToken, &tokLen);
     if (tokLen == 0)
     {
-        printf("*** Syntax error in dlx inf file on line %d\n", aLineNumber);
+        printf("*** Syntax error in xdl inf file on line %d\n", aLineNumber);
         return false;
     }
     if (tokLen == 2)
@@ -117,21 +117,21 @@ sSectionDLX(
             _K2PARSE_EatWhitespace(&apLine, &aLineLen);
             if ((aLineLen < 38) || (*apLine != '{') || (apLine[aLineLen-1] != '}'))
             {
-                printf("*** Expected GUID but found other on line %d of dlx inf\n", aLineNumber);
+                printf("*** Expected GUID but found other on line %d of xdl inf\n", aLineNumber);
                 return false;
             }
             apLine ++;
             aLineLen -= 2;
             if (!K2PARSE_Guid128(apLine, aLineLen, &gOut.Id))
             {
-                printf("*** Failed to parse GUID on line %d of dlx inf\n", aLineNumber);
+                printf("*** Failed to parse GUID on line %d of xdl inf\n", aLineNumber);
                 return false;
             }
             return true;
         }
     }
 
-    printf("*** Unknown token \"%.*s\" in [DLX] section of dlx inf on line %d\n", tokLen, pToken, aLineNumber);
+    printf("*** Unknown token \"%.*s\" in [XDL] section of xdl inf on line %d\n", tokLen, pToken, aLineNumber);
 
     return false;
 }
@@ -152,7 +152,7 @@ sSectionExport(
     _K2PARSE_Token(&apLine, &aLineLen, &pToken, &tokLen);
     if (tokLen == 0)
     {
-        printf("*** Syntax error in dlx inf file on line %d\n", aLineNumber);
+        printf("*** Syntax error in xdl inf file on line %d\n", aLineNumber);
         return false;
     }
 
@@ -194,7 +194,7 @@ sSectionExport(
 
 static
 bool
-sParseDlxInfLine(
+sParseXdlInfLine(
     UINT_PTR    aLineNumber,
     char *      apLine,
     UINT_PTR    aLineLen
@@ -210,13 +210,13 @@ sParseDlxInfLine(
         _K2PARSE_Token(&apLine, &aLineLen, &pToken, &tokLen);
         if (tokLen == 0)
         {
-            printf("*** Cannot parse section type in dlx inf file at line %d\n", aLineNumber);
+            printf("*** Cannot parse section type in xdl inf file at line %d\n", aLineNumber);
             return false;
         }
         _K2PARSE_EatWhitespace(&apLine, &aLineLen);
         if ((aLineLen == 0) || (*apLine != ']'))
         {
-            printf("*** Unterminated section type in dlx inf file at line %d\n", aLineNumber);
+            printf("*** Unterminated section type in xdl inf file at line %d\n", aLineNumber);
             return false;
         }
         apLine++;
@@ -227,9 +227,9 @@ sParseDlxInfLine(
             printf("*** Export def file has garbage at end of line %d\n", aLineNumber);
             return false;
         }
-        if ((tokLen == 3) && (0 == K2ASC_CompInsLen(pToken, "DLX", 3)))
+        if ((tokLen == 3) && (0 == K2ASC_CompInsLen(pToken, "XDL", 3)))
         {
-            sgInfSection = ExpDLX;
+            sgInfSection = ExpXDL;
             return true;
         }
         if (tokLen == 4)
@@ -251,14 +251,14 @@ sParseDlxInfLine(
 
     if (sgInfSection == ExpNone)
     {
-        printf("*** No inf section at start of dlx inf file\n");
+        printf("*** No inf section at start of xdl inf file\n");
         return false;
     }
 
     switch (sgInfSection)
     {
-    case ExpDLX:
-        return sSectionDLX(aLineNumber, apLine, aLineLen);
+    case ExpXDL:
+        return sSectionXDL(aLineNumber, apLine, aLineLen);
     case ExpCode:
         return sSectionExport(aLineNumber, apLine, aLineLen, true);
     case ExpData:
@@ -271,7 +271,7 @@ sParseDlxInfLine(
 
 static
 K2STAT
-sParseDlxInf(
+sParseXdlInf(
     void
     )
 {
@@ -281,8 +281,8 @@ sParseDlxInf(
     UINT_PTR    lineLen;
     UINT_PTR    lineNumber;
 
-    pPars = (char *)gOut.mpMappedDlxInf->DataPtr();
-    left = (UINT_PTR)gOut.mpMappedDlxInf->FileBytes();
+    pPars = (char *)gOut.mpMappedXdlInf->DataPtr();
+    left = (UINT_PTR)gOut.mpMappedXdlInf->FileBytes();
 
     if (left == 0)
         return K2STAT_NO_ERROR;
@@ -296,7 +296,7 @@ sParseDlxInf(
         K2PARSE_EatWhitespaceAtEnd(pLine, &lineLen);
         if ((lineLen != 0) && (*pLine != '#'))
         {
-            if (!sParseDlxInfLine(lineNumber, pLine, lineLen))
+            if (!sParseXdlInfLine(lineNumber, pLine, lineLen))
                 return K2STAT_ERROR_BAD_FORMAT;
         }
         lineNumber++;
@@ -309,45 +309,45 @@ sParseDlxInf(
 }
 
 K2STAT
-LoadDlxInfFile(
+LoadXdlInfFile(
     char const *apArgument
     )
 {
     DWORD   outPathLen;
-    char *  pDlxInfFilePath;
+    char *  pXdlInfFilePath;
     
     outPathLen = GetFullPathName(apArgument, 0, NULL, NULL);
     if (outPathLen == 0)
     {
-        printf("*** Could not parse dlx inf file argument \"%s\"\n", apArgument);
+        printf("*** Could not parse xdl inf file argument \"%s\"\n", apArgument);
         return K2STAT_ERROR_BAD_ARGUMENT;
     }
 
-    pDlxInfFilePath = new char[(outPathLen + 4)&~3];
+    pXdlInfFilePath = new char[(outPathLen + 4)&~3];
 
-    if (pDlxInfFilePath == NULL)
+    if (pXdlInfFilePath == NULL)
     {
         printf("*** Memory allocation failed.\n");
         return K2STAT_ERROR_OUT_OF_MEMORY;
     }
 
-    if (0 == GetFullPathName(apArgument, outPathLen + 1, pDlxInfFilePath, NULL))
+    if (0 == GetFullPathName(apArgument, outPathLen + 1, pXdlInfFilePath, NULL))
     {
         // weird
-        delete[] pDlxInfFilePath;
-        printf("*** Error creating dlx inf file path.\n");
+        delete[] pXdlInfFilePath;
+        printf("*** Error creating xdl inf file path.\n");
         return HRESULT_FROM_WIN32(GetLastError());
     }
 
-    gOut.mpMappedDlxInf = K2ReadWriteMappedFile::Create(pDlxInfFilePath);
-    if (gOut.mpMappedDlxInf == NULL)
+    gOut.mpMappedXdlInf = K2ReadWriteMappedFile::Create(pXdlInfFilePath);
+    if (gOut.mpMappedXdlInf == NULL)
     {
-        printf("*** Error mapping in dlx inf file \"%s\"\n", pDlxInfFilePath);
-        delete[] pDlxInfFilePath;
+        printf("*** Error mapping in xdl inf file \"%s\"\n", pXdlInfFilePath);
+        delete[] pXdlInfFilePath;
         return K2STAT_ERROR_UNKNOWN;
     }
 
-    delete[] pDlxInfFilePath;
+    delete[] pXdlInfFilePath;
 
-    return sParseDlxInf();
+    return sParseXdlInf();
 }

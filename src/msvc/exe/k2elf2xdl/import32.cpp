@@ -90,12 +90,13 @@ CreateImportLibrary32(
     HANDLE                              hFile;
     DWORD                               wrot;
     BOOL                                ok;
+    UINT_PTR                            roSecIx;
 
     K2TREE_Init(&symTree, TreeStrCompare);
 
 //    printf("--- Create import library\n");
 
-    pSrcPtr = (UINT64 *)gOut.mpElfAnchor;
+    pSrcPtr = (UINT64 *)&gOut.mpElfAnchor->mAnchor[0];
     totalExportCount = 0;
     totalExportsStrSize = 0;
     for (ixExpSec = 0; ixExpSec < XDLExportType_Count; ixExpSec++)
@@ -104,11 +105,30 @@ CreateImportLibrary32(
         if (pSrcPtr[ixExpSec] != 0)
         {
             pExpHdr = gOut.mpElfExpSecHdr[ixExpSec] =
-                (XDL_EXPORTS_SECTION_HEADER const *)LoadAddrToDataPtr32(apParse, (UINT_PTR)pSrcPtr[ixExpSec], &gOut.mElfExpSecIx[ixExpSec]);
+                (XDL_EXPORTS_SECTION_HEADER const *)LoadAddrToDataPtr32(apParse, (UINT_PTR)pSrcPtr[ixExpSec], &roSecIx);
             if (pExpHdr == NULL)
             {
                 printf("*** Exports type %d could not be found in ELF file\n", ixExpSec);
                 return K2STAT_ERROR_NOT_FOUND;
+            }
+            if (0 == gOut.mElfRoSecIx)
+            {
+                pOutSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (roSecIx * apParse->mSectionHeaderTableEntryBytes));
+                if ((SHT_PROGBITS != pOutSecHdr->sh_type) ||
+                    (0 == (SHF_ALLOC & pOutSecHdr->sh_flags)) ||
+                    (0 != (SHF_WRITE & pOutSecHdr->sh_flags)) ||
+                    (0 != (SHF_EXECINSTR & pOutSecHdr->sh_flags)) ||
+                    (0 != (XDL_ELF_SHF_TYPE_IMPORTS & pOutSecHdr->sh_flags)))
+                {
+                    printf("*** Program exports are in the wront type of section\n");
+                    return K2STAT_ERROR_BAD_ARGUMENT;
+                }
+                gOut.mElfRoSecIx = roSecIx;
+            }
+            else if (gOut.mElfRoSecIx != roSecIx)
+            {
+                printf("*** Exports type %d is not in same section as other exports (%d)\n", ixExpSec, gOut.mElfRoSecIx);
+                return K2STAT_ERROR_BAD_ARGUMENT;
             }
 #if DUMP_EXPORTS
             printf("Found Exports type %d at %08X from %08X\n", ixExpSec, (UINT_PTR)pExpHdr, (UINT_PTR)pSrcPtr[ixExpSec]);

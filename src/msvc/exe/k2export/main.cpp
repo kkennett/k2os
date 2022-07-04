@@ -89,12 +89,12 @@ int main(int argc, char **argv)
             {
             case 'i':
             case 'I':
-                if (NULL != gOut.mpMappedDlxInf)
+                if (NULL != gOut.mpMappedXdlInf)
                 {
                     printf("*** more than one INF specifier on command line\n");
                     return K2STAT_ERROR_BAD_ARGUMENT;
                 }
-                stat = LoadDlxInfFile(args.Arg());
+                stat = LoadXdlInfFile(args.Arg());
                 if (K2STAT_IS_ERROR(stat))
                     return stat;
                 break;

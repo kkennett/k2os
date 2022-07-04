@@ -33,7 +33,7 @@
 #include "kern.h"
 
 void
-KernCpu_AtDlxEntry(
+KernCpu_AtXdlEntry(
     void
 )
 {

@@ -112,6 +112,7 @@ KernUser_Init(
     void
 )
 {
+#if 0
     K2STAT                      stat;
     K2OSKERN_PHYSTRACK *        pTrack;
     K2ROFS_FILE const *         pFile;
@@ -192,8 +193,10 @@ KernUser_Init(
     pFile = K2ROFSHELP_SubFile(
         gData.FileSys.mpRofs,
         K2ROFS_ROOTDIR(gData.FileSys.mpRofs), 
-        "k2oscrt.dlx");
+        "k2oscrt.xdl");
     K2_ASSERT(NULL != pFile);
+
+
 
     stat = K2ELF32_Parse(K2ROFS_FILEDATA(gData.FileSys.mpRofs, pFile), pFile->mSizeBytes, &parse);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
@@ -306,5 +309,6 @@ KernUser_Init(
     // 
     gData.User.mEntrypoint = parse.mpRawFileData->e_entry;
     KernArch_UserInit();
+#endif
 }
 

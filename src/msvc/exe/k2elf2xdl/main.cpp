@@ -52,6 +52,8 @@ int main(int argc, char **argv)
     char const *    pScan;
     char *          pConv;
 
+    K2MEM_Zero(&gOut, sizeof(gOut));
+
     if (!args.Init(argc, argv))
     {
         printf("*** Could not set up argument parser.\n");
@@ -236,6 +238,9 @@ int main(int argc, char **argv)
     }
     *pConv = 0;
 //    printf("  TARGET NAME = \"%s\" (%d)\n", gOut.mTargetName, gOut.mTargetNameLen);
+
+    gOut.mPlacement = 0;
+    gOut.mUsePlacement = true;
 
     pData = (UINT8 const *)gOut.mpElfFile->DataPtr();
     if (pData[EI_CLASS] == ELFCLASS32)

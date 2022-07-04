@@ -33,6 +33,13 @@ include $(K2_ROOT)/src/build/pre.make
 
 TARGET_TYPE = LIB
 
-SOURCES += k2xdl.c
+SOURCES += acqcontain.c 
+SOURCES += acquire.c 
+SOURCES += findaddr.c 
+SOURCES += findexport.c 
+SOURCES += getheaderptr.c 
+SOURCES += handoff.c 
+SOURCES += init.c
+SOURCES += release.c 
 
 include $(K2_ROOT)/src/build/post.make

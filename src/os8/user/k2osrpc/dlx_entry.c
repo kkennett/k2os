@@ -54,13 +54,13 @@ dlx_entry(
         gK2OSRPC_NextGlobalUsageId = 1;
         K2TREE_Init(&gK2OSRPC_GlobalUsageTree, NULL);
 
-        stat = K2OSRPC_Client_AtDlxEntry(DLX_ENTRY_REASON_LOAD);
+        stat = K2OSRPC_Client_AtXdlEntry(DLX_ENTRY_REASON_LOAD);
         if (!K2STAT_IS_ERROR(stat))
         {
-            stat = K2OSRPC_Server_AtDlxEntry(DLX_ENTRY_REASON_LOAD);
+            stat = K2OSRPC_Server_AtXdlEntry(DLX_ENTRY_REASON_LOAD);
             if (K2STAT_IS_ERROR(stat))
             {
-                K2OSRPC_Client_AtDlxEntry(DLX_ENTRY_REASON_UNLOAD);
+                K2OSRPC_Client_AtXdlEntry(DLX_ENTRY_REASON_UNLOAD);
             }
         }
 
@@ -74,8 +74,8 @@ dlx_entry(
     
     if (DLX_ENTRY_REASON_UNLOAD == aReason)
     {
-        K2OSRPC_Server_AtDlxEntry(DLX_ENTRY_REASON_UNLOAD);
-        K2OSRPC_Client_AtDlxEntry(DLX_ENTRY_REASON_UNLOAD);
+        K2OSRPC_Server_AtXdlEntry(DLX_ENTRY_REASON_UNLOAD);
+        K2OSRPC_Client_AtXdlEntry(DLX_ENTRY_REASON_UNLOAD);
         K2_ASSERT(0 == gK2OSRPC_GlobalUsageTree.mNodeCount);
         K2OS_CritSec_Done(&gK2OSRPC_GlobalUsageTreeSec);
     }

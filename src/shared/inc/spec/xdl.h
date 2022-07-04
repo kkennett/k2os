@@ -111,7 +111,7 @@ typedef struct _XDL_FILE_HEADER XDL_FILE_HEADER;
 struct _XDL_FILE_HEADER
 {
     UINT32              mHeaderCrc32;
-    UINT32              mMarker;            // 'K2OS'
+    UINT32              mMarker;            // XDL_FILE_HEADER_MARKER
     UINT64              mPlacement;         // if nonzero, mPlacement must == &mPlacement, and mFirstSectionSectorOffset must be 8 (4kB, 1 page)
     UINT32              mHeaderSizeBytes;
     UINT8               mElfClass;
@@ -123,9 +123,12 @@ struct _XDL_FILE_HEADER
     UINT64              mFirstSectionSectorOffset;    // offset to XDLSectionIx_Text. all sections forced linear after that
     XDL_FILE_SECTION    Section[XDLSectionIx_Count];
     K2_GUID128          Id;
-    char                mFileName[4];           // undecorated base name, null terminated, at least 4 bytes
+    UINT64              mReadExpOffset[XDLExportType_Count];
+    UINT32              mNameLen;
+    char                mName[XDL_NAME_MAX_LEN + 1];
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
+K2_STATIC_ASSERT(XDL_SECTOR_BYTES >= sizeof(XDL_FILE_HEADER));
 
 K2_PACKED_PUSH
 typedef struct _XDL_IMPORT XDL_IMPORT;
@@ -165,6 +168,32 @@ struct _XDL_EXPORTS_SECTION_HEADER
     // followed by at least one XDL_EXPORT??_REF record
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
+
+//
+// --------------------------------------------------------------------------------- 
+//
+
+#ifndef XDL_ENTRY_REASON_UNLOAD
+#define XDL_ENTRY_REASON_UNLOAD ((UINT_PTR)-1)
+#endif
+
+#ifndef XDL_ENTRY_REASON_LOAD
+#define XDL_ENTRY_REASON_LOAD   1
+#endif
+
+typedef K2STAT (K2_CALLCONV_REGS *XDL_pf_ENTRYPOINT)(XDL * apXdl, UINT_PTR aReason);
+K2STAT K2_CALLCONV_REGS xdl_entry(XDL *apXdl, UINT_PTR aReason);
+
+//
+// --------------------------------------------------------------------------------- 
+//
+
+K2STAT  XDL_Acquire(char const *apFilePath, UINT_PTR aContext, XDL **appRetXdl);
+K2STAT  XDL_Release(XDL *apXdl);
+K2STAT  XDL_GetHeaderPtr(XDL *apXdl, XDL_FILE_HEADER **appRetHeaderPtr);
+K2STAT  XDL_FindExport(XDL *apXdl, XDLExportType aType, char const *apName, UINT_PTR *apRetAddr);
+K2STAT  XDL_AcquireContaining(UINT_PTR aAddr, XDL **appRetXdl, UINT_PTR *apRetSection);
+K2STAT  XDL_FindAddrName(UINT_PTR aAddr, char *apRetNameBuffer, UINT_PTR aBufferLen);
 
 //
 // --------------------------------------------------------------------------------- 
