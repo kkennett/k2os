@@ -134,10 +134,10 @@ K2_PACKED_PUSH
 typedef struct _XDL_IMPORT XDL_IMPORT;
 struct _XDL_IMPORT
 {
-    UINT32          mSizeBytes;         // size of this import record
-    UINT32          mReserved;          // reserved do not use
-    K2_GUID128      ID;                 // ID of XDL we import from
-    char            mFileName[4];       // name of XDL we import from
+    UINT32          mSizeBytes;     // size of this import record
+    UINT32          mSectionFlags;  // determines type of imports (code,read,data)
+    K2_GUID128      ID;             // ID of XDL we import from
+    char            mFileName[4];   // name of XDL we import from
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
 

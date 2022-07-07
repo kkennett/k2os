@@ -34,22 +34,50 @@
 
 K2_STATIC_ASSERT(0 == (K2_VA_MEMPAGE_BYTES % XDL_SECTOR_BYTES));
 
+struct SymTreeNode
+{
+    K2TREE_NODE         TreeNode;
+    UINT_PTR            mOldIx;
+    Elf32_Sym const *   mpSym;
+    bool                mUsedInReloc;
+    bool                mImported;
+};
+
 K2STAT
 CreateOutputFile32(
     K2ELF32PARSE *  apParse
 )
 {
-    UINT_PTR            loadBase;
-    UINT_PTR            loadWork;
-    UINT_PTR            fileSectors;
-    UINT_PTR            align;
-    XDL_FILE_HEADER     workHdr;
-    UINT64 *            pSrcPtr;
-    UINT_PTR            ixSec;
-    Elf32_Shdr *        pSecHdr;
-    UINT_PTR *          pSecAddr;
-    UINT_PTR            dataEndSectorAligned;
-    UINT_PTR            sectorOffset[XDLSegmentIx_Count];
+    UINT_PTR                            loadBase;
+    UINT_PTR                            loadWork;
+    UINT_PTR                            fileSectors;
+    UINT_PTR                            align;
+    XDL_FILE_HEADER                     workHdr;
+    UINT64 *                            pSrcPtr;
+    UINT_PTR                            ixSec;
+    Elf32_Shdr *                        pSecHdr;
+    UINT_PTR *                          pSecAddr;
+    UINT_PTR                            dataEndSectorAligned;
+    UINT_PTR                            sectorOffset[XDLSegmentIx_Count];
+    XDL_EXPORTS_SECTION_HEADER const *  pExpHdr;
+    char const *                        pImpName;
+    Elf32_Shdr *                        pSymTabSecHdr;
+    UINT_PTR                            symCount;
+    UINT_PTR                            ixSym;
+    Elf32_Sym const *                   pSym;
+    Elf32_Shdr *                        pSymStrSecHdr;
+    char const *                        pSymStr;
+    SymTreeNode *                       pSymNode;
+    K2TREE_ANCHOR                       symTree;
+    UINT_PTR                            symEntSize;
+    UINT_PTR                            symTabSecIx;
+    Elf32_Rel const *                   pRel;
+    UINT_PTR                            relCount;
+    UINT_PTR                            ixRel;
+    K2TREE_NODE *                       pTreeNode;
+    Elf32_Shdr *                        pTargetSecHdr;
+
+    K2TREE_Init(&symTree, TreeStrCompare);
 
     pSecAddr = new UINT_PTR[apParse->mpRawFileData->e_shnum];
     if (NULL == pSecAddr)
@@ -250,17 +278,154 @@ CreateOutputFile32(
     //
 
     //
-    // debug info
+    // symbol table
     //
     loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
     sectorOffset[XDLSegmentIx_Symbols] = fileSectors;
     workHdr.Section[XDLSegmentIx_Symbols].mLinkAddr = loadWork;
+
+    pSymTabSecHdr = NULL;
+    for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
+    {
+        pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
+        if ((0 != pSecHdr->sh_size) &&
+            (SHT_SYMTAB != pSecHdr->sh_type))
+            continue;
+        if (NULL != pSymTabSecHdr)
+        {
+            printf("*** Input ELF file has more than one symbol table, which is not allowed\n");
+            return K2STAT_ERROR_CORRUPTED;
+        }
+        pSymTabSecHdr = pSecHdr;
+        symTabSecIx = ixSec;
+        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecAddr[ixSec]);
+    }
+    if (NULL == pSymTabSecHdr)
+    {
+        printf("*** Elf file has no symbol table\n");
+        return K2STAT_ERROR_CORRUPTED;
+    }
+
+    pSymStrSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (pSymTabSecHdr->sh_link * apParse->mSectionHeaderTableEntryBytes));
+    pSymStr = ((char const *)apParse->mpRawFileData) + pSymStrSecHdr->sh_offset;
+
+    symEntSize = pSymTabSecHdr->sh_entsize;
+    if (0 == symEntSize)
+        symEntSize = sizeof(Elf32_Sym);
+    symCount = pSymTabSecHdr->sh_size / symEntSize;
+    pSym = (Elf32_Sym const *)(((UINT8 const *)apParse->mpRawFileData) + pSymTabSecHdr->sh_offset);
+    for (ixSym = 0; ixSym < symCount; ixSym++)
+    {
+        if (0 != pSym->st_name)
+        {
+            if (STB_LOCAL != ELF32_ST_BIND(pSym->st_info))
+            {
+                pSymNode = new SymTreeNode;
+                if (NULL == pSymNode)
+                {
+                    printf("*** out of memory\n");
+                    return K2STAT_ERROR_OUT_OF_MEMORY;
+                }
+                K2MEM_Zero(pSymNode, sizeof(SymTreeNode));
+                pSymNode->mOldIx = ixSym;
+                pSymNode->mpSym = pSym;
+                pSymNode->TreeNode.mUserVal = (UINT_PTR)(pSymStr + pSym->st_name);
+                K2TREE_Insert(&symTree, pSymNode->TreeNode.mUserVal, &pSymNode->TreeNode);
+            }
+        }
+        pSym = (Elf32_Sym const *)(((UINT8 const *)pSym) + symEntSize);
+    }
+
+    //
+    // find all symbols used for relocation
+    //
+    for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
+    {
+        pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
+        if ((0 != pSecHdr->sh_size) &&
+            (SHT_REL != pSecHdr->sh_type))
+            continue;
+        K2_ASSERT(pSecHdr->sh_link == symTabSecIx);
+        align = pSecHdr->sh_entsize;
+        if (0 == align)
+            align = sizeof(Elf32_Rel);
+        relCount = pSecHdr->sh_size / align;
+        if (0 == relCount)
+            continue;
+        pRel = (Elf32_Rel const *)(((UINT8 const *)apParse->mpRawFileData) + pSecHdr->sh_offset);
+        for (ixRel = 0; ixRel < relCount; ixRel++)
+        {
+            ixSym = ELF32_R_SYM(pRel->r_info);
+            if (0 != ixSym)
+            {
+                pSym = (Elf32_Sym const *)(((UINT8 const *)apParse->mpRawFileData) + pSymTabSecHdr->sh_offset + (symEntSize * ixSym));
+                if (0 != pSym->st_name)
+                {
+                    pTreeNode = K2TREE_Find(&symTree, (UINT_PTR)(pSymStr + pSym->st_name));
+                    if (NULL != pTreeNode)
+                    {
+                        pSymNode = K2_GET_CONTAINER(SymTreeNode, pTreeNode, TreeNode);
+                        pSymNode->mUsedInReloc = true;
+                        if ((0 != pSym->st_shndx) &&
+                            (pSym->st_shndx < apParse->mpRawFileData->e_shnum))
+                        {
+                            pTargetSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (pSym->st_shndx * apParse->mSectionHeaderTableEntryBytes));
+                            if ((pTargetSecHdr->sh_flags & XDL_ELF_SHF_TYPE_MASK) == XDL_ELF_SHF_TYPE_IMPORTS)
+                            {
+                                pSymNode->mImported = true;
+                            }
+                        }
+                    }
+                }
+            }
+            pRel = (Elf32_Rel const *)(((UINT8 const *)pRel) + align);
+        }
+    }
+
+    printf("Symbols used in relocations:\n");
+    pTreeNode = K2TREE_FirstNode(&symTree);
+    do {
+        pSymNode = K2_GET_CONTAINER(SymTreeNode, pTreeNode, TreeNode);
+        if (pSymNode->mUsedInReloc)
+        {
+            if (pSymNode->mImported)
+            {
+                pTargetSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (pSymNode->mpSym->st_shndx * apParse->mSectionHeaderTableEntryBytes));
+                printf("  IMPORT %6d %s\n",
+                    (pSymNode->mpSym->st_value - pTargetSecHdr->sh_addr) / sizeof(XDL_EXPORT32_REF),
+                    (char const *)pSymNode->TreeNode.mUserVal);
+            }
+            else
+            {
+                if ((0 != pSymNode->mpSym->st_shndx) &&
+                    (pSymNode->mpSym->st_shndx < apParse->mpRawFileData->e_shnum))
+                {
+                    printf("  %08X (%2d) %s\n",
+                        pSymNode->mpSym->st_value, pSymNode->mpSym->st_shndx,
+                        (char const *)pSymNode->TreeNode.mUserVal);
+                }
+                else
+                {
+                    printf("  %08X      %s\n", pSymNode->mpSym->st_value,
+                        (char const *)pSymNode->TreeNode.mUserVal);
+                }
+            }
+        }
+        pTreeNode = K2TREE_NextNode(&symTree, pTreeNode);
+    } while (NULL != pTreeNode);
+
+
+    
+
     workHdr.Section[XDLSegmentIx_Symbols].mMemActualBytes = 0;
     workHdr.Section[XDLSegmentIx_Symbols].mSectorCount = 0;
+
     fileSectors += (UINT_PTR)workHdr.Section[XDLSegmentIx_Data].mSectorCount;
 
     //
     // relocations
+    // sh_link is symbol table to use
+    // sh_info is target section
     //
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
     sectorOffset[XDLSegmentIx_Relocs] = fileSectors;
@@ -285,19 +450,22 @@ CreateOutputFile32(
             continue;
         if (XDL_ELF_SHF_TYPE_IMPORTS != (pSecHdr->sh_flags & XDL_ELF_SHF_TYPE_MASK))
             continue;
-        K2_ASSERT(pSecHdr->sh_addralign != 0);
-        align = pSecHdr->sh_addralign;
-        loadWork = ((loadWork + align - 1) / align) * align;
         K2_ASSERT(0 == pSecAddr[ixSec]);
-        pSecAddr[ixSec] = loadWork;
-        loadWork += pSecHdr->sh_size;
+        pSecAddr[ixSec] = (UINT_PTR)workHdr.Section[XDLSegmentIx_Imports].mLinkAddr;  // all imports 'placed' at the start of the imports section
+        pExpHdr = (XDL_EXPORTS_SECTION_HEADER const *)LoadAddrToDataPtr32(apParse, pSecHdr->sh_addr, NULL);
+        pImpName = ((char const *)pExpHdr) +
+            sizeof(XDL_EXPORTS_SECTION_HEADER) +
+            (pExpHdr->mCount * sizeof(XDL_EXPORT32_REF)) +
+            sizeof(K2_GUID128);
+        workHdr.mImportCount++;
+        loadWork += sizeof(XDL_IMPORT) - 4;
+        loadWork += (K2ASC_Len(pImpName) + 4) & ~3;
         printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecAddr[ixSec]);
     }
     workHdr.Section[XDLSegmentIx_Imports].mMemActualBytes = loadWork - workHdr.Section[XDLSegmentIx_Imports].mLinkAddr;
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
     workHdr.Section[XDLSegmentIx_Imports].mSectorCount = ((loadWork - workHdr.Section[XDLSegmentIx_Imports].mLinkAddr) / XDL_SECTOR_BYTES);
     fileSectors += (UINT_PTR)workHdr.Section[XDLSegmentIx_Imports].mSectorCount;
-
 
     //
     // other
