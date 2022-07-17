@@ -99,7 +99,7 @@ struct _EXPSECT
     UINT_PTR        mRelocIx;
     char *          mpExpStrBase;
 
-    XDL_EXPORTS_SECTION_HEADER * mpExpBase;
+    XDL_EXPORTS_SEGMENT_HEADER * mpExpBase;
 
     union {
         struct {
@@ -126,9 +126,9 @@ struct _OUTCTX
 
     K2_GUID128              Id;
 
-    EXPSECT                 mOutSec[XDLExportType_Count];
+    EXPSECT                 mOutSeg[XDLExportType_Count];
 
-    UINT_PTR                mTotalExports;          // for all mOutSec
+    UINT_PTR                mTotalExports;          // for all mOutSeg
 
     UINT_PTR                mFileClass;
     UINT_PTR                mElfMachine;

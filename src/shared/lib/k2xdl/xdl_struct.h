@@ -42,7 +42,7 @@ struct _XDL
     K2XDL_SECTION_ADDRS             SectionAddrs;
     K2XDL_HOST_FILE                 mHostFile;
     UINT_PTR                        mFileSectorCount;
-    XDL_EXPORTS_SECTION_HEADER *    mpExpHdr[XDLExportType_Count];
+    XDL_EXPORTS_SEGMENT_HEADER *    mpExpHdr[XDLExportType_Count];
 
 
 };

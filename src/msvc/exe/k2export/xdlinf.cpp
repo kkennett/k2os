@@ -178,13 +178,13 @@ sSectionExport(
 
     if (aIsCode)
     {
-        sInsertList(aLineNumber, &gOut.mOutSec[XDLExport_Text].mpSpecList, pSpec);
-        gOut.mOutSec[XDLExport_Text].mCount++;
+        sInsertList(aLineNumber, &gOut.mOutSeg[XDLExport_Text].mpSpecList, pSpec);
+        gOut.mOutSeg[XDLExport_Text].mCount++;
     }
     else
     {
-        sInsertList(aLineNumber, &gOut.mOutSec[XDLExport_Data].mpSpecList, pSpec);
-        gOut.mOutSec[XDLExport_Data].mCount++;
+        sInsertList(aLineNumber, &gOut.mOutSeg[XDLExport_Data].mpSpecList, pSpec);
+        gOut.mOutSeg[XDLExport_Data].mCount++;
     }
 
     gOut.mTotalExports++;
@@ -302,8 +302,8 @@ sParseXdlInf(
         lineNumber++;
     } while (left != 0);
 
-//    printf("%d Code Exports\n", gOut.mOutSec[XDLExport_Text].mCount);
-//    printf("%d Data Exports\n", gOut.mOutSec[XDLExport_Data].mCount);
+//    printf("%d Code Exports\n", gOut.mOutSeg[XDLExport_Text].mCount);
+//    printf("%d Data Exports\n", gOut.mOutSeg[XDLExport_Data].mCount);
 
     return K2STAT_NO_ERROR;
 }

@@ -65,7 +65,7 @@ CreateOutputFile32(
     SecTarget *                         pSecTarget;
     UINT_PTR                            dataEndSectorAligned;
     UINT_PTR                            sectorOffset[XDLSegmentIx_Count];
-    XDL_EXPORTS_SECTION_HEADER const *  pExpHdr;
+    XDL_EXPORTS_SEGMENT_HEADER const *  pExpHdr;
     char const *                        pImpName;
     Elf32_Shdr *                        pSymTabSecHdr;
     UINT_PTR                            symCount;
@@ -144,7 +144,7 @@ CreateOutputFile32(
     printf("TEXT:\n");
     sectorOffset[XDLSegmentIx_Text] = fileSectors;
     loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
-    workHdr.Section[XDLSegmentIx_Text].mLinkAddr = loadWork;
+    workHdr.Segment[XDLSegmentIx_Text].mLinkAddr = loadWork;
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
         pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -170,14 +170,14 @@ CreateOutputFile32(
         loadWork += pSecHdr->sh_size;
         printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_link, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
-    workHdr.Section[XDLSegmentIx_Text].mMemActualBytes = loadWork - workHdr.Section[XDLSegmentIx_Text].mLinkAddr;
+    workHdr.Segment[XDLSegmentIx_Text].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Text].mLinkAddr;
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
     if (gOut.mUsePlacement)
     {
         loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
     }
-    workHdr.Section[XDLSegmentIx_Text].mSectorCount = ((loadWork - workHdr.Section[XDLSegmentIx_Text].mLinkAddr) / XDL_SECTOR_BYTES);
-    fileSectors += (UINT_PTR)workHdr.Section[XDLSegmentIx_Text].mSectorCount;
+    workHdr.Segment[XDLSegmentIx_Text].mSectorCount = ((loadWork - workHdr.Segment[XDLSegmentIx_Text].mLinkAddr) / XDL_SECTOR_BYTES);
+    fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Text].mSectorCount;
 
     //
     // read
@@ -185,7 +185,7 @@ CreateOutputFile32(
     printf("READ:\n");
     sectorOffset[XDLSegmentIx_Read] = fileSectors;
     loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
-    workHdr.Section[XDLSegmentIx_Read].mLinkAddr = loadWork;
+    workHdr.Segment[XDLSegmentIx_Read].mLinkAddr = loadWork;
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
         pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -208,14 +208,14 @@ CreateOutputFile32(
         loadWork += pSecHdr->sh_size;
         printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
-    workHdr.Section[XDLSegmentIx_Read].mMemActualBytes = loadWork - workHdr.Section[XDLSegmentIx_Read].mLinkAddr;
+    workHdr.Segment[XDLSegmentIx_Read].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Read].mLinkAddr;
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
     if (gOut.mUsePlacement)
     {
         loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
     }
-    workHdr.Section[XDLSegmentIx_Read].mSectorCount = ((loadWork - workHdr.Section[XDLSegmentIx_Read].mLinkAddr) / XDL_SECTOR_BYTES);
-    fileSectors += (UINT_PTR)workHdr.Section[XDLSegmentIx_Read].mSectorCount;
+    workHdr.Segment[XDLSegmentIx_Read].mSectorCount = ((loadWork - workHdr.Segment[XDLSegmentIx_Read].mLinkAddr) / XDL_SECTOR_BYTES);
+    fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Read].mSectorCount;
 
     //
     // data
@@ -223,7 +223,7 @@ CreateOutputFile32(
     printf("DATA:\n");
     sectorOffset[XDLSegmentIx_Data] = fileSectors;
     loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
-    workHdr.Section[XDLSegmentIx_Data].mLinkAddr = loadWork;
+    workHdr.Segment[XDLSegmentIx_Data].mLinkAddr = loadWork;
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
         pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -248,7 +248,7 @@ CreateOutputFile32(
         printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
     dataEndSectorAligned = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
-    workHdr.Section[XDLSegmentIx_Data].mSectorCount = ((dataEndSectorAligned - workHdr.Section[XDLSegmentIx_Data].mLinkAddr) / XDL_SECTOR_BYTES);
+    workHdr.Segment[XDLSegmentIx_Data].mSectorCount = ((dataEndSectorAligned - workHdr.Segment[XDLSegmentIx_Data].mLinkAddr) / XDL_SECTOR_BYTES);
 
     printf("DATA(BSS):\n");
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
@@ -273,14 +273,14 @@ CreateOutputFile32(
         loadWork += pSecHdr->sh_size;
         printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
-    workHdr.Section[XDLSegmentIx_Data].mMemActualBytes = loadWork - workHdr.Section[XDLSegmentIx_Data].mLinkAddr;
+    workHdr.Segment[XDLSegmentIx_Data].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Data].mLinkAddr;
 
     if (gOut.mUsePlacement)
     {
         loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
-        workHdr.Section[XDLSegmentIx_Data].mSectorCount = ((loadWork - workHdr.Section[XDLSegmentIx_Data].mLinkAddr) / XDL_SECTOR_BYTES);
+        workHdr.Segment[XDLSegmentIx_Data].mSectorCount = ((loadWork - workHdr.Segment[XDLSegmentIx_Data].mLinkAddr) / XDL_SECTOR_BYTES);
     }
-    fileSectors += (UINT_PTR)workHdr.Section[XDLSegmentIx_Data].mSectorCount;
+    fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Data].mSectorCount;
 
     //
     // everything else is discarable, so align-up to next page boundary regardless of whether in placement mode or not
@@ -292,7 +292,7 @@ CreateOutputFile32(
     printf("SYMBOLS:\n");
     loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
     sectorOffset[XDLSegmentIx_Symbols] = fileSectors;
-    workHdr.Section[XDLSegmentIx_Symbols].mLinkAddr = loadWork;
+    workHdr.Segment[XDLSegmentIx_Symbols].mLinkAddr = loadWork;
     pSymTabSecHdr = NULL;
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
@@ -331,11 +331,11 @@ CreateOutputFile32(
         }
         pSym = (Elf32_Sym const *)(((UINT8 const *)pSym) + symEntSize);
     }
-    workHdr.Section[XDLSegmentIx_Symbols].mMemActualBytes = (symCount * sizeof(Elf32_Sym)) + symNamesLen;
-    loadWork += (UINT_PTR)workHdr.Section[XDLSegmentIx_Symbols].mMemActualBytes;
+    workHdr.Segment[XDLSegmentIx_Symbols].mMemActualBytes = (symCount * sizeof(Elf32_Sym)) + symNamesLen;
+    loadWork += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Symbols].mMemActualBytes;
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
-    workHdr.Section[XDLSegmentIx_Symbols].mSectorCount = ((loadWork - workHdr.Section[XDLSegmentIx_Symbols].mLinkAddr) / XDL_SECTOR_BYTES);
-    fileSectors += (UINT_PTR)workHdr.Section[XDLSegmentIx_Read].mSectorCount;
+    workHdr.Segment[XDLSegmentIx_Symbols].mSectorCount = ((loadWork - workHdr.Segment[XDLSegmentIx_Symbols].mLinkAddr) / XDL_SECTOR_BYTES);
+    fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Read].mSectorCount;
 
     //
     // relocations
@@ -345,7 +345,7 @@ CreateOutputFile32(
     printf("RELOCS:\n");
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
     sectorOffset[XDLSegmentIx_Relocs] = fileSectors;
-    workHdr.Section[XDLSegmentIx_Relocs].mLinkAddr = loadWork;
+    workHdr.Segment[XDLSegmentIx_Relocs].mLinkAddr = loadWork;
 
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
@@ -361,13 +361,13 @@ CreateOutputFile32(
         loadWork += pSecHdr->sh_size;
         printf("%2d: %4d f%08X l%08X z%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size);
     }
-    workHdr.Section[XDLSegmentIx_Read].mMemActualBytes = loadWork - workHdr.Section[XDLSegmentIx_Read].mLinkAddr;
+    workHdr.Segment[XDLSegmentIx_Read].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Read].mLinkAddr;
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
 
 
-    workHdr.Section[XDLSegmentIx_Relocs].mMemActualBytes = 0;
-    workHdr.Section[XDLSegmentIx_Relocs].mSectorCount = 0;
-    fileSectors += (UINT_PTR)workHdr.Section[XDLSegmentIx_Relocs].mSectorCount;
+    workHdr.Segment[XDLSegmentIx_Relocs].mMemActualBytes = 0;
+    workHdr.Segment[XDLSegmentIx_Relocs].mSectorCount = 0;
+    fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Relocs].mSectorCount;
 
     //
     // import records
@@ -375,7 +375,7 @@ CreateOutputFile32(
     printf("IMPORTS:\n");
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
     sectorOffset[XDLSegmentIx_Imports] = fileSectors;
-    workHdr.Section[XDLSegmentIx_Imports].mLinkAddr = loadWork;
+    workHdr.Segment[XDLSegmentIx_Imports].mLinkAddr = loadWork;
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
         pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -386,10 +386,10 @@ CreateOutputFile32(
         if (XDL_ELF_SHF_TYPE_IMPORTS != (pSecHdr->sh_flags & XDL_ELF_SHF_TYPE_MASK))
             continue;
         K2_ASSERT(0 == pSecTarget[ixSec].mAddr);
-        pSecTarget[ixSec].mAddr = (UINT_PTR)workHdr.Section[XDLSegmentIx_Imports].mLinkAddr;  // all imports 'placed' at the start of the imports section
-        pExpHdr = (XDL_EXPORTS_SECTION_HEADER const *)LoadAddrToDataPtr32(apParse, pSecHdr->sh_addr, NULL);
+        pSecTarget[ixSec].mAddr = (UINT_PTR)workHdr.Segment[XDLSegmentIx_Imports].mLinkAddr;  // all imports 'placed' at the start of the imports section
+        pExpHdr = (XDL_EXPORTS_SEGMENT_HEADER const *)LoadAddrToDataPtr32(apParse, pSecHdr->sh_addr, NULL);
         pImpName = ((char const *)pExpHdr) +
-            sizeof(XDL_EXPORTS_SECTION_HEADER) +
+            sizeof(XDL_EXPORTS_SEGMENT_HEADER) +
             (pExpHdr->mCount * sizeof(XDL_EXPORT32_REF)) +
             sizeof(K2_GUID128);
         workHdr.mImportCount++;
@@ -397,20 +397,20 @@ CreateOutputFile32(
         loadWork += (K2ASC_Len(pImpName) + 4) & ~3;
         printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
-    workHdr.Section[XDLSegmentIx_Imports].mMemActualBytes = loadWork - workHdr.Section[XDLSegmentIx_Imports].mLinkAddr;
+    workHdr.Segment[XDLSegmentIx_Imports].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Imports].mLinkAddr;
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
-    workHdr.Section[XDLSegmentIx_Imports].mSectorCount = ((loadWork - workHdr.Section[XDLSegmentIx_Imports].mLinkAddr) / XDL_SECTOR_BYTES);
-    fileSectors += (UINT_PTR)workHdr.Section[XDLSegmentIx_Imports].mSectorCount;
+    workHdr.Segment[XDLSegmentIx_Imports].mSectorCount = ((loadWork - workHdr.Segment[XDLSegmentIx_Imports].mLinkAddr) / XDL_SECTOR_BYTES);
+    fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Imports].mSectorCount;
 
     //
     // other
     //
     loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
     sectorOffset[XDLSegmentIx_Other] = fileSectors;
-    workHdr.Section[XDLSegmentIx_Other].mLinkAddr = loadWork;
-    workHdr.Section[XDLSegmentIx_Other].mMemActualBytes = 0;
-    workHdr.Section[XDLSegmentIx_Other].mSectorCount = 0;
-    fileSectors += (UINT_PTR)workHdr.Section[XDLSegmentIx_Other].mSectorCount;
+    workHdr.Segment[XDLSegmentIx_Other].mLinkAddr = loadWork;
+    workHdr.Segment[XDLSegmentIx_Other].mMemActualBytes = 0;
+    workHdr.Segment[XDLSegmentIx_Other].mSectorCount = 0;
+    fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Other].mSectorCount;
 
 
 
@@ -427,10 +427,10 @@ CreateOutputFile32(
     {
         printf("%2d: @%08X z%08X %4d (%08X)\n", 
             ixSec,
-            (UINT_PTR)workHdr.Section[ixSec].mLinkAddr, 
-            (UINT_PTR)workHdr.Section[ixSec].mMemActualBytes, 
-            (UINT_PTR)workHdr.Section[ixSec].mSectorCount, 
-            (UINT_PTR)workHdr.Section[ixSec].mSectorCount * XDL_SECTOR_BYTES);
+            (UINT_PTR)workHdr.Segment[ixSec].mLinkAddr, 
+            (UINT_PTR)workHdr.Segment[ixSec].mMemActualBytes, 
+            (UINT_PTR)workHdr.Segment[ixSec].mSectorCount, 
+            (UINT_PTR)workHdr.Segment[ixSec].mSectorCount * XDL_SECTOR_BYTES);
     }
 
 
@@ -521,8 +521,8 @@ CreateOutputFile32(
             {
                 pTargetSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (pSymNode->mpSym->st_shndx * apParse->mSectionHeaderTableEntryBytes));
                 UINT8 const *pImpDetail = LoadAddrToDataPtr32(apParse, pTargetSecHdr->sh_addr, NULL);
-                XDL_EXPORTS_SECTION_HEADER const * pExpSecHdr = (XDL_EXPORTS_SECTION_HEADER const *)pImpDetail;
-                pImpDetail += sizeof(XDL_EXPORTS_SECTION_HEADER);
+                XDL_EXPORTS_SEGMENT_HEADER const * pExpSecHdr = (XDL_EXPORTS_SEGMENT_HEADER const *)pImpDetail;
+                pImpDetail += sizeof(XDL_EXPORTS_SEGMENT_HEADER);
                 pImpDetail += pExpSecHdr->mCount * sizeof(XDL_EXPORT32_REF);
                 pImpDetail += sizeof(K2_GUID128);
                 printf("  IMPORT %6d %s:%s\n",

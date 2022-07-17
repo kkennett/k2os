@@ -53,7 +53,7 @@ CreateImportLibrary32(
 {
     UINT64 const *                      pSrcPtr;
     UINT_PTR                            ixExpSec;
-    XDL_EXPORTS_SECTION_HEADER const *  pExpHdr;
+    XDL_EXPORTS_SEGMENT_HEADER const *  pExpHdr;
     XDL_EXPORT32_REF *                  pExpRef;
     UINT_PTR                            ixExp;
     char const *                        pExpStr;
@@ -70,7 +70,7 @@ CreateImportLibrary32(
     UINT_PTR                            sectionCount;
     UINT_PTR                            symStrSecSize;
     UINT_PTR                            totalExportsStrSize;
-    UINT_PTR                            expSecBytes;
+    UINT_PTR                            expSegBytes;
     UINT_PTR                            outSecIx[XDLExportType_Count];
     UINT_PTR                            indexBytes;
     Elf_LibRec *                        pLibIndexRecord;
@@ -84,7 +84,7 @@ CreateImportLibrary32(
     UINT_PTR                            ixSym;
     WORKPTR                             outSymStrBase;
     WORKPTR                             outSymStrWork;
-    XDL_EXPORTS_SECTION_HEADER *        pOutExpSec[XDLExportType_Count];
+    XDL_EXPORTS_SEGMENT_HEADER *        pOutExpSeg[XDLExportType_Count];
     char *                              pOutStr;
     UINT8                               symType;
     HANDLE                              hFile;
@@ -104,8 +104,8 @@ CreateImportLibrary32(
         exportsStrSize[ixExpSec] = 0;
         if (pSrcPtr[ixExpSec] != 0)
         {
-            pExpHdr = gOut.mpElfExpSecHdr[ixExpSec] =
-                (XDL_EXPORTS_SECTION_HEADER const *)LoadAddrToDataPtr32(apParse, (UINT_PTR)pSrcPtr[ixExpSec], &roSecIx);
+            pExpHdr = gOut.mpElfExpSegHdr[ixExpSec] =
+                (XDL_EXPORTS_SEGMENT_HEADER const *)LoadAddrToDataPtr32(apParse, (UINT_PTR)pSrcPtr[ixExpSec], &roSecIx);
             if (pExpHdr == NULL)
             {
                 printf("*** Exports type %d could not be found in ELF file\n", ixExpSec);
@@ -135,7 +135,7 @@ CreateImportLibrary32(
             printf("  Count %d\n", pExpHdr->mCount);
             printf("  Crc32 %08X\n", pExpHdr->mCRC32);
 #endif
-            pExpRef = (XDL_EXPORT32_REF *)(((UINT8 const *)pExpHdr) + sizeof(XDL_EXPORTS_SECTION_HEADER));
+            pExpRef = (XDL_EXPORT32_REF *)(((UINT8 const *)pExpHdr) + sizeof(XDL_EXPORTS_SEGMENT_HEADER));
             totalExportCount += pExpHdr->mCount;
             for (ixExp = 0; ixExp < pExpHdr->mCount; ixExp++)
             {
@@ -207,18 +207,18 @@ CreateImportLibrary32(
     // import sections and symbol index entry for library (stupidly necessary)
     for (ixExpSec = 0; ixExpSec < XDLExportType_Count; ixExpSec++)
     {
-        pExpHdr = gOut.mpElfExpSecHdr[ixExpSec];
+        pExpHdr = gOut.mpElfExpSegHdr[ixExpSec];
         if (NULL != pExpHdr)
         {
             secStrBytes += K2ASC_Len(sgpSecStr_Imp) + gOut.mTargetNameLen + 1;
 
             // import data (strings are going into string table)
-            expSecBytes = sizeof(XDL_EXPORTS_SECTION_HEADER);
-            expSecBytes += pExpHdr->mCount * sizeof(XDL_EXPORT32_REF);
-            expSecBytes += sizeof(K2_GUID128);
-            expSecBytes += gOut.mTargetNameLen + 1;
-            expSecBytes = K2_ROUNDUP(expSecBytes, 4);
-            fileSizeBytes += expSecBytes;
+            expSegBytes = sizeof(XDL_EXPORTS_SEGMENT_HEADER);
+            expSegBytes += pExpHdr->mCount * sizeof(XDL_EXPORT32_REF);
+            expSegBytes += sizeof(K2_GUID128);
+            expSegBytes += gOut.mTargetNameLen + 1;
+            expSegBytes = K2_ROUNDUP(expSegBytes, 4);
+            fileSizeBytes += expSegBytes;
             outSecIx[ixExpSec] = sectionCount++;
         }
         else
@@ -347,12 +347,12 @@ CreateImportLibrary32(
     // imports
     for (ixExpSec = 0; ixExpSec < XDLExportType_Count; ixExpSec++)
     {
-        pExpHdr = gOut.mpElfExpSecHdr[ixExpSec];
+        pExpHdr = gOut.mpElfExpSegHdr[ixExpSec];
         if (NULL != pExpHdr)
         {
-            pOutExpSec[ixExpSec] = (XDL_EXPORTS_SECTION_HEADER *)work.mAsPtr;
-            pOutExpSec[ixExpSec]->mCount = pExpHdr->mCount;
-            pOutExpSec[ixExpSec]->mCRC32 = pExpHdr->mCRC32;
+            pOutExpSeg[ixExpSec] = (XDL_EXPORTS_SEGMENT_HEADER *)work.mAsPtr;
+            pOutExpSeg[ixExpSec]->mCount = pExpHdr->mCount;
+            pOutExpSeg[ixExpSec]->mCRC32 = pExpHdr->mCRC32;
             pOutSecHdr[outSecIx[ixExpSec]].sh_name = secStrBytes;
             pOutStr = pOutSecHdrStr + pOutSecHdr[outSecIx[ixExpSec]].sh_name;
             K2ASC_Printf(pOutStr, "%s%.*s", sgpSecStr_Imp, gOut.mTargetNameLen, gOut.mTargetName);
@@ -371,23 +371,23 @@ CreateImportLibrary32(
             else if (ixExpSec == 2)
                 pOutSecHdr[outSecIx[ixExpSec]].sh_flags |= SHF_WRITE;
 
-            expSecBytes = sizeof(XDL_EXPORTS_SECTION_HEADER);
-            expSecBytes += pExpHdr->mCount * sizeof(XDL_EXPORT32_REF);
-            K2MEM_Copy(((UINT8 *)work.mAsPtr) + expSecBytes, &gOut.mpElfAnchor->Id, sizeof(K2_GUID128));
-            expSecBytes += sizeof(K2_GUID128);
-            K2ASC_CopyLen(((char *)pOutExpSec[ixExpSec]) + expSecBytes, gOut.mTargetName, gOut.mTargetNameLen);
-            expSecBytes += gOut.mTargetNameLen + 1;
-            expSecBytes = K2_ROUNDUP(expSecBytes, 4);
+            expSegBytes = sizeof(XDL_EXPORTS_SEGMENT_HEADER);
+            expSegBytes += pExpHdr->mCount * sizeof(XDL_EXPORT32_REF);
+            K2MEM_Copy(((UINT8 *)work.mAsPtr) + expSegBytes, &gOut.mpElfAnchor->Id, sizeof(K2_GUID128));
+            expSegBytes += sizeof(K2_GUID128);
+            K2ASC_CopyLen(((char *)pOutExpSeg[ixExpSec]) + expSegBytes, gOut.mTargetName, gOut.mTargetNameLen);
+            expSegBytes += gOut.mTargetNameLen + 1;
+            expSegBytes = K2_ROUNDUP(expSegBytes, 4);
 
             if (ixExpSec == 0)
                 symType = ELF32_MAKE_SYMBOL_INFO(STB_GLOBAL, STT_FUNC);
             else
                 symType = ELF32_MAKE_SYMBOL_INFO(STB_GLOBAL, STT_OBJECT);
-            pExpRef = (XDL_EXPORT32_REF *)(((UINT8 const *)pExpHdr) + sizeof(XDL_EXPORTS_SECTION_HEADER));
+            pExpRef = (XDL_EXPORT32_REF *)(((UINT8 const *)pExpHdr) + sizeof(XDL_EXPORTS_SEGMENT_HEADER));
             for (ixExp = 0; ixExp < pExpHdr->mCount; ixExp++)
             {
                 pOutSymTab[ixSym].st_name = (outSymStrWork.mAsVal - outSymStrBase.mAsVal);
-                pOutSymTab[ixSym].st_value = sizeof(XDL_EXPORTS_SECTION_HEADER) +
+                pOutSymTab[ixSym].st_value = sizeof(XDL_EXPORTS_SEGMENT_HEADER) +
                     (ixExp * sizeof(XDL_EXPORT32_REF));
                 pOutSymTab[ixSym].st_size = sizeof(XDL_EXPORT32_REF);
                 pOutSymTab[ixSym].st_info = symType;
@@ -400,11 +400,11 @@ CreateImportLibrary32(
                 pExpRef++;
             }
 
-            pOutSecHdr[outSecIx[ixExpSec]].sh_size = expSecBytes;
+            pOutSecHdr[outSecIx[ixExpSec]].sh_size = expSegBytes;
             pOutSecHdr[outSecIx[ixExpSec]].sh_offset = work.mAsVal - workElfBase.mAsVal;
             pOutSecHdr[outSecIx[ixExpSec]].sh_addr = 0x10000000 | pOutSecHdr[outSecIx[ixExpSec]].sh_offset;
             pOutSecHdr[outSecIx[ixExpSec]].sh_addralign = 4;
-            work.mAsVal += expSecBytes;
+            work.mAsVal += expSegBytes;
         }
     }
     if ((ixSym != totalExportCount + 1) ||

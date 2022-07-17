@@ -51,7 +51,7 @@ struct _OUTCTX
     K2ReadOnlyMappedFile *              mpElfFile;
     UINT_PTR                            mElfAnchorSectionIx;
     XDL_ELF_ANCHOR const *              mpElfAnchor;
-    XDL_EXPORTS_SECTION_HEADER const *  mpElfExpSecHdr[XDLExportType_Count];
+    XDL_EXPORTS_SEGMENT_HEADER const *  mpElfExpSegHdr[XDLExportType_Count];
     UINT_PTR                            mElfRoSecIx;
 
     UINT_PTR                            mTargetNameLen;

@@ -91,8 +91,8 @@ enum _XDLSegmentIx
 typedef enum _XDLSegmentIx XDLSegmentIx;
 
 K2_PACKED_PUSH
-typedef struct _XDL_FILE_SECTION XDL_FILE_SECTION;
-struct _XDL_FILE_SECTION
+typedef struct _XDL_FILE_SEGMENT XDL_FILE_SEGMENT;
+struct _XDL_FILE_SEGMENT
 {
     UINT64  mSectorCount;
     UINT64  mMemActualBytes;
@@ -121,7 +121,7 @@ struct _XDL_FILE_HEADER
     UINT32              mEntryStackReq;
     UINT32              mImportCount;
     UINT64              mFirstSectionSectorOffset;    // offset to XDLSegmentIx_Text. all sections forced linear after that
-    XDL_FILE_SECTION    Section[XDLSegmentIx_Count];
+    XDL_FILE_SEGMENT    Segment[XDLSegmentIx_Count];
     K2_GUID128          Id;
     UINT64              mReadExpOffset[XDLExportType_Count];
     UINT32              mNameLen;
@@ -160,12 +160,23 @@ struct _XDL_EXPORT64_REF
 K2_PACKED_POP
 
 K2_PACKED_PUSH
-typedef struct _XDL_EXPORTS_SECTION_HEADER XDL_EXPORTS_SECTION_HEADER;
-struct _XDL_EXPORTS_SECTION_HEADER
+typedef struct _XDL_EXPORTS_SEGMENT_HEADER XDL_EXPORTS_SEGMENT_HEADER;
+struct _XDL_EXPORTS_SEGMENT_HEADER
 {
     UINT32  mCount;
     UINT32  mCRC32;
     // followed by at least one XDL_EXPORT??_REF record
+} K2_PACKED_ATTRIB;
+K2_PACKED_POP
+
+K2_PACKED_PUSH
+typedef struct _XDL_RELOC_SEGMENT_HEADER XDL_RELOC_SEGMENT_HEADER;
+struct _XDL_RELOC_SEGMENT_HEADER
+{
+    UINT64  mTextRelocsBytes;
+    UINT64  mReadRelocsBytes;
+    UINT64  mDataRelocsBytes;
+    // followed immediately by at Relocs - Text, Read, data; Elf32_Rel or Elf64_Rel
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
 
