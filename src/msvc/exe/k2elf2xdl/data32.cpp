@@ -64,3 +64,34 @@ LoadAddrToDataPtr32(
     return NULL;
 }
 
+UINT8 const *
+LoadOffsetToDataPtr32(
+    K2ELF32PARSE *  apParse,
+    UINT_PTR        aLoadOffset,
+    UINT_PTR *      apRetSecIx
+)
+{
+    UINT32              secIx;
+    Elf32_Shdr const *  pSecHdr;
+
+    if (apRetSecIx != NULL)
+        *apRetSecIx = 0;
+
+    for (secIx = 1; secIx < apParse->mpRawFileData->e_shnum; secIx++)
+    {
+        pSecHdr = K2ELF32_GetSectionHeader(apParse, secIx);
+        if (pSecHdr->sh_type != SHT_NOBITS)
+        {
+            if ((aLoadOffset >= pSecHdr->sh_offset) &&
+                ((aLoadOffset - pSecHdr->sh_offset) < pSecHdr->sh_size))
+            {
+                if (apRetSecIx != NULL)
+                    *apRetSecIx = secIx;
+                return (((UINT8 *)apParse->mpRawFileData) + pSecHdr->sh_offset) + (aLoadOffset - pSecHdr->sh_offset);
+            }
+        }
+    }
+
+    return NULL;
+}
+

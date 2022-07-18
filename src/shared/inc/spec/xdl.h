@@ -112,7 +112,7 @@ struct _XDL_FILE_HEADER
 {
     UINT32              mHeaderCrc32;
     UINT32              mMarker;            // XDL_FILE_HEADER_MARKER
-    UINT64              mPlacement;         // if nonzero, mPlacement must == &mPlacement, and mFirstSectionSectorOffset must be 8 (4kB, 1 page)
+    UINT64              mPlacement;         // if nonzero, mPlacement must == &mPlacement, and mFirstSegmentSectorOffset must be 8 (4kB, 1 page)
     UINT32              mHeaderSizeBytes;
     UINT8               mElfClass;
     UINT8               mElfMachine;
@@ -120,7 +120,7 @@ struct _XDL_FILE_HEADER
     UINT64              mEntryPoint;
     UINT32              mEntryStackReq;
     UINT32              mImportCount;
-    UINT64              mFirstSectionSectorOffset;    // offset to XDLSegmentIx_Text. all sections forced linear after that
+    UINT64              mFirstSegmentSectorOffset;    // offset to XDLSegmentIx_Text. all sections forced linear after that
     XDL_FILE_SEGMENT    Segment[XDLSegmentIx_Count];
     K2_GUID128          Id;
     UINT64              mReadExpOffset[XDLExportType_Count];

@@ -68,8 +68,12 @@ int TreeStrCompare(UINT_PTR aKey, K2TREE_NODE * apNode);
 K2STAT Convert64(void);
 
 K2STAT          Convert32(void);
+
 K2STAT          CreateOutputFile32(K2ELF32PARSE *apParse);
+
 UINT8 const *   LoadAddrToDataPtr32(K2ELF32PARSE *apParse, UINT_PTR aLoadAddr, UINT_PTR *apRetSecIx);
+UINT8 const *   LoadOffsetToDataPtr32(K2ELF32PARSE *apParse, UINT_PTR aLoadOffset, UINT_PTR *apRetSecIx);
+
 K2STAT          CreateImportLibrary32(K2ELF32PARSE *apParse);
 
 #endif // #ifndef __K2ELF2XDL_H

@@ -239,8 +239,8 @@ int main(int argc, char **argv)
     *pConv = 0;
 //    printf("  TARGET NAME = \"%s\" (%d)\n", gOut.mTargetName, gOut.mTargetNameLen);
 
-    gOut.mPlacement = 0;
-    gOut.mUsePlacement = true;
+//    gOut.mPlacement = 0;
+//    gOut.mUsePlacement = true;
 
     pData = (UINT8 const *)gOut.mpElfFile->DataPtr();
     if (pData[EI_CLASS] == ELFCLASS32)
