@@ -71,7 +71,8 @@ CreateOutputFile32(
     XDL_EXPORTS_SEGMENT_HEADER const *  pExpHdr;
     char const *                        pImpName;
     Elf32_Shdr *                        pSymTabSecHdr;
-    UINT_PTR                            symCount;
+    UINT_PTR                            symInCount;
+    UINT_PTR                            symOutCount;
     UINT_PTR                            ixSym;
     Elf32_Sym const *                   pSym;
     Elf32_Shdr *                        pSymStrSecHdr;
@@ -83,9 +84,10 @@ CreateOutputFile32(
     UINT64                              outOffset;
     XDL_FILE_HEADER *                   pOutput;
     UINT8 *                             pOutWork;
-    UINT8 *                             pRelBase;
+    UINT8 *                             pBase;
     XDL_RELOC_SEGMENT_HEADER            relSegHdr;
     Elf32_Shdr *                        pRelTargetSecHdr;
+    char *                              pStrOut;
 
     K2TREE_Init(&symTree, TreeStrCompare);
 
@@ -329,19 +331,33 @@ CreateOutputFile32(
     symEntSize = pSymTabSecHdr->sh_entsize;
     if (0 == symEntSize)
         symEntSize = sizeof(Elf32_Sym);
-    symCount = pSymTabSecHdr->sh_size / symEntSize;
+    symInCount = pSymTabSecHdr->sh_size / symEntSize;
     pSym = (Elf32_Sym const *)(((UINT8 const *)apParse->mpRawFileData) + pSymTabSecHdr->sh_offset);
     symNamesLen = 1;
-    for (ixSym = 0; ixSym < symCount; ixSym++)
+    symOutCount = 0;
+    for (ixSym = 0; ixSym < symInCount; ixSym++)
     {
-        if (0 != pSym->st_name)
+        align = pSym->st_shndx;
+        if (0 != align) 
         {
-            symNamesLen += 1 + K2ASC_Len(pSymStr + pSym->st_name);
+            if ((align >= apParse->mpRawFileData->e_shnum) ||
+                (pSecTarget[align].mSegmentIx < XDLSegmentIx_Count))
+            {
+                symOutCount++;
+                if (0 != pSym->st_name)
+                {
+                    symNamesLen += 1 + K2ASC_Len(pSymStr + pSym->st_name);
+                }
+            }
+            else
+            {
+                printf("tossing symbol with value 0x%08X in unused section 0x%04X %s\n", pSym->st_value, pSym->st_shndx, pSym->st_name ? (pSymStr + pSym->st_name) : "");
+            }
         }
         pSym = (Elf32_Sym const *)(((UINT8 const *)pSym) + symEntSize);
     }
     pSecTarget[symTabSecIx].mAddr = loadWork;
-    workHdr.Segment[XDLSegmentIx_Symbols].mMemActualBytes = (symCount * sizeof(Elf32_Sym)) + symNamesLen;
+    workHdr.Segment[XDLSegmentIx_Symbols].mMemActualBytes = (symOutCount * sizeof(Elf32_Sym)) + symNamesLen;
     loadWork += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Symbols].mMemActualBytes;
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
     workHdr.Segment[XDLSegmentIx_Symbols].mSectorCount = ((loadWork - workHdr.Segment[XDLSegmentIx_Symbols].mLinkAddr) / XDL_SECTOR_BYTES);
@@ -444,7 +460,7 @@ CreateOutputFile32(
         }
         workHdr.Segment[XDLSegmentIx_Relocs].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Relocs].mLinkAddr;
         loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
-        workHdr.Segment[XDLSegmentIx_Relocs].mSectorCount = (workHdr.Segment[XDLSegmentIx_Relocs].mMemActualBytes / XDL_SECTOR_BYTES);
+        workHdr.Segment[XDLSegmentIx_Relocs].mSectorCount = ((loadWork - workHdr.Segment[XDLSegmentIx_Relocs].mLinkAddr) / XDL_SECTOR_BYTES);
         fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Relocs].mSectorCount;
     }
 
@@ -643,7 +659,47 @@ CreateOutputFile32(
     printf("Sec Addr %08X\n", pSecTarget[symTabSecIx].mAddr);
     printf("Seg Link %08X\n", (UINT_PTR)pOutput->Segment[XDLSegmentIx_Symbols].mLinkAddr);
     pSecTarget[symTabSecIx].mpData = pOutWork;
-    K2MEM_Copy(pSecTarget[symTabSecIx].mpData, LoadOffsetToDataPtr32(apParse, pSymTabSecHdr->sh_offset, NULL), pSymTabSecHdr->sh_size);
+    pBase = pOutWork;
+    pSym = (Elf32_Sym const *)(((UINT8 const *)apParse->mpRawFileData) + pSymTabSecHdr->sh_offset);
+    pStrOut = ((char *)pBase) + (symOutCount * sizeof(Elf32_Sym));
+    pStrOut++;  // first char is always zero (null string)
+    for (ixSym = 0; ixSym < symInCount; ixSym++)
+    {
+        align = pSym->st_shndx;
+        if (0 != align)
+        {
+            if ((align >= apParse->mpRawFileData->e_shnum) ||
+                (pSecTarget[align].mSegmentIx < XDLSegmentIx_Count))
+            {
+                K2MEM_Copy(pBase, pSym, sizeof(Elf32_Sym));
+                if (align < apParse->mpRawFileData->e_shnum)
+                {
+                    pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (align * apParse->mSectionHeaderTableEntryBytes));
+                    ((Elf32_Sym *)pBase)->st_value -= pSecHdr->sh_addr;
+                    ((Elf32_Sym *)pBase)->st_value += pSecTarget[align].mAddr;
+                    ((Elf32_Sym *)pBase)->st_shndx = pSecTarget[align].mSegmentIx;
+                }
+                if (0 != pSym->st_name)
+                {
+                    ((Elf32_Sym *)pBase)->st_name = (Elf32_Word)(pStrOut - (char *)pOutWork);
+                    pStrOut += K2ASC_Copy(pStrOut, pSymStr + pSym->st_name) + 1;
+                }
+                pBase += sizeof(Elf32_Sym);
+            }
+            else
+            {
+                printf("tossing symbol with value 0x%08X in unused section 0x%04X %s\n", pSym->st_value, pSym->st_shndx, pSym->st_name ? (pSymStr + pSym->st_name) : "");
+            }
+        }
+        pSym = (Elf32_Sym const *)(((UINT8 const *)pSym) + symEntSize);
+
+
+
+
+
+
+
+    }
     pOutWork += pOutput->Segment[XDLSegmentIx_Symbols].mSectorCount * XDL_SECTOR_BYTES;
 
     if (!gOut.mUsePlacement)
@@ -655,7 +711,7 @@ CreateOutputFile32(
         //
         printf("RELOCS:\n");
         K2MEM_Copy(pOutWork, &relSegHdr, sizeof(relSegHdr));
-        pRelBase = pOutWork + sizeof(relSegHdr);
+        pBase = pOutWork + sizeof(relSegHdr);
         for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
         {
             pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -689,7 +745,7 @@ CreateOutputFile32(
     // other would go here but it is empty
     //
 
-
+    K2_ASSERT(pOutWork == (((UINT8 *)pOutput) + (fileSectors * XDL_SECTOR_BYTES)));
 
 
 
@@ -701,7 +757,7 @@ CreateOutputFile32(
 }
 
 #if 0
-    for (ixSym = 0; ixSym < symCount; ixSym++)
+    for (ixSym = 0; ixSym < symInCount; ixSym++)
     {
         if (STB_LOCAL != ELF32_ST_BIND(pSym->st_info))
         {
