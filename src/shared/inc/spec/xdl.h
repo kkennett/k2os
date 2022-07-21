@@ -131,17 +131,6 @@ K2_PACKED_POP
 K2_STATIC_ASSERT(XDL_SECTOR_BYTES >= sizeof(XDL_FILE_HEADER));
 
 K2_PACKED_PUSH
-typedef struct _XDL_IMPORT XDL_IMPORT;
-struct _XDL_IMPORT
-{
-    UINT32          mSizeBytes;     // size of this import record
-    UINT32          mSectionFlags;  // determines type of imports (code,read,data)
-    K2_GUID128      ID;             // ID of XDL we import from
-    char            mFileName[4];   // name of XDL we import from
-} K2_PACKED_ATTRIB;
-K2_PACKED_POP
-
-K2_PACKED_PUSH
 typedef struct _XDL_EXPORT32_REF XDL_EXPORT32_REF;
 struct _XDL_EXPORT32_REF
 {
@@ -166,6 +155,18 @@ struct _XDL_EXPORTS_SEGMENT_HEADER
     UINT32  mCount;
     UINT32  mCRC32;
     // followed by at least one XDL_EXPORT??_REF record
+} K2_PACKED_ATTRIB;
+K2_PACKED_POP
+
+K2_PACKED_PUSH
+typedef struct _XDL_IMPORT XDL_IMPORT;
+struct _XDL_IMPORT
+{
+    K2_GUID128                  ID;                             // ID of XDL we import from
+    XDL_EXPORTS_SEGMENT_HEADER  ExpHdr;                         // copy of export header from import library (count and crc)
+    UINT32                      mSectionFlags;                  // determines type of imports (code,read,data)
+    UINT32                      mNameLen;
+    char                        mName[XDL_NAME_MAX_LEN + 1];
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
 
