@@ -81,9 +81,9 @@ enum _XDLSegmentIx
     XDLSegmentIx_Text,          // code sectors
     XDLSegmentIx_Read,          // read only data sectors
     XDLSegmentIx_Data,          // initialized data sectors
+    XDLSegmentIx_Imports,       // discardable - import records
     XDLSegmentIx_Symbols,       // discardable - symbol tables
     XDLSegmentIx_Relocs,        // discardable - all info to permit relocation sectors
-    XDLSegmentIx_Imports,       // discardable - import records
     XDLSegmentIx_Other,         // discardable - other data for file (only)
 
     XDLSegmentIx_Count
