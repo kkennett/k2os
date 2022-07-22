@@ -62,15 +62,56 @@ struct SymTrack
 };
 
 void
-RelocOne32(
+RelocOne32_X32(
     UINT_PTR            aRelType,
-    UINT_PTR            aTargetAddr,
+    UINT_PTR            aOldTargetAddr,
+    UINT_PTR            aNewTargetAddr,
     UINT8 *             apTarget,
     Elf32_Sym const *   apSrcSym,
     UINT_PTR            aNewSymValue
 )
 {
-    printf("Reloc %d: @0x%08X (data 0x%08X) symsrc %08X new %08X)\n", aRelType, aTargetAddr, (UINT_PTR)apTarget, apSrcSym->st_value, aNewSymValue);
+    UINT32 valAtTarget;
+
+    //    printf("Reloc %d: @0x%08X->@0x%08X (data 0x%08X) sym %08X->%08X)\n", aRelType, aOldTargetAddr, aNewTargetAddr, (UINT_PTR)apTarget, apSrcSym->st_value, aNewSymValue);
+
+    K2MEM_Copy(&valAtTarget, apTarget, sizeof(UINT32));
+
+    switch (aRelType)
+    {
+    case R_386_32:
+        // value at target is address of symbol + some addend
+        valAtTarget -= apSrcSym->st_value;
+        valAtTarget += aNewSymValue;
+        break;
+
+    case R_386_PC32:
+        // value at target is offset from 4 bytes
+        // after target to symbol value + some addend
+        valAtTarget -= (apSrcSym->st_value - (aOldTargetAddr + 4));
+        valAtTarget += (aNewSymValue - (aNewTargetAddr + 4));
+        break;
+
+    default:
+        printf("**** UNKNOWN RELOCATION TYPE FOUND\n");
+        break;
+    }
+
+    K2MEM_Copy(apTarget, &valAtTarget, sizeof(UINT32));
+}
+
+void
+RelocOne32_A32(
+    UINT_PTR            aRelType,
+    UINT_PTR            aOldTargetAddr,
+    UINT_PTR            aNewTargetAddr,
+    UINT8 *             apTarget,
+    Elf32_Sym const *   apSrcSym,
+    UINT_PTR            aNewSymValue
+)
+{
+    printf("Reloc %d: @0x%08X->@0x%08X (data 0x%08X) sym %08X->%08X)\n", aRelType, aOldTargetAddr, aNewTargetAddr, (UINT_PTR)apTarget, apSrcSym->st_value, aNewSymValue);
+    K2_ASSERT(0);
 }
 
 void
@@ -125,7 +166,10 @@ Reloc32(
             newSymVal += apSecTarget[symSec].mAddr;
         }
 
-        RelocOne32(ELF32_R_TYPE(pRel->r_info), aNewSecBase + targetOffset, pRelTarget, pSym, newSymVal);
+        if (apParse->mpRawFileData->e_machine == EM_X32)
+            RelocOne32_X32(ELF32_R_TYPE(pRel->r_info), pRel->r_offset, aNewSecBase + targetOffset, pRelTarget, pSym, newSymVal);
+        else
+            RelocOne32_A32(ELF32_R_TYPE(pRel->r_info), pRel->r_offset, aNewSecBase + targetOffset, pRelTarget, pSym, newSymVal);
 
         pRel = (Elf32_Rel const *)(((UINT8 const *)pRel) + relEntSize);
     } while (--relCount);
