@@ -61,6 +61,76 @@ struct SymTrack
     bool                mUsedInReloc;
 };
 
+void
+RelocOne32(
+    UINT_PTR            aRelType,
+    UINT_PTR            aTargetAddr,
+    UINT8 *             apTarget,
+    Elf32_Sym const *   apSrcSym,
+    UINT_PTR            aNewSymValue
+)
+{
+    printf("Reloc %d: @0x%08X (data 0x%08X) symsrc %08X new %08X)\n", aRelType, aTargetAddr, (UINT_PTR)apTarget, apSrcSym->st_value, aNewSymValue);
+}
+
+void
+Reloc32(
+    K2ELF32PARSE *  apParse,
+    SecTarget *     apSecTarget,
+    Elf32_Shdr *    apSecHdr,
+    UINT_PTR        aNewSecBase,
+    UINT8 *         apNewSecData,
+    Elf32_Shdr *    apSymTabSecHdr,
+    Elf32_Shdr *    apRelTabSecHdr
+)
+{
+    UINT8 const *       pSymTable;
+    Elf32_Sym const *   pSym;
+    UINT_PTR            symEntSize;
+    UINT_PTR            symSec;
+    Elf32_Rel const *   pRel;
+    UINT_PTR            relEntSize;
+    UINT_PTR            relCount;
+    UINT_PTR            targetOffset;
+    UINT_PTR            newSymVal;
+    Elf32_Shdr *        pSrcSecHdr;
+    UINT8 *             pRelTarget;
+
+    symEntSize = apSymTabSecHdr->sh_entsize;
+    if (0 == symEntSize)
+        symEntSize = sizeof(Elf32_Sym);
+    pSymTable = LoadOffsetToDataPtr32(apParse, apSymTabSecHdr->sh_offset, NULL);
+    relEntSize = apRelTabSecHdr->sh_entsize;
+    if (0 == relEntSize)
+        relEntSize = sizeof(Elf32_Rel);
+    relCount = apRelTabSecHdr->sh_size / relEntSize;
+    if (0 == relCount)
+        return;
+    pRel = (Elf32_Rel const *)LoadOffsetToDataPtr32(apParse, apRelTabSecHdr->sh_offset, NULL);
+    do {
+        targetOffset = pRel->r_offset - apSecHdr->sh_addr;
+
+        pRelTarget = apNewSecData + targetOffset;
+
+        pSym = (Elf32_Sym const *)(pSymTable + (symEntSize * ELF32_R_SYM(pRel->r_info)));
+        
+        symSec = pSym->st_shndx;
+        
+        newSymVal = pSym->st_value;
+        if ((symSec > 0) &&
+            (symSec < apParse->mpRawFileData->e_shnum))
+        {
+            pSrcSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (symSec * apParse->mSectionHeaderTableEntryBytes));
+            newSymVal -= pSrcSecHdr->sh_addr;
+            newSymVal += apSecTarget[symSec].mAddr;
+        }
+
+        RelocOne32(ELF32_R_TYPE(pRel->r_info), aNewSecBase + targetOffset, pRelTarget, pSym, newSymVal);
+
+        pRel = (Elf32_Rel const *)(((UINT8 const *)pRel) + relEntSize);
+    } while (--relCount);
+}
+
 K2STAT
 CreateOutputFile32(
     K2ELF32PARSE *  apParse
@@ -679,6 +749,15 @@ CreateOutputFile32(
             //
             // find source relocs for this section and relocate it to the target
             //
+            for (ixRel = 1; ixRel < apParse->mpRawFileData->e_shnum; ixRel++)
+            {
+                pRelTargetSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixRel * apParse->mSectionHeaderTableEntryBytes));
+                if (pRelTargetSecHdr->sh_type != SHT_REL)
+                    continue;
+                if (pRelTargetSecHdr->sh_info != ixSec)
+                    continue;
+                Reloc32(apParse, pSecTarget, pSecHdr, pSecTarget[ixSec].mAddr, pSecTarget[ixSec].mpData, pSymTabSecHdr, pRelTargetSecHdr);
+            }
         }
     }
     if (0 == workHdr.mEntryPoint)
@@ -713,6 +792,15 @@ CreateOutputFile32(
             //
             // find source relocs for this section and relocate it to the target
             //
+            for (ixRel = 1; ixRel < apParse->mpRawFileData->e_shnum; ixRel++)
+            {
+                pRelTargetSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixRel * apParse->mSectionHeaderTableEntryBytes));
+                if (pRelTargetSecHdr->sh_type != SHT_REL)
+                    continue;
+                if (pRelTargetSecHdr->sh_info != ixSec)
+                    continue;
+                Reloc32(apParse, pSecTarget, pSecHdr, pSecTarget[ixSec].mAddr, pSecTarget[ixSec].mpData, pSymTabSecHdr, pRelTargetSecHdr);
+            }
         }
     }
     pOutWork += pOutput->Segment[XDLSegmentIx_Read].mSectorCount * XDL_SECTOR_BYTES;
@@ -742,6 +830,15 @@ CreateOutputFile32(
             //
             // find source relocs for this section and relocate it to the target
             //
+            for (ixRel = 1; ixRel < apParse->mpRawFileData->e_shnum; ixRel++)
+            {
+                pRelTargetSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixRel * apParse->mSectionHeaderTableEntryBytes));
+                if (pRelTargetSecHdr->sh_type != SHT_REL)
+                    continue;
+                if (pRelTargetSecHdr->sh_info != ixSec)
+                    continue;
+                Reloc32(apParse, pSecTarget, pSecHdr, pSecTarget[ixSec].mAddr, pSecTarget[ixSec].mpData, pSymTabSecHdr, pRelTargetSecHdr);
+            }
         }
     }
     pOutWork += pOutput->Segment[XDLSegmentIx_Data].mSectorCount * XDL_SECTOR_BYTES;
