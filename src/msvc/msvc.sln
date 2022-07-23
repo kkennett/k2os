@@ -109,6 +109,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2elf2xdl", "exe\k2elf2xdl\
 		{F8EA6124-DEF9-43DA-9969-A1B35CA22759} = {F8EA6124-DEF9-43DA-9969-A1B35CA22759}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "k2xdltest", "exe\k2xdltest\k2xdltest.vcxproj", "{CB9BFBBB-F722-4DAC-A3FB-F51DBA88D1C7}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2AD3A30F-0AA4-4FCF-84D1-0E54DC645D40} = {2AD3A30F-0AA4-4FCF-84D1-0E54DC645D40}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -322,6 +327,14 @@ Global
 		{84A57FE0-C1FF-4902-8682-97490037D0A7}.Release|x64.Build.0 = Release|x64
 		{84A57FE0-C1FF-4902-8682-97490037D0A7}.Release|x86.ActiveCfg = Release|Win32
 		{84A57FE0-C1FF-4902-8682-97490037D0A7}.Release|x86.Build.0 = Release|Win32
+		{CB9BFBBB-F722-4DAC-A3FB-F51DBA88D1C7}.Debug|x64.ActiveCfg = Debug|x64
+		{CB9BFBBB-F722-4DAC-A3FB-F51DBA88D1C7}.Debug|x64.Build.0 = Debug|x64
+		{CB9BFBBB-F722-4DAC-A3FB-F51DBA88D1C7}.Debug|x86.ActiveCfg = Debug|Win32
+		{CB9BFBBB-F722-4DAC-A3FB-F51DBA88D1C7}.Debug|x86.Build.0 = Debug|Win32
+		{CB9BFBBB-F722-4DAC-A3FB-F51DBA88D1C7}.Release|x64.ActiveCfg = Release|x64
+		{CB9BFBBB-F722-4DAC-A3FB-F51DBA88D1C7}.Release|x64.Build.0 = Release|x64
+		{CB9BFBBB-F722-4DAC-A3FB-F51DBA88D1C7}.Release|x86.ActiveCfg = Release|Win32
+		{CB9BFBBB-F722-4DAC-A3FB-F51DBA88D1C7}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
