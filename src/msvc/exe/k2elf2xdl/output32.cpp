@@ -110,8 +110,73 @@ RelocOne32_A32(
     UINT_PTR            aNewSymValue
 )
 {
-    printf("Reloc %d: @0x%08X->@0x%08X (data 0x%08X) sym %08X->%08X)\n", aRelType, aOldTargetAddr, aNewTargetAddr, (UINT_PTR)apTarget, apSrcSym->st_value, aNewSymValue);
-    K2_ASSERT(0);
+//    printf("Reloc %d: @0x%08X->@0x%08X (data 0x%08X) sym %08X->%08X)\n", aRelType, aOldTargetAddr, aNewTargetAddr, (UINT_PTR)apTarget, apSrcSym->st_value, aNewSymValue);
+
+    UINT32 valAtTarget;
+    UINT32 targetAddend;
+
+    K2MEM_Copy(&valAtTarget, apTarget, sizeof(UINT32));
+    switch (aRelType)
+    {
+    case R_ARM_PC24:
+    case R_ARM_CALL:
+    case R_ARM_JUMP24:
+        targetAddend = (valAtTarget & 0xFFFFFF) << 2;
+        if (targetAddend & 0x2000000)
+            targetAddend |= 0xFC000000;
+
+        targetAddend -= (apSrcSym->st_value - (aOldTargetAddr + 8));
+        targetAddend += (aNewSymValue - (aNewTargetAddr + 8));
+
+        targetAddend /= sizeof(UINT32);
+        if (targetAddend & 0x80000000)
+        {
+            if ((targetAddend & 0xFF000000) != 0xFF000000)
+            {
+                printf("*** 24-bit reloc blows range (-)\n");
+            }
+        }
+        else
+        {
+            if ((targetAddend & 0xFF000000) != 0)
+            {
+                printf("*** 24-bit reloc blows range (+)\n");
+            }
+        }
+        valAtTarget = (valAtTarget & 0xFF000000) | (targetAddend & 0xFFFFFF);
+
+        break;
+
+    case R_ARM_ABS32:
+        valAtTarget -= apSrcSym->st_value;
+        valAtTarget += aNewSymValue;
+        break;
+
+    case R_ARM_MOVW_ABS_NC:
+        targetAddend = ((valAtTarget & 0xF0000) >> 4) | (valAtTarget & 0xFFF);
+        targetAddend -= (apSrcSym->st_value & 0xFFFF);
+        targetAddend += (aNewSymValue & 0xFFFF);
+        valAtTarget = ((valAtTarget) & 0xFFF0F000) | ((targetAddend << 4) & 0xF0000) | (targetAddend & 0xFFF);
+        break;
+
+    case R_ARM_MOVT_ABS:
+        targetAddend = ((valAtTarget & 0xF0000) >> 4) | (valAtTarget & 0xFFF);
+        targetAddend -= ((apSrcSym->st_value >> 16) & 0xFFFF);
+        targetAddend += ((aNewSymValue >> 16) & 0xFFFF);
+        valAtTarget = ((valAtTarget) & 0xFFF0F000) | ((targetAddend << 4) & 0xF0000) | (targetAddend & 0xFFF);
+        break;
+
+    case R_ARM_PREL31:
+        targetAddend = valAtTarget + apSrcSym->st_value - aNewTargetAddr;
+        valAtTarget = targetAddend & 0x7FFFFFFF;
+        break;
+
+    default:
+        printf("**** UNKNOWN RELOCATION TYPE FOUND\n");
+        break;
+    }
+
+    K2MEM_Copy(apTarget, &valAtTarget, sizeof(UINT32));
 }
 
 void
@@ -274,10 +339,6 @@ CreateOutputFile32(
     //
     // count imports
     //
-    if (!gOut.mUsePlacement)
-    {
-        printf("IMPORTS:\n");
-    }
     importsCount = 0;
     sectorOffset[XDLSegmentIx_Header] = fileSectors;
     workHdr.Segment[XDLSegmentIx_Header].mLinkAddr = loadWork;
@@ -304,10 +365,10 @@ CreateOutputFile32(
             sizeof(K2_GUID128);
         importsCount++;
         pSecTarget[ixSec].mSegmentIx = XDLSegmentIx_Header;
-        pSecTarget[ixSec].mAddr = loadWork;
+        pSecTarget[ixSec].mAddr = loadBase;
         pSecTarget[ixSec].mSegOffset = loadWork - (UINT_PTR)workHdr.Segment[XDLSegmentIx_Header].mLinkAddr;
         loadWork += sizeof(XDL_IMPORT);
-        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
+//        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
     workHdr.Segment[XDLSegmentIx_Header].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Header].mLinkAddr;
     if (gOut.mUsePlacement)
@@ -340,7 +401,6 @@ CreateOutputFile32(
     //
     // text
     //
-    printf("TEXT:\n");
     sectorOffset[XDLSegmentIx_Text] = fileSectors;
     loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
     workHdr.Segment[XDLSegmentIx_Text].mLinkAddr = loadWork;
@@ -368,7 +428,7 @@ CreateOutputFile32(
         pSecTarget[ixSec].mSegmentIx = XDLSegmentIx_Text;
         pSecTarget[ixSec].mSegOffset = loadWork - (UINT_PTR)workHdr.Segment[XDLSegmentIx_Text].mLinkAddr;
         loadWork += pSecHdr->sh_size;
-        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_link, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
+//        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_link, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
     workHdr.Segment[XDLSegmentIx_Text].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Text].mLinkAddr;
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
@@ -385,7 +445,6 @@ CreateOutputFile32(
     //
     // read
     //
-    printf("READ:\n");
     sectorOffset[XDLSegmentIx_Read] = fileSectors;
     loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
     workHdr.Segment[XDLSegmentIx_Read].mLinkAddr = loadWork;
@@ -410,7 +469,7 @@ CreateOutputFile32(
         pSecTarget[ixSec].mSegmentIx = XDLSegmentIx_Read;
         pSecTarget[ixSec].mSegOffset = loadWork - (UINT_PTR)workHdr.Segment[XDLSegmentIx_Read].mLinkAddr;
         loadWork += pSecHdr->sh_size;
-        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
+//        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
     workHdr.Segment[XDLSegmentIx_Read].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Read].mLinkAddr;
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
@@ -422,9 +481,8 @@ CreateOutputFile32(
     fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Read].mSectorCount;
 
     //
-    // data
+    // data and bss
     //
-    printf("DATA:\n");
     sectorOffset[XDLSegmentIx_Data] = fileSectors;
     loadWork = ((loadWork + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
     workHdr.Segment[XDLSegmentIx_Data].mLinkAddr = loadWork;
@@ -450,12 +508,11 @@ CreateOutputFile32(
         pSecTarget[ixSec].mSegmentIx = XDLSegmentIx_Data;
         pSecTarget[ixSec].mSegOffset = loadWork - (UINT_PTR)workHdr.Segment[XDLSegmentIx_Data].mLinkAddr;
         loadWork += pSecHdr->sh_size;
-        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
+//        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
     dataEndSectorAligned = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
     workHdr.Segment[XDLSegmentIx_Data].mSectorCount = ((dataEndSectorAligned - workHdr.Segment[XDLSegmentIx_Data].mLinkAddr) / XDL_SECTOR_BYTES);
 
-    printf("DATA(BSS):\n");
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
         pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -477,7 +534,7 @@ CreateOutputFile32(
         pSecTarget[ixSec].mSegmentIx = XDLSegmentIx_Data;
         pSecTarget[ixSec].mSegOffset = loadWork - (UINT_PTR)workHdr.Segment[XDLSegmentIx_Data].mLinkAddr;
         loadWork += pSecHdr->sh_size;
-        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
+//        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }
     workHdr.Segment[XDLSegmentIx_Data].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Data].mLinkAddr;
 
@@ -495,7 +552,6 @@ CreateOutputFile32(
     //
     // symbol table
     //
-    printf("SYMBOLS:\n");
     loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
     sectorOffset[XDLSegmentIx_Symbols] = fileSectors;
     workHdr.Segment[XDLSegmentIx_Symbols].mLinkAddr = loadWork;
@@ -520,7 +576,7 @@ CreateOutputFile32(
         printf("*** Elf file has no symbol table\n");
         return K2STAT_ERROR_CORRUPTED;
     }
-    printf("%2d: %4d f%08X l%08X z%08X\n", symTabSecIx, pSymTabSecHdr->sh_type, pSymTabSecHdr->sh_flags, pSymTabSecHdr->sh_addr, pSymTabSecHdr->sh_size);
+//    printf("%2d: %4d f%08X l%08X z%08X\n", symTabSecIx, pSymTabSecHdr->sh_type, pSymTabSecHdr->sh_flags, pSymTabSecHdr->sh_addr, pSymTabSecHdr->sh_size);
     pSymStrSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (pSymTabSecHdr->sh_link * apParse->mSectionHeaderTableEntryBytes));
     pSymStr = ((char const *)apParse->mpRawFileData) + pSymStrSecHdr->sh_offset;
     symEntSize = pSymTabSecHdr->sh_entsize;
@@ -533,7 +589,7 @@ CreateOutputFile32(
     for (ixSym = 0; ixSym < symInCount; ixSym++)
     {
         align = pSym->st_shndx;
-        if (0 != align) 
+        if (0 != align)
         {
             if ((align >= apParse->mpRawFileData->e_shnum) ||
                 (pSecTarget[align].mSegmentIx < XDLSegmentIx_Count))
@@ -544,10 +600,10 @@ CreateOutputFile32(
                     symNamesLen += 1 + K2ASC_Len(pSymStr + pSym->st_name);
                 }
             }
-            else
-            {
-                printf("tossing symbol with value 0x%08X in unused section 0x%04X %s\n", pSym->st_value, pSym->st_shndx, pSym->st_name ? (pSymStr + pSym->st_name) : "");
-            }
+//            else
+//            {
+//                printf("tossing symbol with value 0x%08X in unused section 0x%04X %s\n", pSym->st_value, pSym->st_shndx, pSym->st_name ? (pSymStr + pSym->st_name) : "");
+//            }
         }
         pSym = (Elf32_Sym const *)(((UINT8 const *)pSym) + symEntSize);
     }
@@ -586,7 +642,6 @@ CreateOutputFile32(
         // sh_link is symbol table to use
         // sh_info is target section
         //
-        printf("RELOCS:\n");
         K2MEM_Zero(&relSegHdr, sizeof(relSegHdr));
         loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
         sectorOffset[XDLSegmentIx_Relocs] = fileSectors;
@@ -617,7 +672,7 @@ CreateOutputFile32(
             relCount = (pSecHdr->sh_size / relBytes) * sizeof(Elf32_Rel);
             loadWork += relCount;
             relSegHdr.mTextRelocsBytes += relCount;
-            printf("%2d: %4d f%08X l%08X z%08X TARGET %d (TEXT)\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecHdr->sh_info);
+//            printf("%2d: %4d f%08X l%08X z%08X TARGET %d (TEXT)\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecHdr->sh_info);
         }
         for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
         {
@@ -642,7 +697,7 @@ CreateOutputFile32(
             relCount = (pSecHdr->sh_size / relBytes) * sizeof(Elf32_Rel);
             loadWork += relCount;
             relSegHdr.mReadRelocsBytes += relCount;
-            printf("%2d: %4d f%08X l%08X z%08X TARGET %d (READ)\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecHdr->sh_info);
+//            printf("%2d: %4d f%08X l%08X z%08X TARGET %d (READ)\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecHdr->sh_info);
         }
         for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
         {
@@ -667,7 +722,7 @@ CreateOutputFile32(
             relCount = (pSecHdr->sh_size / relBytes) * sizeof(Elf32_Rel);
             loadWork += relCount;
             relSegHdr.mDataRelocsBytes += relCount;
-            printf("%2d: %4d f%08X l%08X z%08X TARGET %d (DATA)\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecHdr->sh_info);
+//            printf("%2d: %4d f%08X l%08X z%08X TARGET %d (DATA)\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecHdr->sh_info);
         }
         workHdr.Segment[XDLSegmentIx_Relocs].mMemActualBytes = loadWork - workHdr.Segment[XDLSegmentIx_Relocs].mLinkAddr;
         loadWork = ((loadWork + (XDL_SECTOR_BYTES - 1)) / XDL_SECTOR_BYTES) * XDL_SECTOR_BYTES;
@@ -685,6 +740,7 @@ CreateOutputFile32(
     workHdr.Segment[XDLSegmentIx_Other].mSectorCount = 0;
     fileSectors += (UINT_PTR)workHdr.Segment[XDLSegmentIx_Other].mSectorCount;
 
+#if 0
     printf("plot map:\n");
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
@@ -698,10 +754,12 @@ CreateOutputFile32(
 
     printf("xdlsec map:\n");
     printf(" Placement @ 0x%08X\n", (UINT_PTR)workHdr.mPlacement);
+#endif
     outOffset = 0;
     for (ixSec = XDLSegmentIx_Header; ixSec < XDLSegmentIx_Count; ixSec++)
     {
         K2_ASSERT(sectorOffset[ixSec] == outOffset);
+#if 0
         printf("%2d %s: @%08X z%08X @ %4d (%08X) for %4d (%08X) \n",
             ixSec,
             sSegName[ixSec],
@@ -711,6 +769,7 @@ CreateOutputFile32(
             (UINT_PTR)(outOffset * XDL_SECTOR_BYTES),
             (UINT_PTR)workHdr.Segment[ixSec].mSectorCount,
             (UINT_PTR)(workHdr.Segment[ixSec].mSectorCount * XDL_SECTOR_BYTES));
+#endif
         outOffset += workHdr.Segment[ixSec].mSectorCount;
     }
     K2_ASSERT(fileSectors == outOffset);
@@ -732,37 +791,35 @@ CreateOutputFile32(
 
     if ((!gOut.mUsePlacement) && (0 != importsCount))
     {
-       printf("IMPORTS:\n");
-       pImport = (XDL_IMPORT *)(pOutWork + pOutput->mImportsOffset);
-       for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
-       {
-           pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
-           if ((0 == (pSecHdr->sh_flags & SHF_ALLOC)) ||
-               (0 == pSecHdr->sh_size) ||
-               (SHT_PROGBITS != pSecHdr->sh_type))
-               continue;
-           if (XDL_ELF_SHF_TYPE_IMPORTS != (pSecHdr->sh_flags & XDL_ELF_SHF_TYPE_MASK))
-               continue;
-           K2_ASSERT(XDLSegmentIx_Header == pSecTarget[ixSec].mSegmentIx);
-           K2_ASSERT(pSecTarget[ixSec].mSegOffset == (UINT_PTR)(((UINT8 *)pImport) - pOutWork));
-           pSecTarget[ixSec].mpData = pOutWork + pSecTarget[ixSec].mSegOffset;
-           K2_ASSERT(((UINT8 *)pImport) == pSecTarget[ixSec].mpData);
-           pExpHdr = (XDL_EXPORTS_SEGMENT_HEADER const *)LoadAddrToDataPtr32(apParse, pSecHdr->sh_addr, NULL);
-           K2MEM_Copy(&pImport->ExpHdr, pExpHdr, sizeof(XDL_EXPORTS_SEGMENT_HEADER));
-           pImpName = ((char const *)pExpHdr) +
-               sizeof(XDL_EXPORTS_SEGMENT_HEADER) +
-               (pExpHdr->mCount * sizeof(XDL_EXPORT32_REF));
-           K2MEM_Copy(&pImport->ID, pImpName, sizeof(K2_GUID128));
-           pImpName += sizeof(K2_GUID128);
-           pImport->mNameLen = K2ASC_CopyLen(pImport->mName, pImpName, XDL_NAME_MAX_LEN);
-           pImport->mName[XDL_NAME_MAX_LEN] = 0;
-           pImport->mSectionFlags = pSecHdr->sh_flags;
-           pImport++;
-       }
+        pImport = (XDL_IMPORT *)(pOutWork + pOutput->mImportsOffset);
+        for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
+        {
+            pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
+            if ((0 == (pSecHdr->sh_flags & SHF_ALLOC)) ||
+                (0 == pSecHdr->sh_size) ||
+                (SHT_PROGBITS != pSecHdr->sh_type))
+                continue;
+            if (XDL_ELF_SHF_TYPE_IMPORTS != (pSecHdr->sh_flags & XDL_ELF_SHF_TYPE_MASK))
+                continue;
+            K2_ASSERT(XDLSegmentIx_Header == pSecTarget[ixSec].mSegmentIx);
+            K2_ASSERT(pSecTarget[ixSec].mSegOffset == (UINT_PTR)(((UINT8 *)pImport) - pOutWork));
+            pSecTarget[ixSec].mpData = pOutWork + pSecTarget[ixSec].mSegOffset;
+            K2_ASSERT(((UINT8 *)pImport) == pSecTarget[ixSec].mpData);
+            pExpHdr = (XDL_EXPORTS_SEGMENT_HEADER const *)LoadAddrToDataPtr32(apParse, pSecHdr->sh_addr, NULL);
+            K2MEM_Copy(&pImport->ExpHdr, pExpHdr, sizeof(XDL_EXPORTS_SEGMENT_HEADER));
+            pImpName = ((char const *)pExpHdr) +
+                sizeof(XDL_EXPORTS_SEGMENT_HEADER) +
+                (pExpHdr->mCount * sizeof(XDL_EXPORT32_REF));
+            K2MEM_Copy(&pImport->ID, pImpName, sizeof(K2_GUID128));
+            pImpName += sizeof(K2_GUID128);
+            pImport->mNameLen = K2ASC_CopyLen(pImport->mName, pImpName, XDL_NAME_MAX_LEN);
+            pImport->mName[XDL_NAME_MAX_LEN] = 0;
+            pImport->mSectionFlags = pSecHdr->sh_flags;
+            pImport++;
+        }
     }
     pOutWork += pOutput->Segment[XDLSegmentIx_Header].mSectorCount * XDL_SECTOR_BYTES;
 
-    printf("TEXT:\n");
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
         pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -785,7 +842,7 @@ CreateOutputFile32(
         {
             K2_ASSERT(0 == workHdr.mEntryPoint);
             workHdr.mEntryPoint = (UINT_PTR)((apParse->mpRawFileData->e_entry - pSecHdr->sh_addr) + pSecTarget[ixSec].mAddr);
-            printf("Translating entry point from 0x%08X to 0x%08X\n", apParse->mpRawFileData->e_entry, (UINT_PTR)workHdr.mEntryPoint);
+//            printf("Translating entry point from 0x%08X to 0x%08X\n", apParse->mpRawFileData->e_entry, (UINT_PTR)workHdr.mEntryPoint);
         }
 
         if (pSecHdr->sh_addr != pSecTarget[ixSec].mAddr)
@@ -811,7 +868,6 @@ CreateOutputFile32(
     }
     pOutWork += pOutput->Segment[XDLSegmentIx_Text].mSectorCount * XDL_SECTOR_BYTES;
 
-    printf("READ:\n");
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
         pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -849,7 +905,6 @@ CreateOutputFile32(
     }
     pOutWork += pOutput->Segment[XDLSegmentIx_Read].mSectorCount * XDL_SECTOR_BYTES;
 
-    printf("DATA:\n");
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
         pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -887,7 +942,6 @@ CreateOutputFile32(
     }
     pOutWork += pOutput->Segment[XDLSegmentIx_Data].mSectorCount * XDL_SECTOR_BYTES;
 
-    printf("SYMBOLS:\n");
     pSymTrack = new SymTrack[symInCount];
     if (NULL == pSymTrack)
     {
@@ -932,7 +986,7 @@ CreateOutputFile32(
             }
             else
             {
-                printf("tossing symbol with value 0x%08X in unused section 0x%04X %s\n", pSym->st_value, pSym->st_shndx, pSym->st_name ? (pSymStr + pSym->st_name) : "");
+//                printf("tossing symbol with value 0x%08X in unused section 0x%04X %s\n", pSym->st_value, pSym->st_shndx, pSym->st_name ? (pSymStr + pSym->st_name) : "");
             }
         }
         pSym = (Elf32_Sym const *)(((UINT8 const *)pSym) + symEntSize);
@@ -947,9 +1001,7 @@ CreateOutputFile32(
         // sh_link is symbol table to use
         // sh_info is target section
         //
-        printf("RELOCS:\n");
         K2MEM_Copy(pOutWork, &relSegHdr, sizeof(relSegHdr));
-        // text
         for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
         {
             pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -960,10 +1012,7 @@ CreateOutputFile32(
                 continue;
             K2_ASSERT(XDLSegmentIx_Relocs == pSecTarget[ixSec].mSegmentIx);
             pRelTargetSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (pSecHdr->sh_info * apParse->mSectionHeaderTableEntryBytes));
-            printf("Sec Addr %08X\n", pSecTarget[ixSec].mAddr);
-            printf("Seg Link %08X\n", (UINT_PTR)pOutput->Segment[XDLSegmentIx_Relocs].mLinkAddr);
-            pSecTarget[ixSec].mSegOffset = (UINT_PTR)(((UINT64)pSecTarget[ixSec].mAddr) - pOutput->Segment[XDLSegmentIx_Relocs].mLinkAddr);
-            printf("Target Offset %d (%08X)\n", pSecTarget[ixSec].mSegOffset, pSecTarget[ixSec].mSegOffset);
+            K2_ASSERT(pSecTarget[ixSec].mSegOffset == (UINT_PTR)(((UINT64)pSecTarget[ixSec].mAddr) - pOutput->Segment[XDLSegmentIx_Relocs].mLinkAddr));
             pSecTarget[ixSec].mpData = pOutWork + pSecTarget[ixSec].mSegOffset;
             K2MEM_Copy(pSecTarget[ixSec].mpData, LoadOffsetToDataPtr32(apParse, pSecHdr->sh_offset, NULL), pSecHdr->sh_size);
             pRel = (Elf32_Rel *)pSecTarget[ixSec].mpData;
@@ -990,121 +1039,40 @@ CreateOutputFile32(
 
     K2_ASSERT(pOutWork == (((UINT8 *)pOutput) + (fileSectors * XDL_SECTOR_BYTES)));
 
+    //
+    // set crcs everywhere
+    //
+    outOffset = pOutput->Segment[XDLSegmentIx_Header].mSectorCount;
+    for (ixSec = XDLSegmentIx_Text; ixSec < XDLSegmentIx_Count; ixSec++)
+    {
+        if (pOutput->Segment[ixSec].mSectorCount > 0)
+        {
+            pOutput->Segment[ixSec].mCrc32 = K2CRC_Calc32(0, ((UINT8 *)pOutput) + (outOffset * XDL_SECTOR_BYTES), (UINT_PTR)(pOutput->Segment[ixSec].mSectorCount * XDL_SECTOR_BYTES));
+            outOffset += pOutput->Segment[ixSec].mSectorCount;
+        }
+    }
+    K2_ASSERT(outOffset == fileSectors);
+    pOutput->Segment[XDLSegmentIx_Header].mCrc32 = K2CRC_Calc32(0, pOutput, (UINT_PTR)(pOutput->Segment[XDLSegmentIx_Header].mSectorCount * XDL_SECTOR_BYTES));
+    pOutput->mHeaderCrc32 = K2CRC_Calc32(0, &pOutput->mMarker, sizeof(XDL_FILE_HEADER) - sizeof(UINT32));
 
+    //
+    // write out the file now
+    //
+    HANDLE hFile = CreateFile(gOut.mpOutputFilePath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (NULL == hFile)
+    {
+        printf("*** Failed to create output file \"%s\"\n", gOut.mpOutputFilePath);
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
+    DWORD wrote = 0;
+    BOOL bOk = WriteFile(hFile, pOutput, fileSectors * XDL_SECTOR_BYTES, &wrote, NULL);
+    CloseHandle(hFile);
+    if ((!bOk) || (wrote != fileSectors * XDL_SECTOR_BYTES))
+    {
+        printf("*** Failed to write output file\n");
+        DeleteFile(gOut.mpOutputFilePath);
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
 
     return K2STAT_NO_ERROR; //  K2STAT_ERROR_NOT_IMPL;
 }
-
-#if 0
-    for (ixSym = 0; ixSym < symInCount; ixSym++)
-    {
-        if (STB_LOCAL != ELF32_ST_BIND(pSym->st_info))
-        {
-            if (0 != pSym->st_name)
-            {
-                pSymNode = new SymTreeNode;
-                if (NULL == pSymNode)
-                {
-                    printf("*** out of memory\n");
-                    return K2STAT_ERROR_OUT_OF_MEMORY;
-                }
-                K2MEM_Zero(pSymNode, sizeof(SymTreeNode));
-                pSymNode->mOldIx = ixSym;
-                pSymNode->mpSym = pSym;
-                pSymNode->TreeNode.mUserVal = (UINT_PTR)(pSymStr + pSym->st_name);
-                K2TREE_Insert(&symTree, pSymNode->TreeNode.mUserVal, &pSymNode->TreeNode);
-            }
-            else
-            {
-                printf("!!! Nameless global symbol at symbol table index %d\n", ixSym);
-            }
-        }
-        pSym = (Elf32_Sym const *)(((UINT8 const *)pSym) + symEntSize);
-    }
-
-    //
-    // find all symbols used for relocation
-    //
-    for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
-    {
-        pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
-        if ((0 != pSecHdr->sh_size) &&
-            (SHT_REL != pSecHdr->sh_type))
-            continue;
-        K2_ASSERT(pSecHdr->sh_link == symTabSecIx);
-        align = pSecHdr->sh_entsize;
-        if (0 == align)
-            align = sizeof(Elf32_Rel);
-        relCount = pSecHdr->sh_size / align;
-        if (0 == relCount)
-            continue;
-        pRel = (Elf32_Rel const *)(((UINT8 const *)apParse->mpRawFileData) + pSecHdr->sh_offset);
-        for (ixRel = 0; ixRel < relCount; ixRel++)
-        {
-            ixSym = ELF32_R_SYM(pRel->r_info);
-            if (0 != ixSym)
-            {
-                pSym = (Elf32_Sym const *)(((UINT8 const *)apParse->mpRawFileData) + pSymTabSecHdr->sh_offset + (symEntSize * ixSym));
-                if (0 != pSym->st_name)
-                {
-                    pTreeNode = K2TREE_Find(&symTree, (UINT_PTR)(pSymStr + pSym->st_name));
-                    if (NULL != pTreeNode)
-                    {
-                        pSymNode = K2_GET_CONTAINER(SymTreeNode, pTreeNode, TreeNode);
-                        pSymNode->mUsedInReloc = true;
-                        if ((0 != pSym->st_shndx) &&
-                            (pSym->st_shndx < apParse->mpRawFileData->e_shnum))
-                        {
-                            pTargetSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (pSym->st_shndx * apParse->mSectionHeaderTableEntryBytes));
-                            if ((pTargetSecHdr->sh_flags & XDL_ELF_SHF_TYPE_MASK) == XDL_ELF_SHF_TYPE_IMPORTS)
-                            {
-                                pSymNode->mImported = true;
-                            }
-                        }
-                    }
-                }
-            }
-            pRel = (Elf32_Rel const *)(((UINT8 const *)pRel) + align);
-        }
-    }
-
-    printf("Symbols used in relocations:\n");
-    pTreeNode = K2TREE_FirstNode(&symTree);
-    do {
-        pSymNode = K2_GET_CONTAINER(SymTreeNode, pTreeNode, TreeNode);
-        if (pSymNode->mUsedInReloc)
-        {
-            if (pSymNode->mImported)
-            {
-                pTargetSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (pSymNode->mpSym->st_shndx * apParse->mSectionHeaderTableEntryBytes));
-                UINT8 const *pImpDetail = LoadAddrToDataPtr32(apParse, pTargetSecHdr->sh_addr, NULL);
-                XDL_EXPORTS_SEGMENT_HEADER const * pExpSecHdr = (XDL_EXPORTS_SEGMENT_HEADER const *)pImpDetail;
-                pImpDetail += sizeof(XDL_EXPORTS_SEGMENT_HEADER);
-                pImpDetail += pExpSecHdr->mCount * sizeof(XDL_EXPORT32_REF);
-                pImpDetail += sizeof(K2_GUID128);
-                printf("  IMPORT %6d %s:%s\n",
-                    (pSymNode->mpSym->st_value - pTargetSecHdr->sh_addr) / sizeof(XDL_EXPORT32_REF),
-                    (char const *)pImpDetail,
-                    (char const *)pSymNode->TreeNode.mUserVal);
-            }
-            else
-            {
-                if ((0 != pSymNode->mpSym->st_shndx) &&
-                    (pSymNode->mpSym->st_shndx < apParse->mpRawFileData->e_shnum))
-                {
-                    printf("  %08X (%2d) %s\n",
-                        pSymNode->mpSym->st_value, pSymNode->mpSym->st_shndx,
-                        (char const *)pSymNode->TreeNode.mUserVal);
-                }
-                else
-                {
-                    printf("  %08X      %s\n", pSymNode->mpSym->st_value,
-                        (char const *)pSymNode->TreeNode.mUserVal);
-                }
-            }
-        }
-        pTreeNode = K2TREE_NextNode(&symTree, pTreeNode);
-    } while (NULL != pTreeNode);
-#endif
-
-    

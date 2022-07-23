@@ -247,7 +247,7 @@ int main(int argc, char **argv)
     {
         return Convert32();
     }
-    else if (pData[EI_CLASS] == ELFCLASS64)
+    if (pData[EI_CLASS] == ELFCLASS64)
     {
         return Convert64();
     }
