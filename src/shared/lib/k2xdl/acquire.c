@@ -32,6 +32,20 @@
 
 #include "ixdl.h"
 
+K2STAT
+IXDL_Acquire(
+    UINT_PTR            aContext,
+    char const *        apFilePath,
+    char const *        apName,
+    UINT_PTR            aNameLen,
+    K2_GUID128 const *  apMatchId,
+    XDL **              appRetXdl
+)
+{
+    return K2STAT_ERROR_NOT_IMPL;
+}
+
+
 K2STAT  
 XDL_Acquire(
     char const *apFilePath, 
@@ -39,5 +53,72 @@ XDL_Acquire(
     XDL **      appRetXdl
 )
 {
-    return K2STAT_ERROR_NOT_IMPL;
+    K2STAT          status;
+    XDL *           pXdl;
+    UINT32          nameLen;
+    char            ch;
+    char const *    pScan;
+
+    if ((apFilePath == NULL) || ((*apFilePath) == 0) || (appRetXdl == NULL))
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    *appRetXdl = NULL;
+
+    nameLen = 0;
+    pScan = apFilePath;
+    while (*pScan)
+        pScan++;
+    do
+    {
+        pScan--;
+        ch = *pScan;
+        if (ch == '.')
+            nameLen = 0;
+        else
+        {
+            if ((ch == '/') || (ch == '\\'))
+            {
+                pScan++;
+                break;
+            }
+            nameLen++;
+        }
+    } while (pScan != apFilePath);
+
+    if (nameLen == 0)
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    if (gpXdlGlobal->Host.CritSec != NULL)
+    {
+        status = gpXdlGlobal->Host.CritSec(TRUE);
+        if (K2STAT_IS_ERROR(status))
+        {
+            return status;
+        }
+    }
+
+    if (gpXdlGlobal->mAcqDisabled)
+    {
+        if (gpXdlGlobal->Host.CritSec != NULL)
+            gpXdlGlobal->Host.CritSec(FALSE);
+        return K2STAT_ERROR_API_ORDER;
+    }
+
+    K2LIST_Init(&gpXdlGlobal->AcqList);
+
+    status = IXDL_Acquire(aContext, apFilePath, pScan, nameLen, NULL, &pXdl);
+
+    if (gpXdlGlobal->Host.CritSec != NULL)
+        gpXdlGlobal->Host.CritSec(FALSE);
+
+    if (!K2STAT_IS_ERROR(status))
+    {
+        *appRetXdl = pXdl;
+    }
+
+    return status;
 }

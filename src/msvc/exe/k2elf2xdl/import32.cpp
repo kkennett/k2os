@@ -58,7 +58,7 @@ CreateImportLibrary32(
     UINT_PTR                            ixExp;
     char const *                        pExpStr;
     UINT_PTR                            totalExportCount;
-    UINT_PTR                            exportsStrSize[XDLExportType_Count];
+    UINT_PTR                            exportsStrSize[XDLProgDataType_Count];
     K2TREE_ANCHOR                       symTree;
     K2TREE_NODE *                       pTreeNode;
     WORKPTR                             workFile;
@@ -71,7 +71,7 @@ CreateImportLibrary32(
     UINT_PTR                            symStrSecSize;
     UINT_PTR                            totalExportsStrSize;
     UINT_PTR                            expSegBytes;
-    UINT_PTR                            outSecIx[XDLExportType_Count];
+    UINT_PTR                            outSecIx[XDLProgDataType_Count];
     UINT_PTR                            indexBytes;
     Elf_LibRec *                        pLibIndexRecord;
     UINT8 *                             pLibIndex;
@@ -84,7 +84,7 @@ CreateImportLibrary32(
     UINT_PTR                            ixSym;
     WORKPTR                             outSymStrBase;
     WORKPTR                             outSymStrWork;
-    XDL_EXPORTS_SEGMENT_HEADER *        pOutExpSeg[XDLExportType_Count];
+    XDL_EXPORTS_SEGMENT_HEADER *        pOutExpSeg[XDLProgDataType_Count];
     char *                              pOutStr;
     UINT8                               symType;
     HANDLE                              hFile;
@@ -99,7 +99,7 @@ CreateImportLibrary32(
     pSrcPtr = (UINT64 *)&gOut.mpElfAnchor->mAnchor[0];
     totalExportCount = 0;
     totalExportsStrSize = 0;
-    for (ixExpSec = 0; ixExpSec < XDLExportType_Count; ixExpSec++)
+    for (ixExpSec = 0; ixExpSec < XDLProgDataType_Count; ixExpSec++)
     {
         exportsStrSize[ixExpSec] = 0;
         if (pSrcPtr[ixExpSec] != 0)
@@ -205,7 +205,7 @@ CreateImportLibrary32(
     sectionCount++;
 
     // import sections and symbol index entry for library (stupidly necessary)
-    for (ixExpSec = 0; ixExpSec < XDLExportType_Count; ixExpSec++)
+    for (ixExpSec = 0; ixExpSec < XDLProgDataType_Count; ixExpSec++)
     {
         pExpHdr = gOut.mpElfExpSegHdr[ixExpSec];
         if (NULL != pExpHdr)
@@ -345,7 +345,7 @@ CreateImportLibrary32(
     work.mAsVal += pOutSecHdr[3].sh_size;
 
     // imports
-    for (ixExpSec = 0; ixExpSec < XDLExportType_Count; ixExpSec++)
+    for (ixExpSec = 0; ixExpSec < XDLProgDataType_Count; ixExpSec++)
     {
         pExpHdr = gOut.mpElfExpSegHdr[ixExpSec];
         if (NULL != pExpHdr)

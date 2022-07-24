@@ -35,7 +35,7 @@
 K2STAT  
 XDL_FindExport(
     XDL *           apXdl, 
-    XDLExportType   aType, 
+    XDLProgDataType   aType, 
     char const *    apName, 
     UINT_PTR *      apRetAddr
 )

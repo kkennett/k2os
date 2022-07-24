@@ -33,9 +33,55 @@
 #ifndef __IXDL_H
 #define __IXDL_H
 
+#include <k2systype.h>
+
+#include <lib/k2asc.h>
+#include <lib/k2mem.h>
+#include <lib/k2list.h>
+#include <lib/k2crc.h>
+#include <lib/k2elf.h>
+#include <lib/k2tree.h>
+
 #include "xdl_struct.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+#define XDL_SECTOR_SPARE_BYTES_COUNT  (XDL_SECTOR_BYTES - sizeof(XDL))
+typedef struct _XDL_SECTOR XDL_SECTOR;
+struct _XDL_SECTOR
+{
+    XDL                 Module;
+    UINT8               mSpare[XDL_SECTOR_SPARE_BYTES_COUNT];
+};
+K2_STATIC_ASSERT(sizeof(XDL_SECTOR) == XDL_SECTOR_BYTES);
+
+#define XDL_PAGE_HDRSECTORS_BYTES    ((XDL_SECTORS_PER_PAGE - 1) * XDL_SECTOR_BYTES)
+typedef struct _XDL_PAGE XDL_PAGE;
+struct _XDL_PAGE
+{
+    XDL_SECTOR  ModuleSector;
+    UINT8       mHdrSectorsBuffer[XDL_PAGE_HDRSECTORS_BYTES];
+};
+K2_STATIC_ASSERT(sizeof(XDL_PAGE) == K2_VA_MEMPAGE_BYTES);
+
+typedef struct _XDL_GLOBAL XDL_GLOBAL;
+struct _XDL_GLOBAL
+{
+    K2XDL_HOST      Host;
+    K2LIST_ANCHOR   LoadedList;
+    K2LIST_ANCHOR   AcqList;
+    BOOL            mAcqDisabled;
+    BOOL            mKeepSym;
+    BOOL            mHandedOff;
+};
+
+extern XDL_GLOBAL * gpXdlGlobal;
+
+#ifdef __cplusplus
+};  // extern "C"
+#endif
 
 
 #endif // __IXDL_H

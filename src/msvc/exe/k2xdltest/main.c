@@ -2,8 +2,6 @@
 #include <lib/k2mem.h>
 #include <lib/k2xdl.h>
 
-static char const * const sgpHostDir = "C:\\repo\\k2os\\bld\\out\\gcc\\xdl\\kern\\X32\\Debug\\";
-
 CRITICAL_SECTION gSec;
 
 K2STAT 
@@ -97,7 +95,7 @@ int main(int argc, char **argv)
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
     XDL *kernXdl;
-    stat = XDL_Acquire("k2oskern.xdl", 0, &kernXdl);
+    stat = XDL_Acquire("C:\\repo\\k2os\\bld\\out\\gcc\\xdl\\kern\\X32\\Debug\\k2oskern.xdl", 0, &kernXdl);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
     return stat;

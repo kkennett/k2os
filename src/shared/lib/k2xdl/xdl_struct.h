@@ -35,16 +35,39 @@
 
 #include <lib/k2xdl.h>
 
+#include <lib/k2list.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct _XDL
 {
-    XDL_FILE_HEADER                 FileHdr;        // must be first thing in structure
+    K2LIST_LINK                     ListLink;
+
+    UINT_PTR                        mLinkAddr;
+
+    INT_PTR                         mRefs;
+
+    XDL_FILE_HEADER *               mpHeader;
+    
+    XDL_IMPORT *                    mpImports;
+
     K2XDL_LOADCTX const *           mpLoadCtx;
-    K2XDL_SECTION_ADDRS             SectionAddrs;
+
+    K2XDL_SEGMENT_ADDRS             SegAddrs;
+
+    XDL_EXPORTS_SEGMENT_HEADER *    mpExpHdr[XDLProgDataType_Count];
+
     K2XDL_HOST_FILE                 mHostFile;
-    UINT_PTR                        mFileSectorCount;
-    XDL_EXPORTS_SEGMENT_HEADER *    mpExpHdr[XDLExportType_Count];
+    UINT64                          mHostFile_CurSector;
+    UINT64                          mHostFile_SectorCount;
 
-
+    K2TREE_ANCHOR                   SymTree[XDLProgDataType_Count];
 };
+
+#ifdef __cplusplus
+};  // extern "C"
+#endif
 
 #endif // __XDL_STRUCT_H

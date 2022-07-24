@@ -388,7 +388,7 @@ CreateOutputFile32(
     // set exports offsets in read-only section
     //
     pSrcPtr = (UINT64 *)&gOut.mpElfAnchor->mAnchor[0];
-    for (ixSec = 0; ixSec < XDLExportType_Count; ixSec++)
+    for (ixSec = 0; ixSec < XDLProgDataType_Count; ixSec++)
     {
         if (0 != pSrcPtr[ixSec] != 0)
         {

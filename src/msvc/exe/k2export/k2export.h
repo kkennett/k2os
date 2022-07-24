@@ -126,7 +126,7 @@ struct _OUTCTX
 
     K2_GUID128              Id;
 
-    EXPSECT                 mOutSeg[XDLExportType_Count];
+    EXPSECT                 mOutSeg[XDLProgDataType_Count];
 
     UINT_PTR                mTotalExports;          // for all mOutSeg
 

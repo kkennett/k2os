@@ -51,21 +51,21 @@ typedef struct _XDL XDL;
 #define XDL_ELF_SHF_TYPE_EXPORTS    0x00100000
 #define XDL_ELF_SHF_TYPE_IMPORTS    0x00200000
 
-enum _XDLExportType
+enum _XDLProgDataType
 {
-    XDLExport_Text,
-    XDLExport_Read,
-    XDLExport_Data,
+    XDLProgData_Text,
+    XDLProgData_Read,
+    XDLProgData_Data,
 
-    XDLExportType_Count
+    XDLProgDataType_Count
 };
-typedef enum _XDLExportType XDLExportType;
+typedef enum _XDLProgDataType XDLProgDataType;
 
 K2_PACKED_PUSH
 typedef struct _XDL_ELF_ANCHOR XDL_ELF_ANCHOR;
 struct _XDL_ELF_ANCHOR
 {
-    UINT64      mAnchor[XDLExportType_Count]; 
+    UINT64      mAnchor[XDLProgDataType_Count]; 
     K2_GUID128  Id;
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
@@ -136,7 +136,7 @@ struct _XDL_FILE_HEADER
 
     K2_GUID128          Id;
 
-    UINT64              mReadExpOffset[XDLExportType_Count];
+    UINT64              mReadExpOffset[XDLProgDataType_Count];
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
 K2_STATIC_ASSERT(XDL_SECTOR_BYTES >= sizeof(XDL_FILE_HEADER));
@@ -214,7 +214,7 @@ K2STAT K2_CALLCONV_REGS xdl_entry(XDL *apXdl, UINT_PTR aReason);
 K2STAT  XDL_Acquire(char const *apFilePath, UINT_PTR aContext, XDL **appRetXdl);
 K2STAT  XDL_Release(XDL *apXdl);
 K2STAT  XDL_GetHeaderPtr(XDL *apXdl, XDL_FILE_HEADER const **appRetHeaderPtr);
-K2STAT  XDL_FindExport(XDL *apXdl, XDLExportType aType, char const *apName, UINT_PTR *apRetAddr);
+K2STAT  XDL_FindExport(XDL *apXdl, XDLProgDataType aType, char const *apName, UINT_PTR *apRetAddr);
 K2STAT  XDL_AcquireContaining(UINT_PTR aAddr, XDL **appRetXdl, UINT_PTR *apRetSegment);
 K2STAT  XDL_FindAddrName(UINT_PTR aAddr, char *apRetNameBuffer, UINT_PTR aBufferLen);
 
