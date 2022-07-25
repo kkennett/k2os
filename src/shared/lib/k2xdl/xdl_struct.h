@@ -41,27 +41,29 @@
 extern "C" {
 #endif
 
+#define XDL_FLAG_FULLY_LOADED     1
+#define XDL_FLAG_PERMANENT        2
+#define XDL_FLAG_ENTRY_CALLED     4
+#define XDL_FLAG_KEEP_SYMBOLS     8
+
 struct _XDL
 {
     K2LIST_LINK                     ListLink;
 
-    UINT_PTR                        mLinkAddr;
-
     INT_PTR                         mRefs;
+
+    UINT_PTR                        mFlags;
 
     XDL_FILE_HEADER *               mpHeader;
     
     XDL_IMPORT *                    mpImports;
 
-    K2XDL_LOADCTX const *           mpLoadCtx;
+    K2XDL_LOADCTX *                 mpLoadCtx;
+    K2XDL_OPENRESULT *              mpOpenResult;
 
     K2XDL_SEGMENT_ADDRS             SegAddrs;
 
     XDL_EXPORTS_SEGMENT_HEADER *    mpExpHdr[XDLProgDataType_Count];
-
-    K2XDL_HOST_FILE                 mHostFile;
-    UINT64                          mHostFile_CurSector;
-    UINT64                          mHostFile_SectorCount;
 
     K2TREE_ANCHOR                   SymTree[XDLProgDataType_Count];
 };

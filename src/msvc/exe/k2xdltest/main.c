@@ -21,10 +21,10 @@ myCritSec(
     return K2STAT_NO_ERROR;
 }
 
-K2STAT 
+K2STAT
 myOpen(
-    K2XDL_LOADCTX const *   apLoadCtx, 
-    K2XDL_OPENRESULT *      apRetResult
+    K2XDL_LOADCTX const *   apLoadCtx,
+    K2XDL_OPENRESULT *      apResult
 )
 {
     return K2STAT_ERROR_NOT_IMPL;
@@ -33,7 +33,6 @@ myOpen(
 K2STAT 
 myReadSectors(
     K2XDL_LOADCTX const *   apLoadCtx, 
-    K2XDL_HOST_FILE         aHostFile, 
     void *                  apBuffer, 
     UINT_PTR                aSectorCount
 )
@@ -44,10 +43,29 @@ myReadSectors(
 K2STAT 
 myPrepare(
     K2XDL_LOADCTX const *   apLoadCtx, 
-    K2XDL_HOST_FILE         aHostFile, 
     XDL_FILE_HEADER const * apFileHdr, 
     BOOL                    aKeepSymbols, 
-    K2XDL_SECTION_ADDRS *   apRetSectionDataAddrs
+    K2XDL_SEGMENT_ADDRS *   apRetSegmentDataAddrs
+)
+{
+    return K2STAT_ERROR_NOT_IMPL;
+}
+
+K2STAT
+myPreCallback(
+    K2XDL_LOADCTX const *   apLoadCtx,
+    BOOL aIsLoad,
+    XDL *apXdl
+)
+{
+    return K2STAT_ERROR_NOT_IMPL;
+}
+
+K2STAT
+myPostCallback(
+    K2XDL_LOADCTX const *   apLoadCtx,
+    K2STAT                  aUserStatus,
+    XDL *                   apXdl
 )
 {
     return K2STAT_ERROR_NOT_IMPL;
@@ -56,8 +74,7 @@ myPrepare(
 K2STAT 
 myFinalize(
     K2XDL_LOADCTX const *   apLoadCtx, 
-    K2XDL_HOST_FILE         aHostFile, 
-    K2XDL_SECTION_ADDRS *   apRetSectionDataAddrs
+    K2XDL_SEGMENT_ADDRS *   apRetSegmentDataAddrs
 )
 {
     return K2STAT_ERROR_NOT_IMPL;
@@ -65,10 +82,20 @@ myFinalize(
 
 K2STAT 
 myPurge(
-    K2XDL_HOST_FILE aHostFile
+    K2XDL_OPENRESULT const *    apOpenResult
 )
 {
     return K2STAT_ERROR_NOT_IMPL;
+}
+
+void
+myAtReInit(
+    XDL *               apXdl,
+    UINT_PTR            aModulePageLinkAddr,
+    K2XDL_HOST_FILE *   apInOutHostFile
+)
+{
+
 }
 
 K2XDL_HOST gHost;
@@ -86,11 +113,14 @@ int main(int argc, char **argv)
     gHost.Open = myOpen;
     gHost.ReadSectors = myReadSectors;
     gHost.Prepare = myPrepare;
+    gHost.PreCallback = myPreCallback;
+    gHost.PostCallback = myPostCallback;
     gHost.Finalize = myFinalize;
     gHost.Purge = myPurge;
+    gHost.AtReInit = myAtReInit;
 
     pAlloc = malloc(K2_VA_MEMPAGE_BYTES * 2);
-    pPage = (UINT8 *)((((UINT_PTR)pAlloc) + (K2_VA_MEMPAGE_BYTES - 1) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES);
+    pPage = (UINT8 *)(((((UINT_PTR)pAlloc) + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES);
     stat = K2XDL_Init(pPage, &gHost, TRUE, FALSE);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 

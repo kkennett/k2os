@@ -32,9 +32,17 @@
 
 #include "ixdl.h"
 
+void
+IXDL_ReleaseModule(
+    XDL *   apXdl
+)
+{
+
+}
+
 K2STAT  
 XDL_Release(
-    XDL *apXdl
+    XDL *   apXdl
 )
 {
     return K2STAT_ERROR_NOT_IMPL;

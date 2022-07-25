@@ -145,6 +145,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\shared\inc\lib\k2xdl.h" />
     <ClInclude Include="..\..\..\shared\lib\k2xdl\ixdl.h" />
+    <ClInclude Include="..\..\..\shared\lib\k2xdl\xdl_struct.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\shared\lib\k2xdl\acqcontain.c" />

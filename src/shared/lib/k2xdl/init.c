@@ -88,7 +88,7 @@ K2XDL_Init(
         while (pListLink != NULL)
         {
             pXdl = K2_GET_CONTAINER(XDL, pListLink, ListLink);
-            K2_ASSERT(pXdl->mLinkAddr == (UINT32)pXdl);
+            K2_ASSERT(pXdl->mpOpenResult->mModulePageLinkAddr == (UINT32)pXdl);
             for (ixTree = 0; ixTree < XDLProgDataType_Count; ixTree++)
                 pXdl->SymTree[ixTree].mfCompareKeyToNode = treeAnchor.mfCompareKeyToNode;
             pListLink = pListLink->mpNext;
@@ -103,7 +103,7 @@ K2XDL_Init(
             while (pListLink != NULL)
             {
                 pXdl = K2_GET_CONTAINER(XDL, pListLink, ListLink);
-                gpXdlGlobal->Host.AtReInit(pXdl, pXdl->mLinkAddr, &pXdl->mHostFile);
+                gpXdlGlobal->Host.AtReInit(pXdl, pXdl->mpOpenResult->mModulePageLinkAddr, NULL);
                 pListLink = pListLink->mpNext;
             }
         }
