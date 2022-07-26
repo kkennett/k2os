@@ -88,7 +88,7 @@ K2XDL_Init(
         while (pListLink != NULL)
         {
             pXdl = K2_GET_CONTAINER(XDL, pListLink, ListLink);
-            K2_ASSERT(pXdl->mpLoadCtx->mModulePageLinkAddr == (UINT32)pXdl);
+            K2_ASSERT(pXdl->mpLoadCtx->mModulePageLinkAddr == (UINT64)pXdl);
             for (ixTree = 0; ixTree < XDLProgDataType_Count; ixTree++)
                 pXdl->SymTree[ixTree].mfCompareKeyToNode = treeAnchor.mfCompareKeyToNode;
             pListLink = pListLink->mpNext;

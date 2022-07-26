@@ -57,9 +57,9 @@ IXDL_Prep(
         return K2STAT_ERROR_NOT_IMPL;
 
     temp.OpenArgs.mAcqContext = aContext;
-    temp.OpenArgs.mpFilePath = apFilePath;
-    temp.OpenArgs.mpNamePart = apName;
-    temp.OpenArgs.mNameLen = aNameLen;
+    temp.OpenArgs.mPathAddr = (UINT64)apFilePath;
+    temp.OpenArgs.mPathNameOffset = (UINT16)(apName - apFilePath);
+    temp.OpenArgs.mNameLen = (UINT16)aNameLen;
     temp.mHostFile = 0;
     temp.mModulePageDataAddr = 0;
     temp.mModulePageLinkAddr = 0;

@@ -50,9 +50,9 @@ struct _XDL
 {
     K2LIST_LINK                     ListLink;
 
-    INT_PTR                         mRefs;
+    INT32                           mRefs;
 
-    UINT_PTR                        mFlags;
+    UINT32                          mFlags;
 
     XDL_FILE_HEADER *               mpHeader;
     
