@@ -23,8 +23,21 @@ myCritSec(
 
 K2STAT
 myOpen(
+    K2XDL_OPENARGS const *  apArgs, 
+    K2XDL_HOST_FILE *       appRetHostFile, 
+    UINT_PTR *              apRetModuleDataAddr, 
+    UINT_PTR *              apRetModuleLinkAddr
+)
+{
+    return K2STAT_ERROR_NOT_IMPL;
+}
+
+K2STAT
+myResizeCopyModulePage(
     K2XDL_LOADCTX const *   apLoadCtx,
-    K2XDL_OPENRESULT *      apResult
+    UINT_PTR                aNewPageCount,
+    UINT_PTR *              apRetNewModuleDataAddr,
+    UINT_PTR *              apRetNewModuleLinkAddr
 )
 {
     return K2STAT_ERROR_NOT_IMPL;
@@ -34,7 +47,7 @@ K2STAT
 myReadSectors(
     K2XDL_LOADCTX const *   apLoadCtx, 
     void *                  apBuffer, 
-    UINT_PTR                aSectorCount
+    UINT64 const *          apSectorCount
 )
 {
     return K2STAT_ERROR_NOT_IMPL;
@@ -82,7 +95,7 @@ myFinalize(
 
 K2STAT 
 myPurge(
-    K2XDL_OPENRESULT const *    apOpenResult
+    K2XDL_LOADCTX const *   apLoadCtx
 )
 {
     return K2STAT_ERROR_NOT_IMPL;

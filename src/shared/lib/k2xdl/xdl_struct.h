@@ -59,7 +59,6 @@ struct _XDL
     XDL_IMPORT *                    mpImports;
 
     K2XDL_LOADCTX *                 mpLoadCtx;
-    K2XDL_OPENRESULT *              mpOpenResult;
 
     K2XDL_SEGMENT_ADDRS             SegAddrs;
 

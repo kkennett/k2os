@@ -48,13 +48,12 @@
 extern "C" {
 #endif
 
-#define XDL_SECTOR_SPARE_BYTES_COUNT  (XDL_SECTOR_BYTES - (sizeof(XDL) + sizeof(K2XDL_LOADCTX) + sizeof(K2XDL_OPENRESULT)))
+#define XDL_SECTOR_SPARE_BYTES_COUNT  (XDL_SECTOR_BYTES - (sizeof(XDL) + sizeof(K2XDL_LOADCTX)))
 typedef struct _XDL_SECTOR XDL_SECTOR;
 struct _XDL_SECTOR
 {
     XDL                 Module;
     K2XDL_LOADCTX       LoadCtx;
-    K2XDL_OPENRESULT    OpenResult;
     UINT8               mSpare[XDL_SECTOR_SPARE_BYTES_COUNT];
 };
 K2_STATIC_ASSERT(sizeof(XDL_SECTOR) == XDL_SECTOR_BYTES);

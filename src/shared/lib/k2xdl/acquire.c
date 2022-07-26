@@ -43,71 +43,155 @@ IXDL_Prep(
 )
 {
     K2STAT              stat;
-    K2XDL_OPENRESULT    openResult;
     XDL_PAGE *          pPage;
     XDL *               pXdl;
     K2XDL_LOADCTX       temp;
+    UINT_PTR            segIx;
+    UINT32              crc32;
+    XDL_FILE_HEADER *   pHeader;
+    UINT64              secLeft;
+    UINT_PTR            importCount;
 
     if ((NULL == gpXdlGlobal->Host.Open) ||
         (NULL == gpXdlGlobal->Host.ReadSectors))
         return K2STAT_ERROR_NOT_IMPL;
+
+    temp.OpenArgs.mAcqContext = aContext;
+    temp.OpenArgs.mpFilePath = apFilePath;
+    temp.OpenArgs.mpNamePart = apName;
+    temp.OpenArgs.mNameLen = aNameLen;
+    temp.mHostFile = 0;
+    temp.mModulePageDataAddr = 0;
+    temp.mModulePageLinkAddr = 0;
+
+    stat = gpXdlGlobal->Host.Open(&temp.OpenArgs, &temp.mHostFile, &temp.mModulePageDataAddr, &temp.mModulePageLinkAddr);
+    if (K2STAT_IS_ERROR(stat))
+        return stat;
+
+    do {
+        if ((0 == temp.mModulePageDataAddr) ||
+            (0 == temp.mModulePageLinkAddr))
+        {
+            stat = K2STAT_ERROR_INCOMPLETE;
+            break;
+        }
+        if ((0 != (K2_VA_MEMPAGE_OFFSET_MASK & temp.mModulePageDataAddr)) ||
+            (0 != (K2_VA_MEMPAGE_OFFSET_MASK & temp.mModulePageLinkAddr)))
+        {
+            stat = K2STAT_ERROR_BAD_ALIGNMENT;
+            break;
+        }
+
+        pPage = (XDL_PAGE *)temp.mModulePageDataAddr;
+
+        pXdl = &pPage->ModuleSector.Module;
+
+        K2MEM_Zero(pXdl, sizeof(XDL));
+        pXdl->mFlags = gpXdlGlobal->mKeepSym ? XDL_FLAG_KEEP_SYMBOLS : 0;
+        pXdl->mpLoadCtx = &pPage->ModuleSector.LoadCtx;
+        pXdl->mRefs = 1;
+        K2MEM_Copy(pXdl->mpLoadCtx, &temp, sizeof(K2XDL_LOADCTX));
+        for (segIx = 0; segIx < XDLProgDataType_Count; segIx++)
+        {
+            K2TREE_Init(&pXdl->SymTree[segIx], NULL);
+        }
+
+        secLeft = 1;
+        stat = gpXdlGlobal->Host.ReadSectors(pXdl->mpLoadCtx, pPage->mHdrSectorsBuffer, &secLeft);
+        if (K2STAT_IS_ERROR(stat))
+            break;
+
+        pHeader = pXdl->mpHeader = (XDL_FILE_HEADER *)pPage->mHdrSectorsBuffer;
+        if (pHeader->mMarker != XDL_FILE_HEADER_MARKER)
+        {
+            stat = K2STAT_ERROR_BAD_FORMAT;
+            break;
+        }
+
+        crc32 = K2CRC_Calc32(0, &pHeader->mMarker, sizeof(XDL_FILE_HEADER) - sizeof(UINT32));
+        if (crc32 != pHeader->mHeaderCrc32)
+        {
+            stat = K2STAT_ERROR_CORRUPTED;
+            break;
+        }
+        pHeader->mHeaderCrc32 = 0;
+
+        if (pHeader->mHeaderBytes < sizeof(XDL_FILE_HEADER))
+        {
+            stat = K2STAT_ERROR_TOO_SMALL;
+            break;
+        }
+
+        if (pHeader->mImportsOffset < sizeof(XDL_FILE_HEADER))
+        {
+            stat = K2STAT_ERROR_BAD_FORMAT;
+            break;
+        }
+
+        if (pHeader->mNameLen > XDL_NAME_MAX_LEN)
+        {
+            stat = K2STAT_ERROR_TOO_BIG;
+            break;
+        }
+
+        secLeft = pHeader->Segment[XDLSegmentIx_Header].mSectorCount;
+        if (0 == secLeft)
+        {
+            stat = K2STAT_ERROR_TOO_SMALL;
+            break;
+        }
+        secLeft--;  // we read a sector already
+        if (0 != secLeft)
+        {
+            //
+            // need more sectors to complete header segment
+            //
+            if (secLeft > 2)
+            {
+                //
+                // need to resize xdl header segment in memory to hold the extra sectors
+                // +1 for one we already loaded
+                // +1 for tracking at start of pages
+                //
+                segIx = (UINT_PTR)((((secLeft + 2) * XDL_SECTOR_BYTES) + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES);
+                stat = gpXdlGlobal->Host.ResizeCopyModulePage(
+                    &temp,
+                    segIx,
+                    &temp.mModulePageDataAddr,
+                    &temp.mModulePageLinkAddr
+                );
+                if (K2STAT_IS_ERROR(stat))
+                {
+                    break;
+                }
+
+                pPage = (XDL_PAGE *)temp.mModulePageDataAddr;
+                pXdl = &pPage->ModuleSector.Module;
+                pXdl->mpLoadCtx = &pPage->ModuleSector.LoadCtx;
+                K2MEM_Copy(pXdl->mpLoadCtx, &temp, sizeof(K2XDL_LOADCTX));
+                pHeader = pXdl->mpHeader = (XDL_FILE_HEADER *)pPage->mHdrSectorsBuffer;
+            }
+
+            stat = gpXdlGlobal->Host.ReadSectors(pXdl->mpLoadCtx, ((UINT8 *)pHeader) + XDL_SECTOR_BYTES, &secLeft);
+            if (K2STAT_IS_ERROR(stat))
+                break;
+        }
+
+        pXdl->mpImports = (XDL_IMPORT *)(((UINT8 *)pHeader) + pHeader->mImportsOffset);
+        importCount = (UINT_PTR)(pHeader->Segment[XDLSegmentIx_Header].mMemActualBytes - pHeader->mImportsOffset);
+        importCount /= sizeof(XDL_IMPORT);
+
+    } while (0);
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        if (NULL != gpXdlGlobal->Host.Purge)
+            gpXdlGlobal->Host.Purge(&temp);
+    }
+
     K2MEM_Zero(&temp, sizeof(temp));
-    temp.mAcqContext = aContext;
-    temp.mpFilePath = apFilePath;
-    temp.mpNamePart = apName;
-    temp.mNameLen = aNameLen;
-    stat = gpXdlGlobal->Host.Open(&temp, &openResult);
-    if (K2STAT_IS_ERROR(stat))
-        return stat;
 
-    if (0 == openResult.mFileSectorCount)
-    {
-        stat = K2STAT_ERROR_BAD_SIZE;
-    }
-    else if ((0 == openResult.mModulePageDataAddr) ||
-             (0 == openResult.mModulePageLinkAddr))
-    {
-        stat = K2STAT_ERROR_INCOMPLETE;
-    }
-    else if ((0 != (K2_VA_MEMPAGE_OFFSET_MASK & openResult.mModulePageDataAddr)) ||
-             (0 != (K2_VA_MEMPAGE_OFFSET_MASK & openResult.mModulePageLinkAddr)))
-    {
-        stat = K2STAT_ERROR_BAD_ALIGNMENT;
-    }
-    else
-    {
-        stat = K2STAT_NO_ERROR;
-    }
-    if (K2STAT_IS_ERROR(stat))
-    {
-        if (NULL != gpXdlGlobal->Host.Purge)
-            gpXdlGlobal->Host.Purge(&openResult);
-        return stat;
-    }
-
-    pPage = (XDL_PAGE *)openResult.mModulePageDataAddr;
-
-    pXdl = &pPage->ModuleSector.Module;
-
-    K2MEM_Zero(pXdl, sizeof(XDL));
-    pXdl->mpLoadCtx = &pPage->ModuleSector.LoadCtx;
-    pXdl->mpOpenResult = &pPage->ModuleSector.OpenResult;
-    pXdl->mFlags = gpXdlGlobal->mKeepSym ? XDL_FLAG_KEEP_SYMBOLS : 0;
-    K2MEM_Copy(pXdl->mpLoadCtx, &temp, sizeof(K2XDL_LOADCTX));
-    K2MEM_Copy(pXdl->mpOpenResult, &openResult, sizeof(openResult));
-
-    stat = gpXdlGlobal->Host.ReadSectors(pXdl->mpLoadCtx, pPage->mHdrSectorsBuffer, 1);
-    if (K2STAT_IS_ERROR(stat))
-    {
-        if (NULL != gpXdlGlobal->Host.Purge)
-            gpXdlGlobal->Host.Purge(&openResult);
-        return stat;
-    }
-
-
-
-
-    return K2STAT_ERROR_NOT_IMPL;
+    return stat;
 }
 
 K2STAT
