@@ -33,7 +33,19 @@
 #include "ixdl.h"
 
 K2STAT
+IXDL_Acquire(
+    K2XDL_LOADCTX *     apParentLoadCtx,
+    UINT_PTR            aContext,
+    char const *        apFilePath,
+    char const *        apName,
+    UINT_PTR            aNameLen,
+    K2_GUID128 const *  apMatchId,
+    XDL **              appRetXdl
+);
+
+K2STAT
 IXDL_Prep(
+    K2XDL_LOADCTX *     apParentLoadCtx,
     UINT_PTR            aContext,
     char const *        apFilePath,
     char const *        apName,
@@ -51,15 +63,19 @@ IXDL_Prep(
     XDL_FILE_HEADER *   pHeader;
     UINT64              secLeft;
     UINT_PTR            importCount;
+    XDL_FILE_SEGMENT    saveSeg;
+    XDL_IMPORT *        pImport;
+    XDL *               pSubXdl;
 
     if ((NULL == gpXdlGlobal->Host.Open) ||
         (NULL == gpXdlGlobal->Host.ReadSectors))
         return K2STAT_ERROR_NOT_IMPL;
 
+    temp.OpenArgs.mpParentLoadCtx = apParentLoadCtx;
     temp.OpenArgs.mAcqContext = aContext;
-    temp.OpenArgs.mPathAddr = (UINT64)apFilePath;
-    temp.OpenArgs.mPathNameOffset = (UINT16)(apName - apFilePath);
-    temp.OpenArgs.mNameLen = (UINT16)aNameLen;
+    temp.OpenArgs.mpPath = apFilePath;
+    temp.OpenArgs.mpNamePart = apName;
+    temp.OpenArgs.mNameLen = aNameLen;
     temp.mHostFile = 0;
     temp.mModulePageDataAddr = 0;
     temp.mModulePageLinkAddr = 0;
@@ -67,6 +83,8 @@ IXDL_Prep(
     stat = gpXdlGlobal->Host.Open(&temp.OpenArgs, &temp.mHostFile, &temp.mModulePageDataAddr, &temp.mModulePageLinkAddr);
     if (K2STAT_IS_ERROR(stat))
         return stat;
+
+    pXdl = NULL;
 
     do {
         if ((0 == temp.mModulePageDataAddr) ||
@@ -89,7 +107,6 @@ IXDL_Prep(
         K2MEM_Zero(pXdl, sizeof(XDL));
         pXdl->mFlags = gpXdlGlobal->mKeepSym ? XDL_FLAG_KEEP_SYMBOLS : 0;
         pXdl->mpLoadCtx = &pPage->ModuleSector.LoadCtx;
-        pXdl->mRefs = 1;
         K2MEM_Copy(pXdl->mpLoadCtx, &temp, sizeof(K2XDL_LOADCTX));
         for (segIx = 0; segIx < XDLProgDataType_Count; segIx++)
         {
@@ -115,6 +132,16 @@ IXDL_Prep(
             break;
         }
         pHeader->mHeaderCrc32 = 0;
+
+        if ((NULL != apMatchId) &&
+            (0 != K2MEM_Compare(&pHeader->Id, apMatchId, sizeof(K2_GUID128))))
+        {
+            //
+            // must match id, and it does not
+            //
+            stat = K2STAT_ERROR_REJECTED;
+            break;
+        }
 
         if (pHeader->mHeaderBytes < sizeof(XDL_FILE_HEADER))
         {
@@ -181,12 +208,107 @@ IXDL_Prep(
         importCount = (UINT_PTR)(pHeader->Segment[XDLSegmentIx_Header].mMemActualBytes - pHeader->mImportsOffset);
         importCount /= sizeof(XDL_IMPORT);
 
+        if (NULL == gpXdlGlobal->Host.Prepare)
+        {
+            stat = K2STAT_ERROR_NOT_IMPL;
+            break;
+        }
+
+        //
+        // remove header segment to not confuse implementer of prepare
+        //
+        K2MEM_Copy(&saveSeg, &pHeader->Segment[XDLSegmentIx_Header], sizeof(XDL_FILE_SEGMENT));
+        K2MEM_Zero(&pHeader->Segment[XDLSegmentIx_Header], sizeof(XDL_FILE_SEGMENT));
+
+        stat = gpXdlGlobal->Host.Prepare(
+            pXdl->mpLoadCtx, 
+            pHeader, 
+            gpXdlGlobal->mKeepSym, 
+            &pXdl->SegAddrs
+        );
+
+        if (K2STAT_IS_ERROR(stat))
+            break;
+
+        for (segIx = XDLSegmentIx_Text; segIx < XDLSegmentIx_Other; segIx++)
+        {
+            if (0 != pHeader->Segment[segIx].mMemActualBytes)
+            {
+                if (0 == pXdl->SegAddrs.mSegAddr[segIx])
+                {
+                    break;
+                }
+            }
+            else
+            {
+                if (0 != pXdl->SegAddrs.mSegAddr[segIx])
+                {
+                    break;
+                }
+            }
+        }
+        if (segIx < XDLSegmentIx_Other)
+        {
+            stat = K2STAT_ERROR_BAD_SIZE;
+            break;
+        }
+
+        //
+        // put header segment back now
+        //
+        pXdl->SegAddrs.mSegAddr[XDLSegmentIx_Header] = (UINT64)pHeader;
+        K2MEM_Copy(&pHeader->Segment[XDLSegmentIx_Header], &saveSeg, sizeof(XDL_FILE_SEGMENT));
+
+        //
+        // set points to eventual exports if they are utilized
+        //
+        for (segIx = 0; segIx < XDLProgDataType_Count; segIx++)
+        {
+            if (0 != pHeader->mReadExpOffset[segIx])
+            {
+                pXdl->mpExpHdr[segIx] = (XDL_EXPORTS_SEGMENT_HEADER *)
+                    ((UINT_PTR)(pXdl->SegAddrs.mSegAddr[XDLSegmentIx_Read] +
+                        pHeader->mReadExpOffset[segIx]));
+            }
+        }
+
+        pImport = pXdl->mpImports;
+        for (segIx = 0; segIx < importCount; segIx++)
+        {
+            stat = IXDL_Acquire(
+                pXdl->mpLoadCtx,
+                aContext, 
+                pImport->mName, 
+                pImport->mName, 
+                pImport->mNameLen, 
+                &pImport->ID, 
+                &pSubXdl);
+
+            if (K2STAT_IS_ERROR(stat))
+                break;
+            pImport->mReserved = (UINT64)pSubXdl;
+            pImport++;
+        }
+        if ((K2STAT_IS_ERROR(stat)) && (segIx > 0))
+        {
+            do {
+                --segIx;
+                pImport--;
+                IXDL_ReleaseModule((XDL *)pImport->mReserved);
+            } while (segIx > 0);
+        }
+
     } while (0);
 
     if (K2STAT_IS_ERROR(stat))
     {
         if (NULL != gpXdlGlobal->Host.Purge)
             gpXdlGlobal->Host.Purge(&temp);
+    }
+    else
+    {
+        pXdl->mRefs = 1;
+        *appRetXdl = pXdl;
     }
 
     K2MEM_Zero(&temp, sizeof(temp));
@@ -238,6 +360,7 @@ IXDL_FindModuleOnList(
 
 K2STAT
 IXDL_Acquire(
+    K2XDL_LOADCTX *     apParentLoadCtx,
     UINT_PTR            aContext,
     char const *        apFilePath,
     char const *        apName,
@@ -280,7 +403,7 @@ IXDL_Acquire(
         }
     }
 
-    status = IXDL_Prep(aContext, apFilePath, apFilePath, aNameLen, apMatchId, appRetXdl);
+    status = IXDL_Prep(apParentLoadCtx, aContext, apFilePath, apFilePath, aNameLen, apMatchId, appRetXdl);
     if (K2STAT_IS_ERROR(status))
     {
         *appRetXdl = NULL;
@@ -372,7 +495,7 @@ XDL_Acquire(
 
     K2LIST_Init(&gpXdlGlobal->AcqList);
 
-    status = IXDL_Acquire(aContext, apFilePath, pScan, nameLen, NULL, &pXdl);
+    status = IXDL_Acquire(NULL, aContext, apFilePath, pScan, nameLen, NULL, &pXdl);
 
     if (gpXdlGlobal->Host.CritSec != NULL)
         gpXdlGlobal->Host.CritSec(FALSE);

@@ -25,8 +25,8 @@ K2STAT
 myOpen(
     K2XDL_OPENARGS const *  apArgs, 
     K2XDL_HOST_FILE *       appRetHostFile, 
-    UINT64 *                apRetModuleDataAddr, 
-    UINT64 *                apRetModuleLinkAddr
+    UINT_PTR *              apRetModuleDataAddr, 
+    UINT_PTR *              apRetModuleLinkAddr
 )
 {
     return K2STAT_ERROR_NOT_IMPL;
@@ -36,8 +36,8 @@ K2STAT
 myResizeCopyModulePage(
     K2XDL_LOADCTX const *   apLoadCtx,
     UINT_PTR                aNewPageCount,
-    UINT64 *                apRetNewModuleDataAddr,
-    UINT64 *                apRetNewModuleLinkAddr
+    UINT_PTR *              apRetNewModuleDataAddr,
+    UINT_PTR *              apRetNewModuleLinkAddr
 )
 {
     return K2STAT_ERROR_NOT_IMPL;
@@ -104,7 +104,7 @@ myPurge(
 void
 myAtReInit(
     XDL *               apXdl,
-    UINT64              aModulePageLinkAddr,
+    UINT_PTR            aModulePageLinkAddr,
     K2XDL_HOST_FILE *   apInOutHostFile
 )
 {

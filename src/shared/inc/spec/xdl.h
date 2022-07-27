@@ -175,6 +175,7 @@ struct _XDL_IMPORT
 {
     K2_GUID128                  ID;                             // ID of XDL we import from
     XDL_EXPORTS_SEGMENT_HEADER  ExpHdr;                         // copy of export header from import library (count and crc)
+    UINT64                      mReserved;
     UINT32                      mSectionFlags;                  // elf section flags from source - determines type of imports (code,read,data)
     UINT32                      mNameLen;
     char                        mName[XDL_NAME_MAX_LEN + 1];
