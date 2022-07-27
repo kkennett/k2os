@@ -75,9 +75,9 @@ typedef K2STAT (*K2XDL_pf_ResizeCopyModulePage)(K2XDL_LOADCTX const *apLoadCtx, 
 typedef K2STAT (*K2XDL_pf_ReadSectors)(K2XDL_LOADCTX const *apLoadCtx, void *apBuffer, UINT64 const *apSectorCount);
 typedef K2STAT (*K2XDL_pf_Prepare)(K2XDL_LOADCTX const *apLoadCtx, XDL_FILE_HEADER const *apFileHdr, BOOL aKeepSymbols, K2XDL_SEGMENT_ADDRS *apRetSegAddrs);
 typedef K2STAT (*K2XDL_pf_PreCallback)(K2XDL_LOADCTX const *apLoadCtx, BOOL aIsLoad, XDL *apXdl);
-typedef K2STAT (*K2XDL_pf_PostCallback)(K2XDL_LOADCTX const *apLoadCtx, K2STAT aUserStatus, XDL *apXdl);
+typedef void   (*K2XDL_pf_PostCallback)(K2XDL_LOADCTX const *apLoadCtx, K2STAT aUserStatus, XDL *apXdl);
 typedef K2STAT (*K2XDL_pf_Finalize)(K2XDL_LOADCTX const *apLoadCtx, K2XDL_SEGMENT_ADDRS *apUpdateSegAddrs);
-typedef K2STAT (*K2XDL_pf_Purge)(K2XDL_LOADCTX const *apLoadCtx);
+typedef K2STAT (*K2XDL_pf_Purge)(K2XDL_LOADCTX const *apLoadCtx, K2XDL_SEGMENT_ADDRS const * apSegAddrs);
 typedef void   (*K2XDL_pf_AtReInit)(XDL *apXdl, UINT_PTR aModulePageLinkAddr, K2XDL_HOST_FILE *apInOutHostFile);
 
 typedef struct _K2XDL_HOST K2XDL_HOST;

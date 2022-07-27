@@ -150,6 +150,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\shared\lib\k2xdl\acqcontain.c" />
     <ClCompile Include="..\..\..\shared\lib\k2xdl\acquire.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\callback.c" />
     <ClCompile Include="..\..\..\shared\lib\k2xdl\findaddr.c" />
     <ClCompile Include="..\..\..\shared\lib\k2xdl\findexport.c" />
     <ClCompile Include="..\..\..\shared\lib\k2xdl\getheaderptr.c" />

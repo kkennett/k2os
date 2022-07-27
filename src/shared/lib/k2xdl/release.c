@@ -37,7 +37,51 @@ IXDL_ReleaseModule(
     XDL *   apXdl
 )
 {
+    K2XDL_LOADCTX       temp;
+    XDL_IMPORT *        pImport;
+    UINT_PTR            importCount;
+    K2XDL_SEGMENT_ADDRS segAddrs;
 
+    if (apXdl->mFlags & XDL_FLAG_PERMANENT)
+        return;
+
+    --apXdl->mRefs;
+    if (apXdl->mRefs > 0)
+        return;
+
+    if (apXdl->mFlags & XDL_FLAG_FULLY_LOADED)
+    {
+        IXDL_DoCallback(apXdl, FALSE);
+        K2LIST_Remove(&gpXdlGlobal->LoadedList, &apXdl->ListLink);
+    }
+    else
+    {
+        K2LIST_Remove(&gpXdlGlobal->AcqList, &apXdl->ListLink);
+    }
+
+    importCount = ((UINT_PTR)apXdl->mpHeader->Segment[XDLSegmentIx_Header].mMemActualBytes) - apXdl->mpHeader->mImportsOffset;
+    importCount /= sizeof(XDL_IMPORT);
+    pImport = apXdl->mpImports;
+    if (0 != importCount)
+    {
+        //
+        // release imports
+        //
+        do {
+            if (0 != pImport->mReserved)
+            {
+                IXDL_ReleaseModule((XDL *)(UINT_PTR)pImport->mReserved);
+                pImport->mReserved = 0;
+            }
+            pImport++;
+        } while (0 != --importCount);
+    }
+
+    K2MEM_Copy(&temp, apXdl->mpLoadCtx, sizeof(temp));
+    K2MEM_Copy(&segAddrs, &apXdl->SegAddrs, sizeof(K2XDL_SEGMENT_ADDRS));
+    segAddrs.mSegAddr[XDLSegmentIx_Header] = 0;
+
+    gpXdlGlobal->Host.Purge(&temp, &segAddrs);
 }
 
 K2STAT  
@@ -45,5 +89,39 @@ XDL_Release(
     XDL *   apXdl
 )
 {
-    return K2STAT_ERROR_NOT_IMPL;
+    K2LIST_LINK *   pLink;
+    K2STAT          status;
+
+    if (gpXdlGlobal->Host.CritSec != NULL)
+    {
+        status = gpXdlGlobal->Host.CritSec(TRUE);
+        if (K2STAT_IS_ERROR(status))
+        {
+            return status;
+        }
+    }
+
+    pLink = gpXdlGlobal->LoadedList.mpHead;
+    while (pLink != NULL)
+    {
+        if (pLink == (K2LIST_LINK *)apXdl)
+            break;
+        pLink = pLink->mpNext;
+    }
+    if (pLink != NULL)
+    {
+        IXDL_ReleaseModule(apXdl);
+    }
+
+    if (gpXdlGlobal->Host.CritSec != NULL)
+    {
+        gpXdlGlobal->Host.CritSec(FALSE);
+    }
+
+    if (pLink == NULL)
+    {
+        return K2STAT_ERROR_NOT_FOUND;
+    }
+
+    return K2STAT_OK;
 }

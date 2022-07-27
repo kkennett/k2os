@@ -66,6 +66,7 @@ IXDL_Prep(
     XDL_FILE_SEGMENT    saveSeg;
     XDL_IMPORT *        pImport;
     XDL *               pSubXdl;
+    K2XDL_SEGMENT_ADDRS segAddrs;
 
     if ((NULL == gpXdlGlobal->Host.Open) ||
         (NULL == gpXdlGlobal->Host.ReadSectors))
@@ -85,6 +86,7 @@ IXDL_Prep(
         return stat;
 
     pXdl = NULL;
+    K2MEM_Zero(&segAddrs, sizeof(segAddrs));
 
     do {
         if ((0 == temp.mModulePageDataAddr) ||
@@ -230,6 +232,8 @@ IXDL_Prep(
         if (K2STAT_IS_ERROR(stat))
             break;
 
+        K2MEM_Copy(&segAddrs, &pXdl->SegAddrs, sizeof(K2XDL_SEGMENT_ADDRS));
+
         for (segIx = XDLSegmentIx_Text; segIx < XDLSegmentIx_Other; segIx++)
         {
             if (0 != pHeader->Segment[segIx].mMemActualBytes)
@@ -256,7 +260,7 @@ IXDL_Prep(
         //
         // put header segment back now
         //
-        pXdl->SegAddrs.mSegAddr[XDLSegmentIx_Header] = (UINT64)pHeader;
+        pXdl->SegAddrs.mSegAddr[XDLSegmentIx_Header] = (UINT64)(UINT_PTR)pHeader;
         K2MEM_Copy(&pHeader->Segment[XDLSegmentIx_Header], &saveSeg, sizeof(XDL_FILE_SEGMENT));
 
         //
@@ -275,6 +279,7 @@ IXDL_Prep(
         pImport = pXdl->mpImports;
         for (segIx = 0; segIx < importCount; segIx++)
         {
+            pSubXdl = NULL;
             stat = IXDL_Acquire(
                 pXdl->mpLoadCtx,
                 aContext, 
@@ -286,7 +291,7 @@ IXDL_Prep(
 
             if (K2STAT_IS_ERROR(stat))
                 break;
-            pImport->mReserved = (UINT64)pSubXdl;
+            pImport->mReserved = (UINT64)(UINT_PTR)pSubXdl;
             pImport++;
         }
         if ((K2STAT_IS_ERROR(stat)) && (segIx > 0))
@@ -294,7 +299,7 @@ IXDL_Prep(
             do {
                 --segIx;
                 pImport--;
-                IXDL_ReleaseModule((XDL *)pImport->mReserved);
+                IXDL_ReleaseModule((XDL *)(UINT_PTR)pImport->mReserved);
             } while (segIx > 0);
         }
 
@@ -303,10 +308,11 @@ IXDL_Prep(
     if (K2STAT_IS_ERROR(stat))
     {
         if (NULL != gpXdlGlobal->Host.Purge)
-            gpXdlGlobal->Host.Purge(&temp);
+            gpXdlGlobal->Host.Purge(&temp, &segAddrs);
     }
     else
     {
+        K2LIST_AddAtTail(&gpXdlGlobal->AcqList, &pXdl->ListLink);
         pXdl->mRefs = 1;
         *appRetXdl = pXdl;
     }
@@ -403,7 +409,7 @@ IXDL_Acquire(
         }
     }
 
-    status = IXDL_Prep(apParentLoadCtx, aContext, apFilePath, apFilePath, aNameLen, apMatchId, appRetXdl);
+    status = IXDL_Prep(apParentLoadCtx, aContext, apFilePath, apName, aNameLen, apMatchId, appRetXdl);
     if (K2STAT_IS_ERROR(status))
     {
         *appRetXdl = NULL;
