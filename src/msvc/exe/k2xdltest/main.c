@@ -186,14 +186,14 @@ myPrepare(
     return K2STAT_NO_ERROR;
 }
 
-K2STAT
+BOOL
 myPreCallback(
     K2XDL_LOADCTX const *   apLoadCtx,
     BOOL aIsLoad,
     XDL *apXdl
 )
 {
-    return K2STAT_ERROR_NOT_IMPL;
+    return FALSE;
 }
 
 K2STAT
@@ -212,7 +212,8 @@ myFinalize(
     K2XDL_SEGMENT_ADDRS *   apRetSegmentDataAddrs
 )
 {
-    return K2STAT_ERROR_NOT_IMPL;
+    return K2STAT_NO_ERROR;
+//    return K2STAT_ERROR_NOT_IMPL;
 }
 
 K2STAT 

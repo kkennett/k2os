@@ -44,21 +44,18 @@ IXDL_DoCallback(
     BOOL                saveDisable;
     
     if (apXdl->mpHeader->mElfMachine != K2ELF_TARGET_MACHINE_TYPE)
-        return 0;
+        return K2STAT_NO_ERROR;
 
     entryPoint = (XDL_pf_ENTRYPOINT)(UINT_PTR)apXdl->mpHeader->mEntryPoint;
 
     if (NULL == entryPoint)
-        return 0;
+        return K2STAT_NO_ERROR;
 
-    if (NULL != gpXdlGlobal->Host.PreCallback)
-    {
-        status = gpXdlGlobal->Host.PreCallback(apXdl->mpLoadCtx, aIsLoad, apXdl);
-        if (K2STAT_IS_ERROR(status))
-        {
-            return status;
-        }
-    }
+    if (NULL == gpXdlGlobal->Host.PreCallback)
+        return K2STAT_NO_ERROR;
+
+    if (!gpXdlGlobal->Host.PreCallback(apXdl->mpLoadCtx, aIsLoad, apXdl))
+        return K2STAT_NO_ERROR;
 
     saveDisable = gpXdlGlobal->mAcqDisabled;
     gpXdlGlobal->mAcqDisabled = TRUE;

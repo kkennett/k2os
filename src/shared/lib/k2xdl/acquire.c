@@ -206,6 +206,14 @@ IXDL_Prep(
                 break;
         }
 
+        crc32 = pHeader->Segment[XDLSegmentIx_Header].mCrc32;
+        pHeader->Segment[XDLSegmentIx_Header].mCrc32 = 0;
+        if (crc32 != K2CRC_Calc32(0, pHeader, (UINT_PTR)(pHeader->Segment[XDLSegmentIx_Header].mSectorCount * XDL_SECTOR_BYTES)))
+        {
+            stat = K2STAT_ERROR_CORRUPTED;
+            break;
+        }
+
         pXdl->mpImports = (XDL_IMPORT *)(((UINT8 *)pHeader) + pHeader->mImportsOffset);
         importCount = (UINT_PTR)(pHeader->Segment[XDLSegmentIx_Header].mMemActualBytes - pHeader->mImportsOffset);
         importCount /= sizeof(XDL_IMPORT);
@@ -323,11 +331,109 @@ IXDL_Prep(
 }
 
 K2STAT
+IXDL_LoadModule(
+    XDL *   apXdl
+)
+{
+    XDL_IMPORT *        pImport;
+    XDL *               pSubModule;
+    K2STAT              status;
+    K2XDL_LOADCTX *     pLoadCtx;
+    XDL_FILE_HEADER *   pHeader;
+    UINT_PTR            count;
+    UINT64              filled;
+
+    pLoadCtx = apXdl->mpLoadCtx;
+    pHeader = apXdl->mpHeader;
+    count = ((UINT_PTR)(pHeader->Segment[XDLSegmentIx_Header].mMemActualBytes - pHeader->mImportsOffset)) / sizeof(XDL_IMPORT);
+
+    K2_ASSERT(0 == (apXdl->mFlags & XDL_FLAG_FULLY_LOADED));
+
+    //
+    // load imports and link imports
+    //
+    if (0 != count)
+    {
+        pImport = apXdl->mpImports;
+        do {
+            pSubModule = (XDL *)(UINT_PTR)pImport->mReserved;
+            if (0 == (pSubModule->mFlags & XDL_FLAG_FULLY_LOADED))
+            {
+                status = IXDL_LoadModule(pSubModule);
+                if (K2STAT_IS_ERROR(status))
+                    return status;
+            }
+        } while (0 != --count);
+        pImport++;
+    }
+
+    //
+    // load data for segments
+    //
+    for (count = XDLSegmentIx_Header + 1; count < XDLSegmentIx_Count; count++)
+    {
+        if (pHeader->Segment[count].mSectorCount > 0)
+        {
+            status = gpXdlGlobal->Host.ReadSectors(pLoadCtx, (void *)(UINT_PTR)apXdl->SegAddrs.mSegAddr[count], &pHeader->Segment[count].mSectorCount);
+            if (K2STAT_IS_ERROR(status))
+                return status;
+        }
+        filled = pHeader->Segment[count].mSectorCount * XDL_SECTOR_BYTES;
+        if (filled < pHeader->Segment[count].mMemActualBytes)
+        {
+            K2MEM_Zero((void *)(UINT_PTR)(apXdl->SegAddrs.mSegAddr[count] + filled), (UINT_PTR)(pHeader->Segment[count].mMemActualBytes - filled));
+        }
+    }
+
+    //
+    // link
+    //
+#if 0
+    status = iK2DLXSUPP_Link(apXdl);
+    if (K2STAT_IS_ERROR(status))
+        return status;
+#endif
+
+    //
+    // finalize
+    //
+    if (gpXdlGlobal->Host.Finalize == NULL)
+        return K2STAT_ERROR_NOT_IMPL;
+    status = gpXdlGlobal->Host.Finalize(pLoadCtx, &apXdl->SegAddrs);
+    if (K2STAT_IS_ERROR(status))
+        return status;
+
+#if 0
+    iK2DLXSUPP_Cleanup(apXdl);
+#endif
+
+    status = IXDL_DoCallback(apXdl, TRUE);
+    if (!K2STAT_IS_ERROR(status))
+    {
+        K2LIST_Remove(&gpXdlGlobal->AcqList, &apXdl->ListLink);
+        K2LIST_AddAtTail(&gpXdlGlobal->LoadedList, &apXdl->ListLink);
+        apXdl->mFlags |= XDL_FLAG_FULLY_LOADED;
+    }
+
+    return status;
+}
+
+
+K2STAT
 IXDL_ExecLoads(
     void
 )
 {
-    return K2STAT_ERROR_NOT_IMPL;
+    K2STAT status;
+
+    do
+    {
+        status = IXDL_LoadModule(K2_GET_CONTAINER(XDL, gpXdlGlobal->AcqList.mpHead, ListLink));
+        if (K2STAT_IS_ERROR(status))
+            break;
+    } while (gpXdlGlobal->AcqList.mpHead != NULL);
+
+    return status;
 }
 
 XDL *
