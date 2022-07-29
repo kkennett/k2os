@@ -65,7 +65,8 @@ struct _K2XDL_LOADCTX
 typedef struct _K2XDL_SEGMENT_ADDRS K2XDL_SEGMENT_ADDRS;
 struct _K2XDL_SEGMENT_ADDRS
 {
-    UINT64          mSegAddr[XDLSegmentIx_Count];
+    UINT64  mData[XDLSegmentIx_Count];
+    UINT64  mLink[XDLSegmentIx_Count];
 };
 
 typedef K2STAT (*K2XDL_pf_CritSec)(BOOL aEnter);

@@ -79,7 +79,7 @@ IXDL_ReleaseModule(
 
     K2MEM_Copy(&temp, apXdl->mpLoadCtx, sizeof(temp));
     K2MEM_Copy(&segAddrs, &apXdl->SegAddrs, sizeof(K2XDL_SEGMENT_ADDRS));
-    segAddrs.mSegAddr[XDLSegmentIx_Header] = 0;
+    segAddrs.mData[XDLSegmentIx_Header] = segAddrs.mLink[XDLSegmentIx_Header] = 0;
 
     gpXdlGlobal->Host.Purge(&temp, &segAddrs);
 }

@@ -42,5 +42,6 @@ SOURCES += handoff.c
 SOURCES += init.c
 SOURCES += release.c 
 SOURCES += callback.c
+SOURCES += link.c
 
 include $(K2_ROOT)/src/build/post.make

@@ -285,6 +285,7 @@ CreateOutputFile32(
     UINT_PTR                            relBytes;
     XDL_IMPORT *                        pImport;
     UINT_PTR                            importsCount;
+    UINT_PTR                            importBase;
 
     K2TREE_Init(&symTree, TreeStrCompare);
 
@@ -343,6 +344,7 @@ CreateOutputFile32(
     sectorOffset[XDLSegmentIx_Header] = fileSectors;
     workHdr.Segment[XDLSegmentIx_Header].mLinkAddr = loadWork;
     loadWork += workHdr.mImportsOffset;
+    importBase = loadBase;
     for (ixSec = 1; ixSec < apParse->mpRawFileData->e_shnum; ixSec++)
     {
         pSecHdr = (Elf32_Shdr *)(apParse->mpSectionHeaderTable + (ixSec * apParse->mSectionHeaderTableEntryBytes));
@@ -363,10 +365,11 @@ CreateOutputFile32(
             sizeof(XDL_EXPORTS_SEGMENT_HEADER) +
             (pExpHdr->mCount * sizeof(XDL_EXPORT32_REF)) +
             sizeof(K2_GUID128);
-        importsCount++;
         pSecTarget[ixSec].mSegmentIx = XDLSegmentIx_Header;
-        pSecTarget[ixSec].mAddr = loadBase;
+        pSecTarget[ixSec].mAddr = importBase;
         pSecTarget[ixSec].mSegOffset = loadWork - (UINT_PTR)workHdr.Segment[XDLSegmentIx_Header].mLinkAddr;
+        importBase += pExpHdr->mCount * sizeof(XDL_EXPORT32_REF);
+        importsCount++;
         loadWork += sizeof(XDL_IMPORT);
 //        printf("%2d: %4d f%08X l%08X z%08X -- @%08X\n", ixSec, pSecHdr->sh_type, pSecHdr->sh_flags, pSecHdr->sh_addr, pSecHdr->sh_size, pSecTarget[ixSec].mAddr);
     }

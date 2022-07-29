@@ -246,14 +246,15 @@ IXDL_Prep(
         {
             if (0 != pHeader->Segment[segIx].mMemActualBytes)
             {
-                if (0 == pXdl->SegAddrs.mSegAddr[segIx])
+                if (0 == pXdl->SegAddrs.mData[segIx])
                 {
                     break;
                 }
             }
             else
             {
-                if (0 != pXdl->SegAddrs.mSegAddr[segIx])
+                if ((0 != pXdl->SegAddrs.mData[segIx]) ||
+                    (0 != pXdl->SegAddrs.mLink[segIx]))
                 {
                     break;
                 }
@@ -268,7 +269,8 @@ IXDL_Prep(
         //
         // put header segment back now
         //
-        pXdl->SegAddrs.mSegAddr[XDLSegmentIx_Header] = (UINT64)(UINT_PTR)pHeader;
+        pXdl->SegAddrs.mData[XDLSegmentIx_Header] = (UINT64)(UINT_PTR)pHeader;
+        pXdl->SegAddrs.mLink[XDLSegmentIx_Header] = pXdl->SegAddrs.mData[XDLSegmentIx_Header];
         K2MEM_Copy(&pHeader->Segment[XDLSegmentIx_Header], &saveSeg, sizeof(XDL_FILE_SEGMENT));
 
         //
@@ -279,7 +281,7 @@ IXDL_Prep(
             if (0 != pHeader->mReadExpOffset[segIx])
             {
                 pXdl->mpExpHdr[segIx] = (XDL_EXPORTS_SEGMENT_HEADER *)
-                    ((UINT_PTR)(pXdl->SegAddrs.mSegAddr[XDLSegmentIx_Read] +
+                    ((UINT_PTR)(pXdl->SegAddrs.mData[XDLSegmentIx_Read] +
                         pHeader->mReadExpOffset[segIx]));
             }
         }
@@ -374,25 +376,23 @@ IXDL_LoadModule(
     {
         if (pHeader->Segment[count].mSectorCount > 0)
         {
-            status = gpXdlGlobal->Host.ReadSectors(pLoadCtx, (void *)(UINT_PTR)apXdl->SegAddrs.mSegAddr[count], &pHeader->Segment[count].mSectorCount);
+            status = gpXdlGlobal->Host.ReadSectors(pLoadCtx, (void *)(UINT_PTR)apXdl->SegAddrs.mData[count], &pHeader->Segment[count].mSectorCount);
             if (K2STAT_IS_ERROR(status))
                 return status;
         }
         filled = pHeader->Segment[count].mSectorCount * XDL_SECTOR_BYTES;
         if (filled < pHeader->Segment[count].mMemActualBytes)
         {
-            K2MEM_Zero((void *)(UINT_PTR)(apXdl->SegAddrs.mSegAddr[count] + filled), (UINT_PTR)(pHeader->Segment[count].mMemActualBytes - filled));
+            K2MEM_Zero((void *)(UINT_PTR)(apXdl->SegAddrs.mData[count] + filled), (UINT_PTR)(pHeader->Segment[count].mMemActualBytes - filled));
         }
     }
 
     //
     // link
     //
-#if 0
-    status = iK2DLXSUPP_Link(apXdl);
+    status = IXDL_Link(apXdl);
     if (K2STAT_IS_ERROR(status))
         return status;
-#endif
 
     //
     // finalize
@@ -403,10 +403,9 @@ IXDL_LoadModule(
     if (K2STAT_IS_ERROR(status))
         return status;
 
-#if 0
-    iK2DLXSUPP_Cleanup(apXdl);
-#endif
-
+    //
+    // execute callback to xdl on load
+    //
     status = IXDL_DoCallback(apXdl, TRUE);
     if (!K2STAT_IS_ERROR(status))
     {

@@ -53,5 +53,8 @@
     <ClCompile Include="..\..\..\shared\lib\k2xdl\callback.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\link.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

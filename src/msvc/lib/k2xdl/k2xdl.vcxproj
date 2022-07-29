@@ -156,6 +156,7 @@
     <ClCompile Include="..\..\..\shared\lib\k2xdl\getheaderptr.c" />
     <ClCompile Include="..\..\..\shared\lib\k2xdl\handoff.c" />
     <ClCompile Include="..\..\..\shared\lib\k2xdl\init.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2xdl\link.c" />
     <ClCompile Include="..\..\..\shared\lib\k2xdl\release.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

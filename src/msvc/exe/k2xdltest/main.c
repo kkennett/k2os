@@ -162,9 +162,10 @@ myPrepare(
         pages = (SIZE_T)((apFileHdr->Segment[ix].mMemActualBytes + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES);
         if (0 != pages)
         {
-            apRetSegmentDataAddrs->mSegAddr[ix] = (UINT64)VirtualAlloc(NULL, pages * K2_VA_MEMPAGE_BYTES, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-            if (0 == apRetSegmentDataAddrs->mSegAddr[ix])
+            apRetSegmentDataAddrs->mData[ix] = (UINT64)VirtualAlloc(NULL, pages * K2_VA_MEMPAGE_BYTES, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+            if (0 == apRetSegmentDataAddrs->mData[ix])
                 break;
+            apRetSegmentDataAddrs->mLink[ix] = apRetSegmentDataAddrs->mData[ix];
         }
     }
     if (ix != XDLSegmentIx_Count)
@@ -173,10 +174,10 @@ myPrepare(
         {
             do {
                 --ix;
-                if (0 != apRetSegmentDataAddrs->mSegAddr[ix])
+                if (0 != apRetSegmentDataAddrs->mData[ix])
                 {
-                    VirtualFree((void *)apRetSegmentDataAddrs->mSegAddr[ix], 0, MEM_RELEASE);
-                    apRetSegmentDataAddrs->mSegAddr[ix] = 0;
+                    VirtualFree((void *)apRetSegmentDataAddrs->mData[ix], 0, MEM_RELEASE);
+                    apRetSegmentDataAddrs->mData[ix] = apRetSegmentDataAddrs->mLink[ix] = 0;
                 }
             } while (ix > 0);
         }
@@ -226,9 +227,9 @@ myPurge(
 
     for (ix = 0; ix < XDLSegmentIx_Count; ix++)
     {
-        if (0 != apSegmentDataAddrs->mSegAddr[ix])
+        if (0 != apSegmentDataAddrs->mData[ix])
         {
-            VirtualFree((void *)(UINT_PTR)apSegmentDataAddrs->mSegAddr[ix], 0, MEM_RELEASE);
+            VirtualFree((void *)(UINT_PTR)apSegmentDataAddrs->mData[ix], 0, MEM_RELEASE);
         }
     }
     CloseHandle((HANDLE)apLoadCtx->mHostFile);

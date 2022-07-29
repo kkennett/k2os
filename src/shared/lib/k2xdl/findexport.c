@@ -32,13 +32,80 @@
 
 #include "ixdl.h"
 
+#if K2_TARGET_ARCH_IS_32BIT
+#define EXPORT_REF  XDL_EXPORT32_REF
+#else
+#define EXPORT_REF  XDL_EXPORT64_REF
+#endif
+
+K2STAT
+IXDL_FindExport(
+    XDL_EXPORTS_SEGMENT_HEADER const *  apSeg,
+    char const *                        apName,
+    UINT_PTR *                          apRetAddr
+)
+{
+    UINT_PTR        b;
+    UINT_PTR        e;
+    UINT_PTR        m;
+    int             c;
+    EXPORT_REF *    pExpRef;
+    char const *    pStrBase;
+
+    pStrBase = (char *)apSeg;
+    pExpRef = (EXPORT_REF *)(pStrBase + sizeof(XDL_EXPORTS_SEGMENT_HEADER));
+    b = 0;
+    e = apSeg->mCount;
+    do
+    {
+        m = b + ((e - b) / 2);
+        c = K2ASC_Comp(apName, pStrBase + pExpRef[m].mNameOffset);
+        if (c == 0)
+        {
+            *apRetAddr = pExpRef[m].mAddr;
+            return 0;
+        }
+        if (c < 0)
+            e = m;
+        else
+            b = m + 1;
+    } while (b < e);
+
+    return K2STAT_ERROR_NOT_FOUND;
+}
+
 K2STAT  
 XDL_FindExport(
     XDL *           apXdl, 
-    XDLProgDataType   aType, 
+    XDLProgDataType aType, 
     char const *    apName, 
     UINT_PTR *      apRetAddr
 )
 {
-    return K2STAT_ERROR_NOT_IMPL;
+    XDL_EXPORTS_SEGMENT_HEADER const *  pSeg;
+    K2STAT                              status;
+
+    if (aType >= XDLProgDataType_Count)
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    if (!IXDL_FindAndAddRef(apXdl))
+    {
+        return K2STAT_ERROR_NOT_FOUND;
+    }
+
+    pSeg = apXdl->mpExpHdr[aType];
+    if (NULL != pSeg)
+    {
+        status = K2STAT_ERROR_NOT_FOUND;
+    }
+    else
+    {
+        status = IXDL_FindExport(pSeg, apName, apRetAddr);
+    }
+
+    IXDL_ReleaseModule(apXdl);
+
+    return status;
 }
