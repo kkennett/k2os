@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<k2build type="lib">
+    <source>atomic32.c</source>
+    <source>atomic64.c</source>
+    <source arch="a32">a32asm.s</source>
+    <source arch="x32">x32asm.s</source>
+</k2build>

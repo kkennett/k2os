@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<k2build type="lib">
+    <source>addafter.c</source>
+    <source>addbefore.c</source>
+    <source>addattail.c</source>
+    <source>addathead.c</source>
+    <source>listinit.c</source>
+    <source>listremove.c</source>
+    <source>appendtotail.c</source>
+</k2build>

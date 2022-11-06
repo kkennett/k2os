@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<k2build arch="x32" type="img">
+    <plat>~plat/virtbox/kern/k2osplat</plat>    
+    <builtin>~user/driver/pcibus</builtin>
+    <builtin>~user/driver/idebus</builtin>
+</k2build>

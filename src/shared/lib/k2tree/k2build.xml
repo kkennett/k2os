@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<k2build type="lib">
+    <source>treefind.c</source>
+    <source>findorafter.c</source>
+    <source>firstnode.c</source>
+    <source>treeinit.c</source>
+    <source>insert.c</source>
+    <source>lastnode.c</source>
+    <source>nextnode.c</source>
+    <source>prevnode.c</source>
+    <source>treeremove.c</source>
+    <source>rot.c</source>
+</k2build>

@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<k2build type="xdl">
+
+    <inf>pcibus.inf</inf>
+    
+    <source>driverThread.c</source>
+    <source>init.c</source>
+    <source>override.c</source>
+
+    <lib arch="x32">@shared/lib/k2archx32</lib>
+
+    <xdl>~user/k2osdrv</xdl>
+    <xdl>~user/k2osrpc</xdl>
+
+</k2build>

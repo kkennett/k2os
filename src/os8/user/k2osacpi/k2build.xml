@@ -1,0 +1,212 @@
+<?xml version="1.0" ?>
+<k2build type="xdl">
+
+    <inf>k2osacpi.inf</inf>
+
+    <include>~user/k2osacpi/acpica/source/include</include>
+    <include>~user/k2osacpi/acpica/source/include/platform</include>
+
+    <copts>-DACPI_USE_NATIVE_DIVIDE</copts>
+
+    <source>xdl_entry.c</source>
+
+    <source>cache.c</source>
+    <source>initterm.c</source>
+    <source>intr.c</source>
+    <source>lock.c</source>
+    <source>map.c</source>
+    <source>mem.c</source>
+    <source>override.c</source>
+    <source>port.c</source>
+    <source>printf.c</source>
+    <source>root.c</source>
+    <source>rwmem.c</source>
+    <source>sem.c</source>
+    <source>signal.c</source>
+    <source>thread.c</source>
+    <source>timer.c</source>
+    <source>sleep.c</source>
+    <source>pciconfig.c</source>
+    <source>run.c</source>
+    <source>mutex.c</source>
+    <source>enum.c</source>
+    <source>methods.c</source>
+
+    <source>acpica/source/components/dispatcher/dsargs.c</source>
+    <source>acpica/source/components/dispatcher/dscontrol.c</source>
+    <source>acpica/source/components/dispatcher/dsdebug.c</source>
+    <source>acpica/source/components/dispatcher/dsfield.c</source>
+    <source>acpica/source/components/dispatcher/dsinit.c</source>
+    <source>acpica/source/components/dispatcher/dsmethod.c</source>
+    <source>acpica/source/components/dispatcher/dsmthdat.c</source>
+    <source>acpica/source/components/dispatcher/dsobject.c</source>
+    <source>acpica/source/components/dispatcher/dsopcode.c</source>
+    <source>acpica/source/components/dispatcher/dspkginit.c</source>
+    <source>acpica/source/components/dispatcher/dsutils.c</source>
+    <source>acpica/source/components/dispatcher/dswexec.c</source>
+    <source>acpica/source/components/dispatcher/dswload.c</source>
+    <source>acpica/source/components/dispatcher/dswload2.c</source>
+    <source>acpica/source/components/dispatcher/dswscope.c</source>
+    <source>acpica/source/components/dispatcher/dswstate.c</source>
+
+    <source>acpica/source/common/ahids.c</source>
+    <source>acpica/source/common/ahpredef.c</source>
+
+    <source>acpica/source/components/events/evevent.c</source>
+    <source>acpica/source/components/events/evglock.c</source>
+    <source>acpica/source/components/events/evgpe.c</source>
+    <source>acpica/source/components/events/evgpeblk.c</source>
+    <source>acpica/source/components/events/evgpeinit.c</source>
+    <source>acpica/source/components/events/evgpeutil.c</source>
+    <source>acpica/source/components/events/evhandler.c</source>
+    <source>acpica/source/components/events/evmisc.c</source>
+    <source>acpica/source/components/events/evregion.c</source>
+    <source>acpica/source/components/events/evrgnini.c</source>
+    <source>acpica/source/components/events/evsci.c</source>
+    <source>acpica/source/components/events/evxface.c</source>
+    <source>acpica/source/components/events/evxfevnt.c</source>
+    <source>acpica/source/components/events/evxfgpe.c</source>
+    <source>acpica/source/components/events/evxfregn.c</source>
+
+    <source>acpica/source/components/executer/exconcat.c</source>
+    <source>acpica/source/components/executer/exconfig.c</source>
+    <source>acpica/source/components/executer/exconvrt.c</source>
+    <source>acpica/source/components/executer/excreate.c</source>
+    <source>acpica/source/components/executer/exdebug.c</source>
+    <source>acpica/source/components/executer/exdump.c</source>
+    <source>acpica/source/components/executer/exfield.c</source>
+    <source>acpica/source/components/executer/exfldio.c</source>
+    <source>acpica/source/components/executer/exmisc.c</source>
+    <source>acpica/source/components/executer/exmutex.c</source>
+    <source>acpica/source/components/executer/exnames.c</source>
+    <source>acpica/source/components/executer/exoparg1.c</source>
+    <source>acpica/source/components/executer/exoparg2.c</source>
+    <source>acpica/source/components/executer/exoparg3.c</source>
+    <source>acpica/source/components/executer/exoparg6.c</source>
+    <source>acpica/source/components/executer/exprep.c</source>
+    <source>acpica/source/components/executer/exregion.c</source>
+    <source>acpica/source/components/executer/exresnte.c</source>
+    <source>acpica/source/components/executer/exresolv.c</source>
+    <source>acpica/source/components/executer/exresop.c</source>
+    <source>acpica/source/components/executer/exserial.c</source>
+    <source>acpica/source/components/executer/exstore.c</source>
+    <source>acpica/source/components/executer/exstoren.c</source>
+    <source>acpica/source/components/executer/exstorob.c</source>
+    <source>acpica/source/components/executer/exsystem.c</source>
+    <source>acpica/source/components/executer/extrace.c</source>
+    <source>acpica/source/components/executer/exutils.c</source>
+
+    <source>acpica/source/components/hardware/hwacpi.c</source>
+    <source>acpica/source/components/hardware/hwesleep.c</source>
+    <source>acpica/source/components/hardware/hwgpe.c</source>
+    <source>acpica/source/components/hardware/hwpci.c</source>
+    <source>acpica/source/components/hardware/hwregs.c</source>
+    <source>acpica/source/components/hardware/hwsleep.c</source>
+    <source>acpica/source/components/hardware/hwtimer.c</source>
+    <source>acpica/source/components/hardware/hwvalid.c</source>
+    <source>acpica/source/components/hardware/hwxface.c</source>
+    <source>acpica/source/components/hardware/hwxfsleep.c</source>
+
+    <source>acpica/source/components/namespace/nsaccess.c</source>
+    <source>acpica/source/components/namespace/nsalloc.c</source>
+    <source>acpica/source/components/namespace/nsarguments.c</source>
+    <source>acpica/source/components/namespace/nsconvert.c</source>
+    <source>acpica/source/components/namespace/nsdump.c</source>
+    <source>acpica/source/components/namespace/nsdumpdv.c</source>
+    <source>acpica/source/components/namespace/nseval.c</source>
+    <source>acpica/source/components/namespace/nsinit.c</source>
+    <source>acpica/source/components/namespace/nsload.c</source>
+    <source>acpica/source/components/namespace/nsnames.c</source>
+    <source>acpica/source/components/namespace/nsobject.c</source>
+    <source>acpica/source/components/namespace/nsparse.c</source>
+    <source>acpica/source/components/namespace/nspredef.c</source>
+    <source>acpica/source/components/namespace/nsprepkg.c</source>
+    <source>acpica/source/components/namespace/nsrepair.c</source>
+    <source>acpica/source/components/namespace/nsrepair2.c</source>
+    <source>acpica/source/components/namespace/nssearch.c</source>
+    <source>acpica/source/components/namespace/nsutils.c</source>
+    <source>acpica/source/components/namespace/nswalk.c</source>
+    <source>acpica/source/components/namespace/nsxfeval.c</source>
+    <source>acpica/source/components/namespace/nsxfname.c</source>
+    <source>acpica/source/components/namespace/nsxfobj.c</source>
+
+    <source>acpica/source/components/parser/psargs.c</source>
+    <source>acpica/source/components/parser/psloop.c</source>
+    <source>acpica/source/components/parser/psobject.c</source>
+    <source>acpica/source/components/parser/psopcode.c</source>
+    <source>acpica/source/components/parser/psopinfo.c</source>
+    <source>acpica/source/components/parser/psparse.c</source>
+    <source>acpica/source/components/parser/psscope.c</source>
+    <source>acpica/source/components/parser/pstree.c</source>
+    <source>acpica/source/components/parser/psutils.c</source>
+    <source>acpica/source/components/parser/pswalk.c</source>
+    <source>acpica/source/components/parser/psxface.c</source>
+
+    <source>acpica/source/components/resources/rsaddr.c</source>
+    <source>acpica/source/components/resources/rscalc.c</source>
+    <source>acpica/source/components/resources/rscreate.c</source>
+    <source>acpica/source/components/resources/rsdumpinfo.c</source>
+    <source>acpica/source/components/resources/rsinfo.c</source>
+    <source>acpica/source/components/resources/rsio.c</source>
+    <source>acpica/source/components/resources/rsirq.c</source>
+    <source>acpica/source/components/resources/rslist.c</source>
+    <source>acpica/source/components/resources/rsmemory.c</source>
+    <source>acpica/source/components/resources/rsmisc.c</source>
+    <source>acpica/source/components/resources/rsserial.c</source>
+    <source>acpica/source/components/resources/rsutils.c</source>
+    <source>acpica/source/components/resources/rsxface.c</source>
+
+    <source>acpica/source/components/tables/tbdata.c</source>
+    <source>acpica/source/components/tables/tbfadt.c</source>
+    <source>acpica/source/components/tables/tbfind.c</source>
+    <source>acpica/source/components/tables/tbinstal.c</source>
+    <source>acpica/source/components/tables/tbprint.c</source>
+    <source>acpica/source/components/tables/tbutils.c</source>
+    <source>acpica/source/components/tables/tbxface.c</source>
+    <source>acpica/source/components/tables/tbxfload.c</source>
+    <source>acpica/source/components/tables/tbxfroot.c</source>
+
+    <source>acpica/source/components/utilities/utaddress.c</source>
+    <source>acpica/source/components/utilities/utalloc.c</source>
+    <source>acpica/source/components/utilities/utascii.c</source>
+    <source>acpica/source/components/utilities/utbuffer.c</source>
+    <source>acpica/source/components/utilities/utcache.c</source>
+    <source>acpica/source/components/utilities/utclib.c</source>
+    <source>acpica/source/components/utilities/utcopy.c</source>
+    <source>acpica/source/components/utilities/utdebug.c</source>
+    <source>acpica/source/components/utilities/utdecode.c</source>
+    <source>acpica/source/components/utilities/utdelete.c</source>
+    <source>acpica/source/components/utilities/uterror.c</source>
+    <source>acpica/source/components/utilities/uteval.c</source>
+    <source>acpica/source/components/utilities/utexcep.c</source>
+    <source>acpica/source/components/utilities/utglobal.c</source>
+    <source>acpica/source/components/utilities/uthex.c</source>
+    <source>acpica/source/components/utilities/utids.c</source>
+    <source>acpica/source/components/utilities/utinit.c</source>
+    <source>acpica/source/components/utilities/utlock.c</source>
+    <source>acpica/source/components/utilities/utmath.c</source>
+    <source>acpica/source/components/utilities/utmisc.c</source>
+    <source>acpica/source/components/utilities/utmutex.c</source>
+    <source>acpica/source/components/utilities/utnonansi.c</source>
+    <source>acpica/source/components/utilities/utobject.c</source>
+    <source>acpica/source/components/utilities/utosi.c</source>
+    <source>acpica/source/components/utilities/utownerid.c</source>
+    <source>acpica/source/components/utilities/utpredef.c</source>
+    <source>acpica/source/components/utilities/utprint.c</source>
+    <source>acpica/source/components/utilities/utresdecode.c</source>
+    <source>acpica/source/components/utilities/utresrc.c</source>
+    <source>acpica/source/components/utilities/utstate.c</source>
+    <source>acpica/source/components/utilities/utstring.c</source>
+    <source>acpica/source/components/utilities/utstrsuppt.c</source>
+    <source>acpica/source/components/utilities/utstrtoul64.c</source>
+    <source>acpica/source/components/utilities/uttrack.c</source>
+    <source>acpica/source/components/utilities/utuuid.c</source>
+    <source>acpica/source/components/utilities/utxface.c</source>
+    <source>acpica/source/components/utilities/utxferror.c</source>
+    <source>acpica/source/components/utilities/utxfinit.c</source>
+    <source>acpica/source/components/utilities/utxfmutex.c</source>
+
+    <lib arch="x32">@shared/lib/k2archx32</lib>
+    <lib arch="a32">@shared/lib/k2archa32</lib>
+
+</k2build>

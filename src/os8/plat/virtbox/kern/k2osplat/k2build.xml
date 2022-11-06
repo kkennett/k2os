@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<k2build arch="x32" type="xdl">
+    <source>virtbox.c</source>
+    
+    <kernel/>
+    
+    <inf>../../../../inc/inf/k2osplat.inf</inf>
+    
+    <lib>@shared/lib/k2archx32</lib>
+    
+    <lib>~plat/virtbox/kern/dbgser</lib>
+    
+    <xdl>~kern/main/bits32/x32/k2oskern</xdl>
+</k2build>
+
+

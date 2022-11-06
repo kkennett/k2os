@@ -1,0 +1,34 @@
+<?xml version="1.0" ?>
+<k2build type="lib">
+    <source>memset8.c</source>
+    <source>memset16.c</source>
+    <source>memset32.c</source>
+    <source>memset64.c</source>
+
+    <source>memcopy8.c</source>
+    <source>memcopy16.c</source>
+    <source>memcopy32.c</source>
+    <source>memcopy64.c</source>
+    <source>memcopy.c</source>
+
+    <source>memswap8.c</source>
+    <source>memswap16.c</source>
+    <source>memswap32.c</source>
+    <source>memswap64.c</source>
+    <source>memswap.c</source>
+
+    <source>memcompare8.c</source>
+    <source>memcompare16.c</source>
+    <source>memcompare32.c</source>
+    <source>memcompare64.c</source>
+    <source>memcompare.c</source>
+
+    <source>memverify8.c</source>
+    <source>memverify16.c</source>
+    <source>memverify32.c</source>
+    <source>memverify64.c</source>
+
+    <source>scatter.c</source>
+    <source>gather.c</source>
+    <source>vector.c</source>
+</k2build>

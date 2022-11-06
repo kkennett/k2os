@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<k2build type="lib">
+    <source>bit32.c</source>
+    <source>bit64.c</source>
+    <source>bitfield.c</source>
+</k2build>
+
+

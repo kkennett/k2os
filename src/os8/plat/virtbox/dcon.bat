@@ -1,0 +1,1 @@
+@start ..\..\..\..\k2tools\k2pipecon.exe \\.\pipe\k2osdev

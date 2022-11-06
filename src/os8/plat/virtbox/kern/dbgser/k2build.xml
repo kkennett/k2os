@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<k2build arch="x32" type="lib">
+    <source>dbgser.c</source>
+</k2build>
+
+

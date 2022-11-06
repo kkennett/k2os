@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<k2build type="lib">
+    <source>acqcontain.c</source>
+    <source>acquire.c</source>
+    <source>findaddr.c</source>
+    <source>findexport.c</source>
+    <source>getheaderptr.c</source>
+    <source>handoff.c</source>
+    <source>init.c</source>
+    <source>release.c</source>
+    <source>callback.c</source>
+    <source>link.c</source>
+</k2build>
+

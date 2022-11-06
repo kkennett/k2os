@@ -1,0 +1,23 @@
+
+#include <Guid/HiiResourceHii.h>
+
+formset
+  guid     = HII_RESOURCE_FORM_SET_GUID,
+  title    = STRING_TOKEN(STR_FORM_SET_TITLE),
+  help     = STRING_TOKEN(STR_FORM_SET_HELP),
+
+  form formid = 1,
+       title  = STRING_TOKEN(STR_FORM1_TITLE);
+
+  	text
+      help   = STRING_TOKEN(STR_VERSION_HELP),
+      text   = STRING_TOKEN(STR_VERSION_TEXT),
+	    text   = STRING_TOKEN(STR_EMPTY);
+
+    subtitle text = STRING_TOKEN(STR_EMPTY);
+
+    subtitle text = STRING_TOKEN(STR_ESC);
+
+  endform;
+
+endformset;

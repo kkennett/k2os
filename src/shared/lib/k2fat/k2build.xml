@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<k2build type="lib">
+    <source>k2fat.c</source>
+</k2build>
+
+

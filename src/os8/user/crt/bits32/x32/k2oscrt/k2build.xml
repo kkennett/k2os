@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<k2build arch="x32" type="xdl">
+    <inf>../../../k2oscrt_user.inf</inf>
+    
+    <placement>0x402000</placement>
+    
+    <source>getfsdata.s</source>
+    <source>x32trap.c</source>
+    <source>x32trapasm.s</source>
+
+    <lib>@shared/lib/k2mem</lib>
+    <lib>@shared/lib/k2asc</lib>
+    <lib>@shared/lib/k2list</lib>
+    <lib>@shared/lib/k2atomic</lib>
+    <lib>@shared/lib/k2tree</lib>
+    <lib>@shared/lib/k2crc</lib>
+    
+    <lib>@shared/lib/k2xdl</lib>
+    <lib>@shared/lib/k2elf</lib>
+    <lib>@shared/lib/k2bit</lib>
+    <lib>@shared/lib/k2rofshelp</lib>
+    <lib>@shared/lib/k2heap</lib>
+    <lib>@shared/lib/k2ramheap</lib>
+    <lib>@shared/lib/k2ring</lib>
+    
+    <lib>@shared/lib/k2archx32</lib>
+
+    <lib>~user/crt</lib>
+    <lib>~user/crt/bits32</lib>
+
+</k2build>

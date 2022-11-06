@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<k2build type="lib" arch="x32">
+    <source>reg_esp.s</source>
+    <source>reg_ebp.s</source>
+    <source>reg_cr0.s</source>
+    <source>reg_cr2.s</source>
+    <source>reg_cr3.s</source>
+    <source>reg_eflags.s</source>
+    <source>reg_tr.s</source>
+    <source>reg_ldt.s</source>
+    <source>getfsdata.s</source>
+    <source>cpuid.s</source>
+    <source>cache.s</source>
+    <source>tlb.s</source>
+    <source>io8.s</source>
+    <source>io16.s</source>
+    <source>io32.s</source>
+    <source>msr.s</source>
+    <source>setints.s</source>
+</k2build>

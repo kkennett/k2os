@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<k2build type="lib">
+    <source>compare.c</source>
+    <source>concat.c</source>
+    <source>conv.c</source>
+    <source>copy.c</source>
+    <source>ascfind.c</source>
+    <source>len.c</source>
+    <source>printf.c</source>
+</k2build>

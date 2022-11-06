@@ -1,0 +1,32 @@
+<?xml version="1.0" ?>
+<k2build type="lib" arch="a32">
+    <source>bp.s</source>
+    <source>dcache.s</source>
+    <source>icache.s</source>
+    <source>reg_auxctrl.s</source>
+    <source>reg_ccsidr.s</source>
+    <source>reg_clidr.s</source>
+    <source>reg_context.s</source>
+    <source>reg_cpacr.s</source>
+    <source>reg_csselr.s</source>
+    <source>reg_ctr.s</source>
+    <source>reg_dacr.s</source>
+    <source>reg_dfar.s</source>
+    <source>reg_dfsr.s</source>
+    <source>reg_idpfr.s</source>
+    <source>reg_ifar.s</source>
+    <source>reg_ifsr.s</source>
+    <source>reg_midr.s</source>
+    <source>reg_mpidr.s</source>
+    <source>reg_scr.s</source>
+    <source>reg_sctrl.s</source>
+    <source>reg_tpidr.s</source>
+    <source>reg_ttbr0.s</source>
+    <source>reg_ttbr1.s</source>
+    <source>reg_ttbcr.s</source>
+    <source>setints.s</source>
+    <source>tlb.s</source>
+    <source>trans.s</source>
+    <source>reg_cpsr.s</source>
+    <source>reg_cbar.s</source>
+</k2build>

@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<k2build type="lib">
+    <source>parse32.c</source>
+    <source>parse64.c</source>
+</k2build>
+
+

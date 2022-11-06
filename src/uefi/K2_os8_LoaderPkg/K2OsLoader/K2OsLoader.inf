@@ -1,0 +1,208 @@
+#   
+#   BSD 3-Clause License
+#   
+#   Copyright (c) 2020, Kurt Kennett
+#   All rights reserved.
+#   
+#   Redistribution and use in source and binary forms, with or without
+#   modification, are permitted provided that the following conditions are met:
+#   
+#   1. Redistributions of source code must retain the above copyright notice, this
+#      list of conditions and the following disclaimer.
+#   
+#   2. Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the documentation
+#      and/or other materials provided with the distribution.
+#   
+#   3. Neither the name of the copyright holder nor the names of its
+#      contributors may be used to endorse or promote products derived from
+#      this software without specific prior written permission.
+#   
+#   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+#   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+#   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+#   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+#   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+#   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+#   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+[Defines]
+    INF_VERSION     = 0x00010006
+    BASE_NAME       = K2Loader
+    FILE_GUID       = C9AF31EC-F59F-46BA-8F96-EC0B00179542
+    MODULE_TYPE     = UEFI_APPLICATION
+    VERSION_STRING  = 0.1
+    ENTRY_POINT     = K2OsLoaderEntryPoint
+
+[Sources]
+    K2OsLoader.c
+    K2OsLoader.h
+    k2stub.c
+    xdlhost.c
+    xdlstub.c
+    transit.c
+    mapallxdl.c
+    virtmap.c
+    trackefi.c
+    updatemap.c
+    printf.c
+    asmacpi.c
+    boot.c
+  
+    DEFINE K2_ROOT            =   C:\repo\k2os
+    DEFINE K2_SHARED_LIB_SRC  =   $(K2_ROOT)/src/shared/lib
+
+    DEFINE K2_MEMLIB      =   $(K2_SHARED_LIB_SRC)/k2mem
+    DEFINE K2_LISTLIB     =   $(K2_SHARED_LIB_SRC)/k2list
+    DEFINE K2_TREELIB     =   $(K2_SHARED_LIB_SRC)/k2tree
+    DEFINE K2_ASCIILIB    =   $(K2_SHARED_LIB_SRC)/k2asc
+    DEFINE K2_CRCLIB      =   $(K2_SHARED_LIB_SRC)/k2crc
+    DEFINE K2_ELFLIB      =   $(K2_SHARED_LIB_SRC)/k2elf
+    DEFINE K2_XDLLIB      =   $(K2_SHARED_LIB_SRC)/k2xdl
+
+    DEFINE K2_OS          =   $(K2_ROOT)/src/os8
+    DEFINE K2_VMAPLIB     =   $(K2_OS)/kern/lib/k2vmap32
+
+    #
+    # ASCII sources
+    #
+    $(K2_ASCIILIB)\compare.c
+    $(K2_ASCIILIB)\len.c
+    $(K2_ASCIILIB)\conv.c
+
+    #
+    # CRC sources
+    #
+    $(K2_CRCLIB)\crc32.c
+
+    #
+    # MEM sources
+    #
+    $(K2_MEMLIB)\memcopy.c
+    $(K2_MEMLIB)\memcopy8.c
+    $(K2_MEMLIB)\memcopy16.c
+    $(K2_MEMLIB)\memcopy32.c
+    $(K2_MEMLIB)\memcopy64.c
+    $(K2_MEMLIB)\memset8.c
+    $(K2_MEMLIB)\memset16.c
+    $(K2_MEMLIB)\memset32.c
+    $(K2_MEMLIB)\memset64.c
+    $(K2_MEMLIB)\memcompare.c
+    $(K2_MEMLIB)\memcompare8.c
+    $(K2_MEMLIB)\memcompare16.c
+    $(K2_MEMLIB)\memcompare32.c
+    $(K2_MEMLIB)\memcompare64.c
+    $(K2_MEMLIB)\memverify8.c
+    $(K2_MEMLIB)\memverify16.c
+    $(K2_MEMLIB)\memverify32.c
+    $(K2_MEMLIB)\memverify64.c
+    $(K2_MEMLIB)\memswap.c
+    $(K2_MEMLIB)\memswap8.c
+    $(K2_MEMLIB)\memswap16.c
+    $(K2_MEMLIB)\memswap32.c
+    $(K2_MEMLIB)\memswap64.c
+
+    #
+    # LIST sources
+    #
+    $(K2_LISTLIB)\addafter.c
+    $(K2_LISTLIB)\addathead.c
+    $(K2_LISTLIB)\addattail.c
+    $(K2_LISTLIB)\addbefore.c
+    $(K2_LISTLIB)\listinit.c
+    $(K2_LISTLIB)\listremove.c
+
+    #
+    # ELFFILE sources
+    #
+    $(K2_ELFLIB)\parse32.c
+
+    #
+    # TREE sources
+    #
+    $(K2_TREELIB)\findorafter.c
+    $(K2_TREELIB)\firstnode.c
+    $(K2_TREELIB)\insert.c
+    $(K2_TREELIB)\lastnode.c
+    $(K2_TREELIB)\nextnode.c
+    $(K2_TREELIB)\prevnode.c
+    $(K2_TREELIB)\rot.c
+    $(K2_TREELIB)\treefind.c
+    $(K2_TREELIB)\treeinit.c
+    $(K2_TREELIB)\treeremove.c
+
+    #
+    # XDL sources
+    #
+    $(K2_XDLLIB)\acqcontain.c
+    $(K2_XDLLIB)\acquire.c
+    $(K2_XDLLIB)\callback.c
+    $(K2_XDLLIB)\findaddr.c
+    $(K2_XDLLIB)\findexport.c
+    $(K2_XDLLIB)\getheaderptr.c
+    $(K2_XDLLIB)\handoff.c
+    $(K2_XDLLIB)\init.c
+    $(K2_XDLLIB)\ixdl.h
+    $(K2_XDLLIB)\link.c
+    $(K2_XDLLIB)\release.c
+    $(K2_XDLLIB)\xdl_struct.h
+
+    #
+    # VMAP32 sources
+    #
+    $(K2_VMAPLIB)\vmap32.c
+    $(K2_VMAPLIB)\vmdump.c
+
+[Sources.ARM]
+    trans_a32.c
+    cpu_a32.c
+    arch_a32.c 
+
+[Sources.IA32]
+    trans_x32.c
+    cpu_x32.c
+    arch_x32.c
+
+[BuildOptions]
+    RELEASE_*_*_CC_FLAGS = -DK2_FINAL=1
+    DEBUG_*_*_CC_FLAGS = -DK2_DEBUG=1
+    RELEASE_*_*_ASM_FLAGS = -DK2_FINAL=1
+    DEBUG_*_*_ASM_FLAGS = -DK2_DEBUG=1
+
+[Packages]
+    K2_os8_LoaderPkg/K2_os8_LoaderPkg.dec
+    MdePkg/MdePkg.dec
+
+[Packages.ARM]
+    ArmPkg/ArmPkg.dec
+
+[Guids]
+    gEfiEventVirtualAddressChangeGuid   ## CONSUMES             ## Event
+    gEfiSmbiosTableGuid                 ## CONSUMES
+    gEfiAcpiTableGuid                   ## CONSUMES
+
+[LibraryClasses]
+    BaseMemoryLib
+    MemoryAllocationLib
+    PrintLib
+    UefiBootServicesTableLib
+    UefiRuntimeServicesTableLib
+    UefiApplicationEntryPoint
+    UefiLib
+    DebugLib
+
+[LibraryClasses.ARM]
+    ArmLib
+    HobLib 
+
+[Guids.ARM]
+    gArmMpCoreInfoGuid
+
+[Protocols]
+    gEfiLoadedImageProtocolGuid
+    gEfiSimpleFileSystemProtocolGuid
+    gEfiGraphicsOutputProtocolGuid
