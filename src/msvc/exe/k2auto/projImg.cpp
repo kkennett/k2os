@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,7 @@ BuildFileUser_SrcXml::Construct_Img(
     bool                    ok;
     ProjDep *               pProjDep;
     VfsFile *               pVfsFile;
-    BuildFileUser_ImgBoot * pImgBoot;
+    BuildFileUser_ImgDstBoot * pImgBoot;
 
     if (mSourcesCount != 0)
     {
@@ -79,12 +79,6 @@ BuildFileUser_SrcXml::Construct_Img(
                     pProjDep = AddProject(apFullPath, pSubNode, ProjectType_Xdl, &Proj.Img.UserXdlProjList);
                     if (NULL == pProjDep)
                         break;
-                    if ((ProjectType_Invalid != pProjDep->mpDependOn->mProjectType) &&
-                        (pProjDep->mpDependOn->mIsKernelTarget))
-                    {
-                        printf("*** XML for IMG specifies supplemental user XDL that is not targeted at user mode [%s]\n", apFullPath);
-                        break;
-                    }
                 }
             }
             else if (pSubNode->Name.mLen == 4)
@@ -108,12 +102,6 @@ BuildFileUser_SrcXml::Construct_Img(
                     pProjDep = AddProject(apFullPath, pSubNode, ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
                     if (NULL == pProjDep)
                         break;
-                    if ((ProjectType_Invalid != pProjDep->mpDependOn->mProjectType) &&
-                        (pProjDep->mpDependOn->mIsKernelTarget))
-                    {
-                        printf("*** XML for IMG specifies supplemental user XDL that is not targeted at user mode [%s]\n", apFullPath);
-                        break;
-                    }
                 }
             }
         }
@@ -140,148 +128,135 @@ BuildFileUser_SrcXml::Construct_Img(
         }
 
         do {
-            K2ASC_Printf(gStrBuf, "src\\os8\\kern\\crt\\bits32\\%s\\k2oscrt", gpArchName[gArch]);
+            K2ASC_Printf(gStrBuf, "src\\%s\\kern\\crt\\%s\\k2oscrt", gpOsVer, gpArchName[gArch]);
             Proj.Img.mpKernCrtXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.RawXdlProjList);
             if (NULL == Proj.Img.mpKernCrtXdl)
                 break;
 
             do {
-                K2ASC_Printf(gStrBuf, "src\\os8\\kern\\main\\bits32\\%s\\k2oskern", gpArchName[gArch]);
+                K2ASC_Printf(gStrBuf, "src\\%s\\kern\\main\\%s\\k2oskern", gpOsVer, gpArchName[gArch]);
                 Proj.Img.mpKernXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.RawXdlProjList);
                 if (NULL == Proj.Img.mpKernXdl)
                     break;
 
                 do {
-                    K2ASC_Printf(gStrBuf, "src\\os8\\user\\crt\\bits32\\%s\\k2oscrt", gpArchName[gArch]);
-                    Proj.Img.mpUserCrtXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
-                    if (NULL == Proj.Img.mpUserCrtXdl)
+                    K2ASC_Printf(gStrBuf, "src\\%s\\kern\\k2osacpi", gpOsVer);
+                    Proj.Img.mpKernAcpiXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.RawXdlProjList);
+                    if (NULL == Proj.Img.mpKernAcpiXdl)
                         break;
 
                     do {
-                        Proj.Img.mpUserRootXdl = AddProjectByPath(apFullPath, "src\\os8\\user\\root", ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
-                        if (NULL == Proj.Img.mpUserRootXdl)
+                        K2ASC_Printf(gStrBuf, "src\\%s\\kern\\k2osexec", gpOsVer);
+                        Proj.Img.mpKernExecXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.RawXdlProjList);
+                        if (NULL == Proj.Img.mpKernExecXdl)
                             break;
 
                         do {
-                            Proj.Img.mpUserAcpiXdl = AddProjectByPath(apFullPath, "src\\os8\\user\\k2osacpi", ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
-                            if (NULL == Proj.Img.mpUserAcpiXdl)
+                            K2ASC_Printf(gStrBuf, "src\\%s\\user\\crt\\%s\\k2oscrt", gpOsVer, gpArchName[gArch]);
+                            Proj.Img.mpUserCrtXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
+                            if (NULL == Proj.Img.mpUserCrtXdl)
                                 break;
 
                             do {
-                                Proj.Img.mpUserRpcXdl = AddProjectByPath(apFullPath, "src\\os8\\user\\k2osrpc", ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
-                                if (NULL == Proj.Img.mpUserRpcXdl)
+                                K2ASC_Printf(gStrBuf, "src\\%s\\user\\sysproc", gpOsVer);
+                                Proj.Img.mpUserSysProcXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
+                                if (NULL == Proj.Img.mpUserSysProcXdl)
                                     break;
 
                                 do {
-                                    Proj.Img.mpUserDrvXdl = AddProjectByPath(apFullPath, "src\\os8\\user\\k2osdrv", ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
-                                    if (NULL == Proj.Img.mpUserDrvXdl)
+                                    if ((ProjectType_Invalid != Proj.Img.mpKernCrtXdl->mpDependOn->mProjectType) &&
+                                        (!Proj.Img.mpKernCrtXdl->mpDependOn->mIsKernelTarget))
+                                    {
+                                        printf("*** XML for IMG specifies kernel CRT that is not targeted at kernel mode [%s]\n", apFullPath);
                                         break;
+                                    }
+                                    if ((ProjectType_Invalid != Proj.Img.mpKernXdl->mpDependOn->mProjectType) &&
+                                        (!Proj.Img.mpKernXdl->mpDependOn->mIsKernelTarget))
+                                    {
+                                        printf("*** XML for IMG specifies kernel that is not targeted at kernel mode [%s]\n", apFullPath);
+                                        break;
+                                    }
 
-                                    do {
-                                        if ((ProjectType_Invalid != Proj.Img.mpKernCrtXdl->mpDependOn->mProjectType) &&
-                                            (!Proj.Img.mpKernCrtXdl->mpDependOn->mIsKernelTarget))
-                                        {
-                                            printf("*** XML for IMG specifies kernel CRT that is not targeted at kernel mode [%s]\n", apFullPath);
-                                            break;
-                                        }
-                                        if ((ProjectType_Invalid != Proj.Img.mpKernXdl->mpDependOn->mProjectType) &&
-                                            (!Proj.Img.mpKernXdl->mpDependOn->mIsKernelTarget))
-                                        {
-                                            printf("*** XML for IMG specifies kernel that is not targeted at kernel mode [%s]\n", apFullPath);
-                                            break;
-                                        }
+                                    if ((ProjectType_Invalid != Proj.Img.mpKernAcpiXdl->mpDependOn->mProjectType) &&
+                                        (!Proj.Img.mpKernAcpiXdl->mpDependOn->mIsKernelTarget))
+                                    {
+                                        printf("*** XML for IMG specifies kern ACPI that is not targeted at kern mode [%s]\n", apFullPath);
+                                        break;
+                                    }
 
-                                        if ((ProjectType_Invalid != Proj.Img.mpUserCrtXdl->mpDependOn->mProjectType) &&
-                                            (Proj.Img.mpUserCrtXdl->mpDependOn->mIsKernelTarget))
-                                        {
-                                            printf("*** XML for IMG specifies user CRT that is not targeted at user mode [%s]\n", apFullPath);
-                                            break;
-                                        }
+                                    if ((ProjectType_Invalid != Proj.Img.mpKernExecXdl->mpDependOn->mProjectType) &&
+                                        (!Proj.Img.mpKernExecXdl->mpDependOn->mIsKernelTarget))
+                                    {
+                                        printf("*** XML for IMG specifies kern EXEC that is not targeted at kern mode [%s]\n", apFullPath);
+                                        break;
+                                    }
 
-                                        if ((ProjectType_Invalid != Proj.Img.mpUserRootXdl->mpDependOn->mProjectType) &&
-                                            (Proj.Img.mpUserRootXdl->mpDependOn->mIsKernelTarget))
-                                        {
-                                            printf("*** XML for IMG specifies root process that is not targeted at user mode [%s]\n", apFullPath);
-                                            break;
-                                        }
-                                        if ((ProjectType_Invalid != Proj.Img.mpUserAcpiXdl->mpDependOn->mProjectType) &&
-                                            (Proj.Img.mpUserAcpiXdl->mpDependOn->mIsKernelTarget))
-                                        {
-                                            printf("*** XML for IMG specifies user ACPI that is not targeted at user mode [%s]\n", apFullPath);
-                                            break;
-                                        }
+                                    if ((ProjectType_Invalid != Proj.Img.mpUserCrtXdl->mpDependOn->mProjectType) &&
+                                        (Proj.Img.mpUserCrtXdl->mpDependOn->mIsKernelTarget))
+                                    {
+                                        printf("*** XML for IMG specifies user CRT that is not targeted at user mode [%s]\n", apFullPath);
+                                        break;
+                                    }
 
-                                        if ((ProjectType_Invalid != Proj.Img.mpUserRpcXdl->mpDependOn->mProjectType) &&
-                                            (Proj.Img.mpUserRpcXdl->mpDependOn->mIsKernelTarget))
-                                        {
-                                            printf("*** XML for IMG specifies rpc xdl that is not targeted at user mode [%s]\n", apFullPath);
-                                            break;
-                                        }
-                                        if ((ProjectType_Invalid != Proj.Img.mpUserDrvXdl->mpDependOn->mProjectType) &&
-                                            (Proj.Img.mpUserDrvXdl->mpDependOn->mIsKernelTarget))
-                                        {
-                                            printf("*** XML for IMG specifies driver host xdl that is not targeted at user mode [%s]\n", apFullPath);
-                                            break;
-                                        }
+                                    if ((ProjectType_Invalid != Proj.Img.mpUserSysProcXdl->mpDependOn->mProjectType) &&
+                                        (Proj.Img.mpUserSysProcXdl->mpDependOn->mIsKernelTarget))
+                                    {
+                                        printf("*** XML for IMG specifies system process that is not targeted at user mode [%s]\n", apFullPath);
+                                        break;
+                                    }
 
-                                        K2ASC_Printf(gStrBuf, "bootdisk\\EFI\\BOOT\\BOOT%s.EFI", gArchBoot[gArch]);
-                                        pVfsFile = (VfsFile *)Proj.Img.mpImgFolder->AcquireOrCreateSub(gStrBuf, false);
-                                        if (NULL == pVfsFile)
-                                        {
-                                            printf("*** Could not acquire boot disk target EFI bootloader [%s]\n", apFullPath);
-                                            break;
-                                        }
-                                        pImgBoot = BuildFileUser_ImgBoot::Construct(pVfsFile, this, apFullPath);
-                                        pVfsFile->Release();
-                                        if (NULL == pImgBoot)
-                                        {
-                                            printf("*** Could not construct bootloader output file in image folder [%s]\n", apFullPath);
-                                            break;
-                                        }
+                                    K2ASC_Printf(gStrBuf, "bootdisk\\EFI\\BOOT\\boot%s.efi", gArchBoot[gArch]);
+                                    pVfsFile = (VfsFile *)Proj.Img.mpImgFolder->AcquireOrCreateSub(gStrBuf, false);
+                                    if (NULL == pVfsFile)
+                                    {
+                                        printf("*** Could not acquire boot disk target EFI bootloader [%s]\n", apFullPath);
+                                        break;
+                                    }
+                                    pImgBoot = BuildFileUser_ImgDstBoot::Construct(pVfsFile, this, apFullPath);
+                                    pVfsFile->Release();
+                                    if (NULL == pImgBoot)
+                                    {
+                                        printf("*** Could not construct bootloader output file in image folder [%s]\n", apFullPath);
+                                        break;
+                                    }
 
-                                        K2ASC_Printf(gStrBuf, "bootdisk\\K2OS\\%s\\KERN\\k2oskern.img", gpArchName[gArch]);
-                                        pVfsFile = (VfsFile *)Proj.Img.mpImgFolder->AcquireOrCreateSub(gStrBuf, false);
-                                        if (NULL == pVfsFile)
-                                        {
-                                            printf("*** Could not acquire output image file [%s]\n", apFullPath);
-                                            delete pImgBoot;
-                                            break;
-                                        }
-                                        Proj.Img.mpImg = BuildFileUser_Img::Construct(pVfsFile, this, pImgBoot, apFullPath);
-                                        pVfsFile->Release();
-                                        if (NULL == Proj.Img.mpImg)
-                                        {
-                                            delete pImgBoot;
-                                        }
-                                        else
-                                        {
-                                            ok = true;
-                                        }
-
-                                    } while (0);
-
-                                    if (!ok)
-                                        Proj.Img.mpUserDrvXdl = NULL;
+                                    K2ASC_Printf(gStrBuf, "bootdisk\\K2OS\\%s\\KERN\\k2oskern.img", gpArchName[gArch]);
+                                    pVfsFile = (VfsFile *)Proj.Img.mpImgFolder->AcquireOrCreateSub(gStrBuf, false);
+                                    if (NULL == pVfsFile)
+                                    {
+                                        printf("*** Could not acquire output image file [%s]\n", apFullPath);
+                                        delete pImgBoot;
+                                        break;
+                                    }
+                                    Proj.Img.mpImg = BuildFileUser_Img::Construct(pVfsFile, this, pImgBoot, apFullPath);
+                                    pVfsFile->Release();
+                                    if (NULL == Proj.Img.mpImg)
+                                    {
+                                        delete pImgBoot;
+                                    }
+                                    else
+                                    {
+                                        ok = true;
+                                    }
 
                                 } while (0);
-
                                 if (!ok)
-                                    Proj.Img.mpUserRpcXdl = NULL;
+                                    Proj.Img.mpUserSysProcXdl = NULL;
 
                             } while (0);
 
                             if (!ok)
-                                Proj.Img.mpUserAcpiXdl = NULL;
+                                Proj.Img.mpUserCrtXdl = NULL;
 
                         } while (0);
 
                         if (!ok)
-                            Proj.Img.mpUserRootXdl = NULL;
+                            Proj.Img.mpKernExecXdl = NULL;
 
                     } while (0);
 
                     if (!ok)
-                        Proj.Img.mpUserCrtXdl = NULL;
+                        Proj.Img.mpKernAcpiXdl = NULL;
 
                 } while (0);
 
@@ -333,10 +308,9 @@ BuildFileUser_SrcXml::Destruct_Img(
     Proj.Img.mpKernXdl = NULL;
     Proj.Img.mpPlatXdl = NULL;
     Proj.Img.mpKernCrtXdl = NULL;
+    Proj.Img.mpKernAcpiXdl = NULL;
+    Proj.Img.mpKernExecXdl = NULL;
     Proj.Img.mpUserCrtXdl = NULL;
-    Proj.Img.mpUserAcpiXdl = NULL;
-    Proj.Img.mpUserRootXdl = NULL;
-    Proj.Img.mpUserRpcXdl = NULL;
-    Proj.Img.mpUserDrvXdl = NULL;
+    Proj.Img.mpUserSysProcXdl = NULL;
 }
 

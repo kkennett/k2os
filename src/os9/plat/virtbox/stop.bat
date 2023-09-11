@@ -1,0 +1,1 @@
+"\Program Files\Oracle\VirtualBox\vboxmanage" controlvm k2os poweroff

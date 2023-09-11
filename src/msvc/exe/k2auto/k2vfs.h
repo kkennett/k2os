@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -162,6 +162,8 @@ class VfsFile : public VfsNode
     void OnFsEvent(VfsFileEvent aEvent);
     void OnFsExec(Vfs_pf_OnDiscoverNewFile aOnDiscoverNew);
 
+    bool Exists(void) const;    // only VfsUser should call this; outside a usage, the file has no state
+
     K2LIST_ANCHOR   UserList;
     FILETIME        mTimeStamp;
     UINT64          mEventIter;
@@ -176,7 +178,6 @@ public:
     void                DeleteInFs(void);
     FILETIME const &    GetTimeStamp(void) const { return mTimeStamp; }
     UINT_PTR const &    GetUserCount(void) const { return UserList.mNodeCount; }
-    bool                Exists(void) const;
     VfsUser *           GetUserByIndex(UINT_PTR aIndex) const;
     bool                IsNewerThan(VfsFile const *apOtherFile) const;
     bool                IsOlderThan(VfsFile const *apOtherFile) const;
@@ -196,6 +197,8 @@ public:
     virtual void OnFsCreate(char const *apFullPath) {}
     virtual void OnFsUpdate(char const *apFullPath) {}
     virtual void OnFsDelete(char const *apFullPath) {}
+
+    bool FileExists(void) { return mpVfsFile->Exists(); }
 
     VfsFile * const mpVfsFile;
 };

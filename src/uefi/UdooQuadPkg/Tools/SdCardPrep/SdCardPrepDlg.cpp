@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -841,6 +841,7 @@ void CSdCardPrepDlg::OnClickedButEject()
     IVdsDisk *      pDisk;
     IVdsPack *      pPack;
     IVdsRemovable * pRem;
+    TCHAR           outMsg[32];
 
     theApp.mpDisk = (DiskEntry *)mDiskSel.GetItemDataPtr(mDiskSel.GetCurSel());
     if (!theApp.mpDisk)
@@ -863,7 +864,8 @@ void CSdCardPrepDlg::OnClickedButEject()
         pRem->Release();
         if (FAILED(hr))
         {
-            MessageBox(TEXT("Eject Failed"), TEXT("Disk did not eject"), MB_OK | MB_ICONERROR);
+            _stprintf_s(outMsg, 32, TEXT("Err %08X"), hr);
+            MessageBox(TEXT("Eject Failed"), outMsg, MB_OK | MB_ICONERROR);
         }
         else
         {

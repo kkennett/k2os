@@ -1,0 +1,108 @@
+<?xml version="1.0" ?>
+<!--
+   
+   BSD 3-Clause License
+   
+   Copyright (c) 2023, Kurt Kennett
+   All rights reserved.
+   
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
+   
+   1. Redistributions of source code must retain the above copyright notice, this
+      list of conditions and the following disclaimer.
+   
+   2. Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+   
+   3. Neither the name of the copyright holder nor the names of its
+      contributors may be used to endorse or promote products derived from
+      this software without specific prior written permission.
+   
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-->
+<k2build type="lib">
+    <kernel/>
+    <source>xdl_entry.c</source>
+    <source>kernex.c</source>
+    <source>seqlock.c</source>
+    <source>debug.c</source>
+    <source>panic.c</source>
+    <source>pte.c</source>
+    <source>phys.c</source>
+    <source>bit.c</source>
+    <source>acpi.c</source>
+    <source>virt.c</source>
+    <source>cpu.c</source>
+    <source>sched.c</source>
+    <source>intr.c</source>
+    <source>object.c</source>
+    <source>proc.c</source>
+    <source>user.c</source>
+    <source>pagearray.c</source>
+    <source>filesys.c</source>
+    <source>thread.c</source>
+    <source>timer.c</source>
+    <source>sched_locked.c</source>
+    <source>xdlhost.c</source>
+    <source>plat.c</source>
+    <source>exec.c</source>
+    <source>notify.c</source>
+    <source>wait.c</source>
+    <source>gate.c</source>
+    <source>alarm.c</source>
+    <source>sem.c</source>
+    <source>trace.c</source>
+    <source>bootgraf.c</source>
+    <source>token.c</source>
+    <source>usermap.c</source>
+    <source>kernmap.c</source>
+    <source>virtmap.c</source>
+    <source>mail.c</source>
+    <source>ifinst.c</source>
+    <source>ifenum.c</source>
+    <source>ifsubs.c</source>
+    <source>ipcend.c</source>
+    <source>sysproc.c</source>
+    <source>notifyproxy.c</source>
+
+    <source>kt_ipcend.c</source>
+    <source>kt_alarm.c</source>
+    <source>kt_critsec.c</source>
+    <source>kt_k2osexec.c</source>
+    <source>kt_gate.c</source>
+    <source>kt_ifenum.c</source>
+    <source>kt_ifsubs.c</source>
+    <source>kt_kernmap.c</source>
+    <source>kt_mail.c</source>
+    <source>kt_notify.c</source>
+    <source>kt_pagearray.c</source>
+    <source>kt_proc.c</source>
+    <source>kt_sem.c</source>
+    <source>kt_system.c</source>
+    <source>kt_thread.c</source>
+    <source>kt_timer.c</source>
+    <source>kt_virt.c</source>
+    <source>kt_wait.c</source>
+    <source>kt_xdlapi.c</source>
+    <source>kt_xdlhost.c</source>
+    <source>kt_debug.c</source>
+    <source>kt_ifinst.c</source>
+    <source>kt_token.c</source>
+    <source>kt_sysproc.c</source>
+    <source>kt_intr.c</source>
+</k2build>
+
+
+

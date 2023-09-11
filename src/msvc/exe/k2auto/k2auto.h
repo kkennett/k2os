@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -43,11 +43,12 @@
 
 extern char const *         gpArchName[5];
 extern UINT_PTR             gArch;
-extern UINT_PTR             gArchBits;
 extern bool                 gDebugMode;
 extern char const *         gpArchMode;
 extern UINT_PTR const       gArchModeLen;
 extern char const * const   gArchBoot[5];
+
+extern char const * const   gpOsVer;
 
 extern char const * const   gpBuildXmlFileName;
 
@@ -97,9 +98,9 @@ enum BuildFileUserType
     BuildFileUserType_OutXdl,
     BuildFileUserType_OutXdlLib,
 
-    BuildFileUserType_ImgSrcXdl,
     BuildFileUserType_ImgDstXdl,
-    BuildFileUserType_ImgBoot,
+    BuildFileUserType_ImgSrcBoot,
+    BuildFileUserType_ImgDstBoot,
     BuildFileUserType_Img,
 
     BuildFileUserType_Count
@@ -146,9 +147,9 @@ class BuildFileUser_OutObj;
 class BuildFileUser_OutLib;
 class BuildFileUser_OutXdl;
 class BuildFileUser_OutXdlLib;
-class BuildFileUser_ImgSrcXdl;
 class BuildFileUser_ImgDstXdl;
-class BuildFileUser_ImgBoot;
+class BuildFileUser_ImgSrcBoot;
+class BuildFileUser_ImgDstBoot;
 class BuildFileUser_Img;
 
 class ProjDep;
@@ -262,11 +263,10 @@ public:
             ProjDep *               mpKernXdl;
             ProjDep *               mpPlatXdl;
             ProjDep *               mpKernCrtXdl;
+            ProjDep *               mpKernAcpiXdl;
+            ProjDep *               mpKernExecXdl;
             ProjDep *               mpUserCrtXdl;
-            ProjDep *               mpUserRootXdl;
-            ProjDep *               mpUserAcpiXdl;
-            ProjDep *               mpUserRpcXdl;
-            ProjDep *               mpUserDrvXdl;
+            ProjDep *               mpUserSysProcXdl;
             K2LIST_ANCHOR           RawXdlProjList;
             K2LIST_ANCHOR           UserXdlProjList;
             K2LIST_ANCHOR           BuiltInXdlProjList;
@@ -638,16 +638,37 @@ public:
     K2LIST_LINK                     ImgTargetListLink;
 };
 
-class BuildFileUser_ImgBoot : public BuildFileUser
+class BuildFileUser_ImgSrcBoot : public BuildFileUser
 {
     void OnFsCreate(char const *apFullPath);
     void OnFsUpdate(char const *apFullPath);
 
 public:
-    BuildFileUser_ImgBoot(VfsFile *apVfsFile, BuildFileUser_SrcXml *apSrcXml, VfsFile *mpSrcFile);
-    ~BuildFileUser_ImgBoot(void);
+    BuildFileUser_ImgSrcBoot(VfsFile *apVfsFile, BuildFileUser_SrcXml *apSrcXml);
+    ~BuildFileUser_ImgSrcBoot(void);
 
-    static BuildFileUser_ImgBoot * Construct(VfsFile *apVfsFile, BuildFileUser_SrcXml *apSrcXml, char const *apXmlFullPath);
+    void SetSomethingChangedSinceLastTryRepair(void);
+
+    void OnDamaged(void);
+    void OnRepaired(void);
+
+    bool CheckIfDamaged(void);
+
+    void Dump(bool aDamagedOnly);
+
+    BuildFileUser_ImgDstBoot * mpDstBoot;
+};
+
+class BuildFileUser_ImgDstBoot : public BuildFileUser
+{
+    void OnFsCreate(char const *apFullPath);
+    void OnFsUpdate(char const *apFullPath);
+
+public:
+    BuildFileUser_ImgDstBoot(VfsFile *apVfsFile, BuildFileUser_SrcXml *apSrcXml, BuildFileUser_ImgSrcBoot *apSrcBoot);
+    ~BuildFileUser_ImgDstBoot(void);
+
+    static BuildFileUser_ImgDstBoot * Construct(VfsFile *apVfsFile, BuildFileUser_SrcXml *apSrcXml, char const *apXmlFullPath);
 
     void SetSomethingChangedSinceLastTryRepair(void);
 
@@ -655,12 +676,15 @@ public:
     void OnRepaired(void);
     bool TryRepair(void);
 
+    void OnSrcDamaged(void);
+    void OnSrcRepaired(void);
+
     bool CheckIfDamaged(void);
 
     void Dump(bool aDamagedOnly);
 
-    BuildFileUser_Img * mpParentImg;
-    VfsFile *           mpSrcFile;
+    BuildFileUser_Img *         mpParentImg;
+    BuildFileUser_ImgSrcBoot *  mpSrcBoot;
 };
 
 class BuildFileUser_Img : public BuildFileUser
@@ -669,10 +693,10 @@ class BuildFileUser_Img : public BuildFileUser
     void OnFsUpdate(char const *apFullPath);
 
 public:
-    BuildFileUser_Img(VfsFile *apVfsFile, BuildFileUser_SrcXml *apSrcXml, BuildFileUser_ImgBoot *apImgRofs);
+    BuildFileUser_Img(VfsFile *apVfsFile, BuildFileUser_SrcXml *apSrcXml, BuildFileUser_ImgDstBoot *apImgRofs);
     ~BuildFileUser_Img(void);
 
-    static BuildFileUser_Img * Construct(VfsFile *apVfsFile, BuildFileUser_SrcXml *apSrcXml, BuildFileUser_ImgBoot *apImgBoot, char const *apXmlFullPath);
+    static BuildFileUser_Img * Construct(VfsFile *apVfsFile, BuildFileUser_SrcXml *apSrcXml, BuildFileUser_ImgDstBoot *apImgBoot, char const *apXmlFullPath);
 
     void SetSomethingChangedSinceLastTryRepair(void);
 
@@ -693,7 +717,7 @@ public:
     void Dump(bool aDamagedOnly);
 
     BuildFileUser_SrcXml *  mpParentSrcXml;
-    BuildFileUser_ImgBoot * mpChildImgBoot;
+    BuildFileUser_ImgDstBoot * mpChildImgBoot;
     K2LIST_ANCHOR           ImgTargetList;
 };
 

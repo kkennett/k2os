@@ -1,7 +1,7 @@
 /*   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@ SECTIONS {
   .text : { *(.text) *(.text.*) }
   . = ALIGN(4096);
   .rodata : { *(.rodata) *(.rodata.*) *(.eh_frame) }
+  /DISCARD/ 0 : { *(.ARM.extab* .gnu.linkonce.armextab.*) *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
   __ctors = .;
   .ctors : { *(.ctors) *(.init_array) *(.init_array.*) }
   . = ALIGN(4096);

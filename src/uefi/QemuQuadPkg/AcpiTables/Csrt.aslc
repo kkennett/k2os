@@ -1,0 +1,175 @@
+//   
+//   BSD 3-Clause License
+//   
+//   Copyright (c) 2020, Kurt Kennett
+//   All rights reserved.
+//   
+//   Redistribution and use in source and binary forms, with or without
+//   modification, are permitted provided that the following conditions are met:
+//   
+//   1. Redistributions of source code must retain the above copyright notice, this
+//      list of conditions and the following disclaimer.
+//   
+//   2. Redistributions in binary form must reproduce the above copyright notice,
+//      this list of conditions and the following disclaimer in the documentation
+//      and/or other materials provided with the distribution.
+//   
+//   3. Neither the name of the copyright holder nor the names of its
+//      contributors may be used to endorse or promote products derived from
+//      this software without specific prior written permission.
+//   
+//   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+//   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+//   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+//   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+//   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+//   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+//   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+//   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+//   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+//   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+#include "AcpiDefs.h"
+#include "..\Include\QemuQuad.h"
+
+//------------------------------------------------------------------------
+// Timer Resource Group
+//------------------------------------------------------------------------
+
+#define TIMER_CAP_ALWAYS_ON     0x00000001 // Timer is always ON.
+#define TIMER_CAP_UP_COUNTER    0x00000002 // Up counter vs. down counter (0)
+#define TIMER_CAP_READABLE      0x00000004 // Counter has a software interface.
+#define TIMER_CAP_PERIODIC      0x00000008 // Can generate periodic interrupts.
+#define TIMER_CAP_DRIVES_IRQ    0x00000010 // Timer interrupt drives a physical IRQ.
+#define TIMER_CAP_ONE_SHOT      0x00000020 // Counter is capable pf generating one-shot interrupts
+
+// Timer descriptor
+typedef struct 
+{
+    EFI_ACPI_5_0_CSRT_RESOURCE_DESCRIPTOR_HEADER Header;
+
+    UINT32 Capabilities;
+    UINT32 Width;
+    UINT32 Source;
+    UINT32 Frequency;
+    UINT32 FrequencyScale;
+    UINT32 BaseAddress;
+    UINT32 Size;
+    UINT32 Interrupt;
+} __attribute__((packed)) RD_TIMER;
+
+// Timer group descriptor
+typedef struct 
+{
+    EFI_ACPI_5_0_CSRT_RESOURCE_GROUP_HEADER Header;
+    RD_TIMER Timers[2];
+} __attribute__((packed)) RG_TIMER;
+
+
+//------------------------------------------------------------------------
+// CSRT structure for this platform
+//------------------------------------------------------------------------
+typedef struct 
+{
+    EFI_ACPI_DESCRIPTION_HEADER CsrtHeader; // Standard ACPI Header
+    RG_TIMER TimerResourceGroup;            // Timer Resource Group
+} __attribute__((packed)) EFI_ACPI_CSRT_TABLE;
+
+
+EFI_ACPI_CSRT_TABLE Csrt = 
+{
+    //------------------------------------------------------------------------
+    // CSRT Header
+    //------------------------------------------------------------------------
+    {
+        EFI_ACPI_5_0_CORE_SYSTEM_RESOURCE_TABLE_SIGNATURE,  // Signature "CSRT"
+        sizeof(EFI_ACPI_DESCRIPTION_HEADER) +               // Length
+          sizeof(RG_TIMER),
+        EFI_ACPI_5_0_CSRT_REVISION,                         // Revision
+        0x00,                                               // Checksum calculated at runtime.
+        EFI_ACPI_OEM_ID,                                    // OEMID is a 6 bytes long field.
+        EFI_ACPI_OEM_TABLE_ID,                              // OEM table identification(8 bytes long).
+        EFI_ACPI_OEM_REVISION,                              // OEM revision number.
+        EFI_ACPI_CREATOR_ID,                                // ASL compiler vendor ID.
+        EFI_ACPI_CREATOR_REVISION,                          // ASL compiler revision number.
+    },
+
+    //------------------------------------------------------------------------
+    // TimerResourceGroup
+    //------------------------------------------------------------------------
+    {
+        // Timer group header
+        {
+            sizeof(RG_TIMER),               // Resource Group Length
+            SIGNATURE_32('A','9','M','P'),  // VendorId
+            0,                              // SubvendorId
+            0x0001,                         // DeviceId
+            0,                              // SubdeviceId
+            0,                              // Revision
+            0,                              // Reserved
+            0                               // No shared info
+
+        }, // Timer group header
+
+        //------------------------------------------------------------------------
+        // Timers
+        //------------------------------------------------------------------------
+        {
+            // General Purpose Timer (GPT) - 32 bit up counter runs at 1Mhz
+            {
+                {
+                    sizeof(RD_TIMER),               // Resource Descriptor Length
+                    EFI_ACPI_CSRT_RD_TYPE_TIMER,    // Resource Type
+                    EFI_ACPI_CSRT_RD_SUBTYPE_TIMER, // Resource Subtype
+                    0,                              // ResourceId
+                },
+                TIMER_CAP_READABLE      |       // Capabilities
+                    TIMER_CAP_ALWAYS_ON |
+                    TIMER_CAP_UP_COUNTER,
+                32,                             // Timer width (bits)
+                0,                              // Source
+                QEMUQUAD_GPT_SRC_FREQ_HZ,       // Frequency
+                24,                             // Frequency scale
+                IMX6_PHYSADDR_GPT_CNT,          // 32 bit Physical address
+                0x1000,                         // Size of timer address space
+                0,                              // N.B. No interrupt on this counter
+
+            }, // General Purpose Timer (GPT)
+
+            // A9MP Global Timer
+            {
+                {
+                    sizeof(RD_TIMER),                  // Resource Descriptor Length
+                    EFI_ACPI_CSRT_RD_TYPE_TIMER,    // Resource Type
+                    EFI_ACPI_CSRT_RD_SUBTYPE_TIMER, // Resource Subtype
+                    1,                              // ResourceId
+                },
+                TIMER_CAP_UP_COUNTER     |       // Capabilities
+                    TIMER_CAP_READABLE,
+                64,                             // Timer width (bits)
+                0,                              // Source
+                100000000,                      // Frequency is 100Mhz on Qemu arm
+                1,                              // Frequency scale
+                IMX6_PHYSADDR_ARM_GLOBAL_TIMER, // 32 bit Physical address
+                0x1000,                         // Size of timer address space
+                0,                              // interrupt through ACPI not allowed. gtimer used for os scheduler
+
+            }, // A9MP Global Timer
+
+        } // Timers
+
+    } // TimerResourceGroup
+
+}; // CSRT
+
+VOID*
+ReferenceAcpiTable (
+  VOID
+  )
+{
+  //
+  // Reference the table being generated to prevent the optimizer from removing the
+  // data structure from the executable
+  //
+  return (VOID*)&Csrt;
+}

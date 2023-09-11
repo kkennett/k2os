@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -31,13 +31,14 @@
 //
 #include "k2auto.h"
 
-char const *    gpArchName[5] = { "none", "x32", "a32", "x64", "a64" };
-UINT_PTR        gArch;
-UINT_PTR        gArchBits;
-bool            gDebugMode;
-static char     sgArchModeBuf[12];
-char const *    gpArchMode = sgArchModeBuf;
-UINT_PTR const  gArchModeLen = 9;
+char const *        gpArchName[5] = { "none", "x32", "a32", "x64", "a64" };
+UINT_PTR            gArch;
+bool                gDebugMode;
+static char         sgArchModeBuf[12];
+char const *        gpArchMode = sgArchModeBuf;
+UINT_PTR const      gArchModeLen = 9;
+//char const * const  gpOsVer = "os8";
+char const * const  gpOsVer = "os9";
 
 char const * const gpBuildXmlFileName = "k2build.xml";
 
@@ -66,27 +67,27 @@ Spaces(
     } while (0 != --aCount);
 }
 
-static char const * const sgpOptBase = "-c -nostdinc -fno-common -Wall -I %s\\src\\shared\\inc -DK2_OS=os8 -fdata-sections --function-sections";
+static char const * const sgpOptBase = "-c -nostdinc -fno-common -Wall -I %s\\src\\shared\\inc -DK2_OS=%s -fdata-sections --function-sections";
 
 void SetupStr(void)
 {
-    static char const *spArchA32 = "-march=armv7-a";
+    static char const *spArchA32 = "-march=armv7-a -mapcs-frame";
     static char const *spArchX32 = "-march=i686 -m32 -malign-double";
     static char const *spArchA64 = "-march=armv8-a";
     static char const *spArchX64 = "-march=x86-64 -m64 -malign-double";
     static char const *spDebug = "-ggdb -g2";
     static char const *spCpp = "-fno-rtti -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables";
-    static char const *spOsInc = "-I %s\\src\\os8\\inc";
+    static char const *spOsInc = "-I %s\\src\\%s\\inc";
     static char const *spBinPath = "%s\\k2tools\\%s\\libgcc.a";
-    static char const *spLinkOpt = "-q -nostdlib -static --no-undefined --script %s\\src\\build\\gcc_link%d.l";
+    static char const *spLinkOpt = "-q -nostdlib -static --no-undefined --script %s\\src\\build\\gcc_link32.l";
 
     UINT_PTR    len;
     UINT_PTR    addLen;
     char *      pTemp;
 
-    gpStr_OptC = new char[(K2ASC_Len(sgpOptBase) - 2 + gVfsRootSpecLen + 4) & ~3];
+    gpStr_OptC = new char[(K2ASC_Len(sgpOptBase) - 2 + gVfsRootSpecLen + K2ASC_Len(gpOsVer) + 4) & ~3];
     K2_ASSERT(NULL != gpStr_OptC);
-    K2ASC_Printf(gpStr_OptC, sgpOptBase, gpVfsRootSpec);
+    K2ASC_Printf(gpStr_OptC, sgpOptBase, gpVfsRootSpec, gpOsVer);
     len = K2ASC_Len(gpStr_OptC);
 
     switch (gArch)
@@ -158,9 +159,10 @@ void SetupStr(void)
 
     len = K2ASC_Len(spOsInc);
     len += gVfsRootSpecLen;
+    len += K2ASC_Len(gpOsVer);
     gpStr_OsInc = new char[(len + 4) & ~3];
     K2_ASSERT(NULL != gpStr_OsInc);
-    K2ASC_Printf(gpStr_OsInc, spOsInc, gpVfsRootSpec);
+    K2ASC_Printf(gpStr_OsInc, spOsInc, gpVfsRootSpec, gpOsVer);
 
     len = K2ASC_Len(spBinPath);
     len += gVfsRootSpecLen;
@@ -172,10 +174,9 @@ void SetupStr(void)
 
     len = K2ASC_Len(spLinkOpt);
     len += gVfsRootSpecLen;
-    len += 2;
     gpStr_LdOpt = new char[(len + 4) & ~3];
     K2_ASSERT(NULL != gpStr_LdOpt);
-    K2ASC_Printf(gpStr_LdOpt, spLinkOpt, gpVfsRootSpec, gArchBits);
+    K2ASC_Printf(gpStr_LdOpt, spLinkOpt, gpVfsRootSpec);
 }
 
 void
@@ -412,7 +413,7 @@ GetContentTarget(
     }
     else if (*pPars == '~')
     {
-        left = K2ASC_Printf(gStrBuf, "%s\\src\\os8\\%.*s", gpVfsRootSpec, left - 1, pPars + 1);
+        left = K2ASC_Printf(gStrBuf, "%s\\src\\%s\\%.*s", gpVfsRootSpec, gpOsVer, left - 1, pPars + 1);
         pSrcPath = new char[(left + 4) & ~3];
         K2_ASSERT(NULL != pSrcPath);
         K2ASC_Copy(pSrcPath, gStrBuf);
@@ -458,8 +459,8 @@ GetContentTarget(
 
 int main(int argc, char **argv)
 {
+//    gArch = K2_ARCH_A32;
     gArch = K2_ARCH_X32;
-    gArchBits = 32;
     gDebugMode = true;
 
     gpVfsRootSpec = "C:\\repo\\k2os";

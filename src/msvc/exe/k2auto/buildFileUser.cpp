@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -70,7 +70,7 @@ BuildFileUser::OnRepaired(
     void
 ) 
 { 
-    K2_ASSERT(mpVfsFile->Exists()); // impossible for a nonexistent file to be repaired
+    K2_ASSERT(FileExists()); // impossible for a nonexistent file to be repaired
 
     SetSomethingChangedSinceLastTryRepair();
 

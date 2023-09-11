@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -47,3 +47,9 @@ MyAssert(
 }
 
 K2_pf_ASSERT K2_Assert = MyAssert;
+
+UINT_PTR K2OS_Debug_OutputString(char const *apStr)
+{
+    OutputDebugString(apStr);
+    return 1;
+}

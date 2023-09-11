@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -35,24 +35,24 @@
 
 // void A32_ICacheInvalidateAll_UP(void);
 BEGIN_A32_PROC(A32_ICacheInvalidateAll_UP)
-    mcr p15, 0, r12, c7, c5, 0
-    mcr p15, 0, r12, c7, c5, 6
+    mcr p15, 0, r12, c7, c5, 0      // ICIALLU
+    mcr p15, 0, r12, c7, c5, 6      // BPIALL
     isb
     bx lr
 END_A32_PROC(A32_ICacheInvalidateAll_UP)
 
 // void A32_ICacheInvalidateAll_MP(void);
 BEGIN_A32_PROC(A32_ICacheInvalidateAll_MP)
-    mcr p15, 0, r12, c7, c1, 0
-    mcr p15, 0, r12, c7, c1, 6
+    mcr p15, 0, r12, c7, c1, 0      // ICIALLUIS
+    mcr p15, 0, r12, c7, c1, 6      // BPIALL
     isb
     bx lr
 END_A32_PROC(A32_ICacheInvalidateAll_MP)
 
 // void A32_ICacheInvalidateMVA(UINT32 aMVA);
 BEGIN_A32_PROC(A32_ICacheInvalidateMVA)
-    mcr p15, 0, r0, c7, c5, 1
-    mcr p15, 0, r0, c7, c5, 7
+    mcr p15, 0, r0, c7, c5, 1       // ICIMVAU
+    mcr p15, 0, r0, c7, c5, 7       // BPIMVA
     isb
     bx lr
 END_A32_PROC(A32_ICacheInvalidateMVA)

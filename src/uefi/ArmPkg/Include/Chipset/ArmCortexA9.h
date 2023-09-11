@@ -48,6 +48,7 @@
 //
 #define A9_SCU_CONTROL_OFFSET       0x0
 #define A9_SCU_CONFIG_OFFSET        0x4
+#define A9_SCU_POWERSTAT_OFFSET     0x8
 #define A9_SCU_INVALL_OFFSET        0xC
 #define A9_SCU_FILT_START_OFFSET    0x40
 #define A9_SCU_FILT_END_OFFSET      0x44

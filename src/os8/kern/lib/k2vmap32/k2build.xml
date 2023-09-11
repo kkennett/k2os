@@ -1,5 +1,0 @@
-<?xml version="1.0" ?>
-<k2build type="lib">
-    <source>vmap32.c</source>
-    <source>vmdump.c</source>
-</k2build>

@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -31,13 +31,12 @@
 //
 
 #include <Library/IMX6/IMX6GptLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Library/IoLib.h>
 #include <Library/DebugLib.h>
 
 #define GPTLIB_Check(x,size) \
 typedef int Check ## x [(sizeof(x) == size) ? 1 : -1];
-
-// -----------------------------------------------------------------------------
 
 typedef union _GPT_CR
 {
@@ -77,11 +76,12 @@ GPTLIB_Check(REG_GPT_PR, sizeof(UINT32));
 
 // -----------------------------------------------------------------------------
 
-UINT32
+VOID
 EFIAPI
-IMX6_GPT_GetRate(
-    UINT32 Regs_CCM,
-    UINT32 Regs_GPT
+IMX6_GPT_Init(
+    IMX6_GPT *  apGpt,
+    UINT32      Regs_CCM,
+    UINT32      Regs_GPT
 )
 {
     REG_GPT_CR GPT_CR;
@@ -120,26 +120,39 @@ IMX6_GPT_GetRate(
 
     Calc64 /= (UINT64)(GPT_PR.PRESCALER + 1);
 
-    ASSERT(Calc64 != 0);
+    if (Calc64 == 0)
+        Calc64 = 1;
 
-    return (UINT32)Calc64;
+    ZeroMem(apGpt, sizeof(IMX6_GPT));
+    apGpt->mRegs_GPT = Regs_GPT;
+    apGpt->mRate = (UINT32)Calc64;
+}
+
+UINT32
+EFIAPI
+IMX6_GPT_GetTickCount(
+    IMX6_GPT *  apGpt
+)
+{
+    return MmioRead32(apGpt->mRegs_GPT + IMX6_GPT_OFFSET_CNT);
 }
 
 UINT32
 EFIAPI
 IMX6_GPT_TicksFromUs(
-    UINT32 GPTRate,
-    UINT32 uSeconds
+    IMX6_GPT *  apGpt,
+    UINT32      aUs
 )
 {
     UINT64 Calc64;
 
-    if (uSeconds == 0)
+    if (aUs == 0)
         return 0;
 
-    ASSERT(GPTRate != 0);
+    if (apGpt->mRate == 0)
+        return 0;
 
-    Calc64 = (((UINT64)GPTRate) * ((UINT64)uSeconds)) / (UINT64)1000000;
+    Calc64 = (((UINT64)apGpt->mRate) * ((UINT64)aUs)) / (UINT64)1000000;
 
     if (Calc64 & 0xFFFFFFFF00000000)
         return 0xFFFFFFFF;
@@ -149,28 +162,30 @@ IMX6_GPT_TicksFromUs(
 
 void
 IMX6_GPT_DelayUs(
-    UINT32 Regs_GPT,
-    UINT32 GPTRate,
-    UINT32 usDelay
+    IMX6_GPT *  apGpt,
+    UINT32      aUsDelay
 )
 {
     UINT32  Cur;
     UINT32  End;
 
-    if (usDelay == 0)
+    if (aUsDelay == 0)
         return;
 
-    ASSERT(GPTRate != 0);
+    if (apGpt->mRate == 0)
+        return;
 
-    Cur = MmioRead32(Regs_GPT + IMX6_GPT_OFFSET_CNT);
+    Cur = IMX6_GPT_GetTickCount(apGpt);
 
-    End = Cur + IMX6_GPT_TicksFromUs(GPTRate, usDelay);
+    End = Cur + IMX6_GPT_TicksFromUs(apGpt, aUsDelay);
 
     if (End < Cur)
     {
         // going to wrap
-        while (MmioRead32(Regs_GPT + IMX6_GPT_OFFSET_CNT) >= Cur);
+        while (IMX6_GPT_GetTickCount(apGpt) >= Cur);
     }
 
-    while (MmioRead32(Regs_GPT + IMX6_GPT_OFFSET_CNT) < End);
+    while (IMX6_GPT_GetTickCount(apGpt) < End);
 }
+
+

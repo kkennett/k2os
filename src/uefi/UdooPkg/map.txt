@@ -1,0 +1,89 @@
+OCRAM map
+
+00900000    IMX6 Reserved
+00901000    IMX6 Reserved
+00902000    IMX6 Reserved
+00903000    IMX6 Reserved
+00904000    IMX6 Reserved
+00905000    IMX6 Reserved
+00906000    IMX6 Reserved
+00907000    SEC.FD starts-------------------
+     000    Protective MBR (zeros)
+     200    GPT Primary
+     400    IVT
+     600    
+     800    GPT Part Table Sector 0 (0,1,2,3)
+     A00    GPT Part Table Sector 0 (4,5,6,7)
+     C00    GPT Part Table Sector 0 (8,9,10,11)
+     E00    GPT Part Table Sector 0 (12,13,14,15)
+00908000    Temp RAM
+00909000    Temp RAM
+0090A000    Temp RAM
+0090B000    Temp RAM
+0090C000    CPU 0 PAGE (parking + sec stack)
+0090C200    CPU 0 init stack space
+0090C400    CPU 0 init stack space
+0090C600    CPU 0 init stack space
+0090C800    CPU 0 init stack space
+0090CA00    CPU 0 init stack space
+0090CC00    CPU 0 SEC stack space
+0090CE00    CPU 0 SEC stack space
+0090D000    CPU 1 PAGE (parking + sec stack) 
+            - like cpu 0
+0090E000    CPU 2 PAGE (parking + sec stack)
+            - like cpu 0
+0090F000    CPU 3 PAGE (parking + sec stack)
+            - like cpu 0
+00910000    FV_SEC--
+00911000    FV_SEC
+00912000    FV_SEC
+00913000    FV_SEC
+00914000    FV_SEC
+00915000    FV_SEC
+00916000    FV_SEC
+00917000    FV_SEC
+00918000    FV_PEI--
+00919000    FV_PEI
+0091A000    FV_PEI
+0091B000    FV_PEI
+0091C000    FV_PEI
+0091D000    FV_PEI
+0091E000    FV_PEI
+0091F000    FV_PEI
+00920000    FV_PEI
+00921000    FV_PEI
+00922000    FV_PEI
+00923000    FV_PEI
+00924000    FV_PEI
+00925000    FV_PEI
+00926000    FV_PEI
+00927000    FV_PEI
+00928000    FV_PEI
+00929000    FV_PEI
+0092A000    FV_PEI
+0092B000    FV_PEI
+0092C000    FV_PEI
+0092D000    FV_PEI
+0092E000    FV_PEI
+0092F000    FV_PEI
+00930000    FV_PEI
+00931000    FV_PEI
+00932000    FV_PEI
+00933000    FV_PEI
+00934000    FV_PEI
+00935000    FV_PEI
+00936000    FV_PEI
+00937000    FV_PEI
+00938000    Boot ROM MMU Table
+00939000    Boot ROM MMU Table
+0093A000    Boot ROM MMU Table
+0093B000    Boot ROM MMU Table
+0093C000    Boot ROM MMU Table
+0093D000    Boot ROM MMU Table
+0093E000    Boot ROM Stack
+0093F000    Boot ROM Stack + RAM Excepption vectors (@ 0093FFB8)
+00940000===============OCRAM ENDS
+
+
+
+

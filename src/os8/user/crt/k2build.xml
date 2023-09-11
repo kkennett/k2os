@@ -1,5 +1,0 @@
-<?xml version="1.0" ?>
-<k2build type="lib">
-    <source>segment.c</source>
-    <source>touch.c</source>
-</k2build>

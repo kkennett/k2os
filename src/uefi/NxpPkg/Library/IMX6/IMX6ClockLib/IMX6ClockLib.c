@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -65,21 +65,49 @@ IMX6_CLOCK_GetRate_IPG(
 
 UINT32
 EFIAPI
-IMX6_CLOCK_GetRate_USDHC_SRC(
+IMX6_CLOCK_GetRate_USDHC(
     UINT32 Regs_CCM,
     UINT32 UnitNum
 )
 {
-    REG_CCM_CSCMR1 CSCMR1;
+    REG_CCM_CSCMR1  CSCMR1;
+    UINT32          regVal;
+    UINT32          result;
 
-    ASSERT((UnitNum >= 1) && (UnitNum <= 4));
+    if ((UnitNum < 1) || (UnitNum > 4))
+        return 0;
 
     CSCMR1.Raw = MmioRead32(Regs_CCM + IMX6_CCM_OFFSET_CSCMR1);
+    if ((CSCMR1.Raw >> (15 + UnitNum)) & 1)
+    {
+        result = IMX6_CLOCK_GetRate_PLL2_PFD(Regs_CCM, 0);
+    }
+    else
+    {
+        result = IMX6_CLOCK_GetRate_PLL2_PFD(Regs_CCM, 2);
+    }
 
-    if ((CSCMR1.Raw >> (15+UnitNum)) & 1)
-        return IMX6_CLOCK_GetRate_PLL2_PFD(Regs_CCM, 0);
+    regVal = MmioRead32(Regs_CCM + IMX6_CCM_OFFSET_CSCDR1);
+    switch (UnitNum)
+    {
+    case 1:
+        regVal = (regVal & 0x00003800) >> 11;
+        break;
+    case 2:
+        regVal = (regVal & 0x00070000) >> 16;
+        break;
+    case 3:
+        regVal = (regVal & 0x00380000) >> 19;
+        break;
+    case 4:
+        regVal = (regVal & 0x01C00000) >> 22;
+        break;
+    default:
+        return 0;
+    }
+    regVal++;
 
-    return IMX6_CLOCK_GetRate_PLL2_PFD(Regs_CCM, 2);
+    return result / regVal;
 }
 
 UINT32
@@ -140,11 +168,12 @@ IMX6_CLOCK_GetRate_AHB(
             srcClk = IMX6_CLOCK_GetRate_PLL2_PFD(Regs_CCM, 2) >> 1;
             break;
         default:
-            ASSERT(0);
+            return 0;
         }
     }
 
-    ASSERT(srcClk != 0);
+    if (srcClk == 0)
+        return 0;
 
     return srcClk / (CBCDR.ahb_podf + 1);
 }
@@ -172,11 +201,13 @@ IMX6_CLOCK_GetRate_PLL3_PFD(
     UINT32 analog;
     UINT64 clkRate;
 
-    ASSERT(SelPFD < 4);
+    if (SelPFD >= 4)
+        return 0;
 
     analog = MmioRead32(Regs_CCM + sgAnalog_PFD_Offset[3]);
     analog = (analog >> (8 * SelPFD)) & 0x3F;
-    ASSERT(analog != 0);
+    if (analog == 0)
+        return 0;
 
     clkRate = (UINT64)IMX6_CLOCK_GetRate_PLL3_MAIN(Regs_CCM);
     clkRate *= 18ULL;
@@ -208,11 +239,13 @@ IMX6_CLOCK_GetRate_PLL2_PFD(
     UINT32 analog;
     UINT64 clkRate;
 
-    ASSERT(SelPFD < 4);
+    if (SelPFD >= 4)
+        return 0;
 
     analog = MmioRead32(Regs_CCM + sgAnalog_PFD_Offset[2]);
     analog = (analog >> (8 * SelPFD)) & 0x3F;
-    ASSERT(analog != 0);
+    if (analog == 0)
+        return 0;
 
     clkRate = (UINT64)IMX6_CLOCK_GetRate_PLL2_MAIN(Regs_CCM);
     clkRate *= 18ULL;

@@ -1,0 +1,13 @@
+0-based flash
+
+qemu-system-arm -M sabrelite -m 1G -smp 4 -display none -serial null -serial stdio -device loader,file=c:\repo\k2os\src\uefi\Build\QemuQuad\DEBUG_GCC48\FV\BOOTROM.fd,addr=0,force-raw=on -drive file=sdcard.vhd,format=raw,id=bootcard -device sd-card,drive=bootcard
+
+qemu-system-arm -M sabrelite -m 1G -smp 4 -display none -serial null -serial stdio -device loader,file=c:\repo\k2os\src\uefi\Build\QemuQuad\DEBUG_GCC48\FV\BOOTROM.fd,addr=0,force-raw=on -drive file=c:\repo\k2os\src\uefi\QemuQuadPkg\sdcard.vhd,format=raw,id=bootcard -device sd-card,drive=bootcard
+
+q
+u d:
+pushd \qemu
+copy /Y \repo\k2os\src\uefi\QemuQuadPkg\sdcard.vhd .
+qemu-img resize -f raw --shrink sdcard.vhd 64M
+qemu-system-arm -M sabrelite -m 1G -smp 4 -display none -serial null -serial stdio -device loader,file=c:\repo\k2os\src\uefi\Build\QemuQuad\DEBUG_GCC48\FV\BOOTROM.fd,addr=0,force-raw=on -drive file=sdcard.vhd,format=raw,id=bootcard -device sd-card,drive=bootcard
+popd

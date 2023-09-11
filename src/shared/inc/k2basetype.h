@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -73,6 +73,9 @@ extern "C" {
     void _WriteBarrier(void);
 #pragma intrinsic(K2_CpuWriteBarrier)
 
+#define K2_CpuYield                 YieldProcessor
+    void YieldProcessor(void);
+
 #define K2_RETURN_ADDRESS           _ReturnAddress()
     void * _ReturnAddress(void);
 #pragma intrinsic(_ReturnAddress)
@@ -86,6 +89,9 @@ extern "C" {
 #define K2_INLINE                   __inline__
 #define K2_CALLCONV_NORETURN        __attribute__((noreturn))
 #define K2_CALLCONV_NAKED           __attribute__((naked))
+#define K2_FUNC_MAYBE_UNUSED        __attribute__((unused))
+
+void K2_CpuYield(void);
 
 #if K2_TARGET_ARCH_IS_INTEL
 
@@ -496,6 +502,11 @@ typedef enum _K2Rot K2Rot;
 #define K2STAT_ERROR_ENABLED                    K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00050)
 #define K2STAT_ERROR_NO_MEDIA                   K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00051)
 #define K2STAT_ERROR_MEDIA_PRESENT              K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00052)
+#define K2STAT_ERROR_MEDIA_CHANGED              K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00053)
+#define K2STAT_ERROR_MEDIA_NOT_REMOVABLE        K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00054)
+#define K2STAT_ERROR_INVALID_MEDIA              K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00055)
+#define K2STAT_ERROR_DUPLICATE_TOKEN            K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00056)
+#define K2STAT_ERROR_NOT_NEEDED                 K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00057)
 
 //
 //------------------------------------------------------------------------
@@ -738,8 +749,8 @@ typedef struct _A32_CACHEINFO A32_CACHEINFO;
 
 struct _A32_CONTEXT
 {
-    UINT32 R[16];
     UINT32 PSR;
+    UINT32 R[16];
 };
 typedef struct _A32_CONTEXT A32_CONTEXT;
 

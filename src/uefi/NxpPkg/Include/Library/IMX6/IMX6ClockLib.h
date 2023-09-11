@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,7 @@ IMX6_CLOCK_GetRate_IPG(
 
 UINT32
 EFIAPI
-IMX6_CLOCK_GetRate_USDHC_SRC(
+IMX6_CLOCK_GetRate_USDHC(
     UINT32 Regs_CCM,
     UINT32 UnitNum
 );

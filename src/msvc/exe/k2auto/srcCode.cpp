@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@ BuildFileUser_SrcCode::BuildFileUser_SrcCode(
 {
     mpParentTmpDep = NULL;
     mLastBuildResult = -1;
-    if (mpVfsFile->Exists())
+    if (FileExists())
         OnRepaired();
     K2LIST_AddAtTail(&gSourceFileList, &SrcFileListLink);
 }
@@ -175,7 +175,8 @@ BuildFileUser_SrcCode::Launch_C_Compile(
 
     pTargetOnly = mpVfsFile->AllocFullPath();
 
-    isInOsPath = (0 == K2ASC_CompInsLen(pTargetOnly + gVfsRootSpecLen + 1, "src\\os8\\", 8)) ? true : false;
+    K2ASC_Printf(gStrBuf, "src\\%s\\", gpOsVer);
+    isInOsPath = (0 == K2ASC_CompInsLen(pTargetOnly + gVfsRootSpecLen + 1, gStrBuf, 5 + K2ASC_Len(gpOsVer))) ? true : false;
 
     outLen = 1;
     pTemp = new char[(outLen + 4) & ~3];
@@ -300,8 +301,9 @@ BuildFileUser_SrcCode::Launch_CPP_Compile(
 
     pTargetOnly = mpVfsFile->AllocFullPath();
 
-    isInOsPath = (0 == K2ASC_CompInsLen(pTargetOnly + gVfsRootSpecLen + 1, "src\\os8\\", 8)) ? true : false;
-
+    K2ASC_Printf(gStrBuf, "src\\%s\\", gpOsVer);
+    isInOsPath = (0 == K2ASC_CompInsLen(pTargetOnly + gVfsRootSpecLen + 1, gStrBuf, 5 + K2ASC_Len(gpOsVer))) ? true : false;
+ 
     outLen = 1;
     pTemp = new char[(outLen + 4) & ~3];
     K2_ASSERT(NULL != pTemp);
@@ -451,7 +453,8 @@ BuildFileUser_SrcCode::Launch_Assembler(
 
     pTargetOnly = mpVfsFile->AllocFullPath();
 
-    isInOsPath = (0 == K2ASC_CompInsLen(pTargetOnly + gVfsRootSpecLen + 1, "src\\os8\\", 8)) ? true : false;
+    K2ASC_Printf(gStrBuf, "src\\%s\\", gpOsVer);
+    isInOsPath = (0 == K2ASC_CompInsLen(pTargetOnly + gVfsRootSpecLen + 1, gStrBuf, 5 + K2ASC_Len(gpOsVer))) ? true : false;
 
     outLen = K2ASC_Printf(gStrBuf,
         spPreSpec,

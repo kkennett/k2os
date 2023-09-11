@@ -1,6 +1,0 @@
-<?xml version="1.0" ?>
-<k2build type="lib">
-    <kernel/>
-    <source>atexit.c</source>
-    <source>main.c</source>
-</k2build>

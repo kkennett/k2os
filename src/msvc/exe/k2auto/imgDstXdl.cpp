@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -168,7 +168,7 @@ BuildFileUser_ImgDstXdl::CheckIfDamaged(
     void
 )
 {
-    if (!mpVfsFile->Exists())
+    if (!FileExists())
         return true;
 
     if (mpSrcProjSrcXml->IsDamaged())

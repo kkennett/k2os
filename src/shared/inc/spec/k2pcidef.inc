@@ -1,7 +1,7 @@
 /*   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -33,42 +33,115 @@
 #ifndef __SPEC_PCIDEF_INC
 #define __SPEC_PCIDEF_INC
 
-#define PCI_MAX_WORD_COUNT          64
-#define PCI_MAX_FUNCTION_COUNT      8
-#define PCI_MAX_DEVICE_COUNT        32
-#define PCI_MAX_BUS_COUNT           256
+#define PCI_MAX_WORD_COUNT                  64
+#define PCI_MAX_FUNCTION_COUNT              8
+#define PCI_MAX_DEVICE_COUNT                32
+#define PCI_MAX_BUS_COUNT                   256
 
-#define PCI_BAR_TYPE_IO_BIT         0x00000001
-#define PCI_BAR_BASEMASK_MEMORY     0xFFFFFFF0
-#define PCI_BAR_BASEMASK_IO         0xFFFFFFFC
-#define PCI_BAR_MEMORY_TYPE_MASK    0x00000006
-#define PCI_BAR_MEMORY_TYPE_SHIFT   1
-#define PCI_BAR_MEMORY_PREF_BIT     0x00000008
+#define PCI_BAR_TYPE_IO_BIT                 0x00000001
+#define PCI_BAR_BASEMASK_MEMORY             0xFFFFFFF0
+#define PCI_BAR_BASEMASK_IO                 0xFFFFFFFC
+#define PCI_BAR_MEMORY_TYPE_MASK            0x00000006
+#define PCI_BAR_MEMORY_TYPE_SHIFT           1
+#define PCI_BAR_MEMORY_PREF_BIT             0x00000008
 
-#define PCI_CLASS_UKNOWN            0x00
-#define PCI_CLASS_STORAGE           0x01
-#define PCI_CLASS_NETWORK           0x02
-#define PCI_CLASS_DISPLAY           0x03
-#define PCI_CLASS_MULTIMEDIA        0x04
-#define PCI_CLASS_MEMORY            0x05
-#define PCI_CLASS_BRIDGE            0x06
-#define PCI_CLASS_SIMPLEPORT        0x07
-#define PCI_CLASS_SERIALBUS         0x0C
+#define PCI_CLASS_UKNOWN                    0x00
+#define PCI_CLASS_STORAGE                   0x01
+#define PCI_CLASS_NETWORK                   0x02
+#define PCI_CLASS_DISPLAY                   0x03
+#define PCI_CLASS_MULTIMEDIA                0x04
+#define PCI_CLASS_MEMORY                    0x05
+#define PCI_CLASS_BRIDGE                    0x06
+#define PCI_CLASS_SIMPLEPORT                0x07
+#define PCI_CLASS_BASESYSTEM                0x08
+#define PCI_CLASS_INPUT                     0x09
+#define PCI_CLASS_DOCK                      0x0A
+#define PCI_CLASS_PROCESSOR                 0x0B
+#define PCI_CLASS_SERIALBUS                 0x0C
+#define PCI_CLASS_WIRELESS                  0x0D
+#define PCI_CLASS_SMARTIO                   0x0E
+#define PCI_CLASS_SATELLITE                 0x0F 
+#define PCI_CLASS_CRYPTO                    0x10 
+#define PCI_CLASS_DSP                       0x11 
+#define PCI_CLASS_ACCEL                     0x12 
+#define PCI_CLASS_EXTRA                     0x13 
 
-#define PCI_DISPLAY_SUBCLASS_VGA    0x00
+#define PCI_UNKNOWN_SUBCLASS_NOTVGA         0x00
+#define PCI_UNKNOWN_SUBCLASS_VGA            0x01
 
-#define PCI_STORAGE_SUBCLASS_SCSI   0x00
-#define PCI_STORAGE_SUBCLASS_IDE    0x01
-#define PCI_STORAGE_SUBCLASS_FLOPPY 0x02
+#define PCI_STORAGE_SUBCLASS_SCSI           0x00
+#define PCI_STORAGE_SUBCLASS_IDE            0x01
+#define PCI_STORAGE_SUBCLASS_FLOPPY         0x02
+#define PCI_STORAGE_SUBCLASS_IPI            0x03
+#define PCI_STORAGE_SUBCLASS_RAID           0x04
+#define PCI_STORAGE_SUBCLASS_ATA            0x05
+#define PCI_STORAGE_SUBCLASS_SATA           0x06
+#define PCI_STORAGE_SUBCLASS_SAS            0x07
+#define PCI_STORAGE_SUBCLASS_NVM            0x08
+#define PCI_STORAGE_SUBCLASS_UFS            0x09
+#define PCI_STORAGE_SUBCLASS_OTHER          0x80
 
-#define PCI_NETWORK_SUBCLASS_ETHER  0x00
+#define PCI_NETWORK_SUBCLASS_ETHER          0x00
 
-#define PCI_BRIDGE_SUBCLASS_HOST    0x00
-#define PCI_BRIDGE_SUBCLASS_ISA     0x01
-#define PCI_BRIDGE_SUBCLASS_EISA    0x02
-#define PCI_BRIDGE_SUBCLASS_PCI     0x04
-#define PCI_BRIDGE_SUBCLASS_PCMCIA  0x05
-#define PCI_BRIDGE_SUBCLASS_CARDBUS 0x07
+#define PCI_DISPLAY_SUBCLASS_VGA            0x00
+#define PCI_DISPLAY_SUBCLASS_XGA            0x01
+#define PCI_DISPLAY_SUBCLASS_3D             0x02
+#define PCI_DISPLAY_SUBCLASS_OTHER          0x80
+
+#define PCI_MULTIMEDIA_SUBCLASS_VIDEO       0x00
+#define PCI_MULTIMEDIA_SUBCLASS_AUDIO       0x01
+#define PCI_MULTIMEDIA_SUBCLASS_TELE        0x02
+#define PCI_MULTIMEDIA_SUBCLASS_HDA         0x03
+#define PCI_MULTIMEDIA_SUBCLASS_OTHER       0x80
+
+#define PCI_MEMORY_SUBCLASS_RAM             0x00
+#define PCI_MEMORY_SUBCLASS_FLASH           0x01
+#define PCI_MEMORY_SUBCLASS_OTHER           0x80
+
+#define PCI_BRIDGE_SUBCLASS_HOST            0x00
+#define PCI_BRIDGE_SUBCLASS_ISA             0x01
+#define PCI_BRIDGE_SUBCLASS_EISA            0x02
+#define PCI_BRIDGE_SUBCLASS_PCI             0x04
+#define PCI_BRIDGE_SUBCLASS_PCMCIA          0x05
+#define PCI_BRIDGE_SUBCLASS_CARDBUS         0x07
+
+#define PCI_SIMPLEPORT_SUBCLASS_SERIAL      0x00
+#define PCI_SIMPLEPORT_SUBCLASS_PARALLEL    0x01
+#define PCI_SIMPLEPORT_SUBCLASS_MULTISERIAL 0x02
+#define PCI_SIMPLEPORT_SUBCLASS_MODEM       0x03
+#define PCI_SIMPLEPORT_SUBCLASS_GPIB        0x04
+#define PCI_SIMPLEPORT_SUBCLASS_SMARTCARD   0x05
+#define PCI_SIMPLEPORT_SUBCLASS_OTHER       0x06
+
+#define PCI_BASESYSTEM_SUBCLASS_PIC         0x00
+#define PCI_BASESYSTEM_SUBCLASS_DMA         0x01
+#define PCI_BASESYSTEM_SUBCLASS_TIMER       0x02
+#define PCI_BASESYSTEM_SUBCLASS_RTC         0x03
+#define PCI_BASESYSTEM_SUBCLASS_PCIHOT      0x04
+#define PCI_BASESYSTEM_SUBCLASS_SDHOST      0x05
+#define PCI_BASESYSTEM_SUBCLASS_IOMMU       0x06
+#define PCI_BASESYSTEM_SUBCLASS_RCE         0x07
+#define PCI_BASESYSTEM_SUBCLASS_OTHER       0x80
+
+#define PCI_INPUT_SUBCLASS_KEYBOARD         0x00
+#define PCI_INPUT_SUBCLASS_PEN              0x01
+#define PCI_INPUT_SUBCLASS_MOUSE            0x02
+#define PCI_INPUT_SUBCLASS_SCANNER          0x03
+#define PCI_INPUT_SUBCLASS_GAME             0x04
+#define PCI_INPUT_SUBCLASS_OTHER            0x05
+
+#define PCI_SERIALBUS_SUBCLASS_IEEE         0x00
+#define PCI_SERIALBUS_SUBCLASS_ACCESS       0x01
+#define PCI_SERIALBUS_SUBCLASS_SSA          0x02
+#define PCI_SERIALBUS_SUBCLASS_USB          0x03
+#define PCI_SERIALBUS_SUBCLASS_FCHAN        0x04
+#define PCI_SERIALBUS_SUBCLASS_SM           0x05
+#define PCI_SERIALBUS_SUBCLASS_INF          0x06
+#define PCI_SERIALBUS_SUBCLASS_IPMI         0x07
+#define PCI_SERIALBUS_SUBCLASS_SERCOS       0x08
+#define PCI_SERIALBUS_SUBCLASS_CAN          0x09
+#define PCI_SERIALBUS_SUBCLASS_MIPI_I3C     0x0A
+#define PCI_SERIALBUS_SUBCLASS_OTHER        0x80
 
 #define PCI_CONFIG_TYPEX_OFFSET_VENDORID        0x00
 #define PCI_CONFIG_TYPEX_OFFSET_DEVICEID        0x02 

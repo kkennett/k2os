@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -514,6 +514,7 @@ struct _ACPI_MADT_SUB_GIC_DISTRIBUTOR
 K2_PACKED_POP
 typedef struct _ACPI_MADT_SUB_GIC_DISTRIBUTOR ACPI_MADT_SUB_GIC_DISTRIBUTOR;
 
+#define ACPI_CSRT_SIGNATURE  0x54525343  // CSRT
 
 //
 // CSRT Resource Descriptor Types

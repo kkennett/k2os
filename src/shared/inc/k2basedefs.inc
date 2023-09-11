@@ -1,7 +1,7 @@
 /*   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -451,86 +451,6 @@
 //------------------------------------------------------------------------
 //
 
-// CR4.PCIDE     = 0
-// IA32_EFER.NXE = 1
-// CR4.PKE       = 0
-// CPUID.80000001:EDX.LM:20000000 must be 1
-// CPUID.80000008:EAX:0x000000FF is MAXPHYADDR (at most 52)
-
-#define X64_CR3_WRITETHROUGH            0x0000000000000008
-#define X64_CR3_CACHEDISABLE            0x0000000000000010
-#define X64_CR3_PML4E_PHYS_MASK         0x000FFFFFFFFFF000
-
-#define X64_PML4E_PHYS_SIZE             0x00001000
-
-#define X64_PML4E_PRESENT               0x0000000000000001
-#define X64_PML4E_WRITEABLE             0x0000000000000002
-#define X64_PML4E_USER                  0x0000000000000004
-#define X64_PML4E_WRITETHROUGH          0x0000000000000008
-#define X64_PML4E_CACHEDISABLE          0x0000000000000010
-#define X64_PML4E_ACCESSED              0x0000000000000020
-#define X64_PML4E_AVAIL_040             0x0000000000000040
-#define X64_PML4E_MUST_BE_ZERO          0x0000000000000080
-#define X64_PML4E_AVAIL_100             0x0000000000000100
-#define X64_PML4E_AVAIL_200             0x0000000000000200
-#define X64_PML4E_AVAIL_400             0x0000000000000400
-#define X64_PML4E_AVAIL_800             0x0000000000000800
-#define X64_PML4E_PDPTE_PHYS_MASK       0x000FFFFFFFFFF000
-#define X64_PML4E_XD                    0x8000000000000000
-
-#define X64_PDPTE_PRESENT               0x0000000000000001
-#define X64_PDPTE_WRITEABLE             0x0000000000000002
-#define X64_PDPTE_USER                  0x0000000000000004
-#define X64_PDPTE_WRITETHROUGH          0x0000000000000008
-#define X64_PDPTE_CACHEDISABLE          0x0000000000000010
-#define X64_PDPTE_ACCESSED              0x0000000000000020
-#define X64_PDPTE_AVAIL_040             0x0000000000000040
-#define X64_PDPTE_PS                    0x0000000000000080
-#define X64_PDPTE_AVAIL_100             0x0000000000000100
-#define X64_PDPTE_AVAIL_200             0x0000000000000200
-#define X64_PDPTE_AVAIL_400             0x0000000000000400
-#define X64_PDPTE_AVAIL_800             0x0000000000000800
-#define X64_PDPTE_PD_PHYS_MASK          0x000FFFFFFFFFF000
-#define X64_PDPTE_XD                    0x8000000000000000
-
-#define X64_PDE_PRESENT                 0x0000000000000001
-#define X64_PDE_WRITEABLE               0x0000000000000002
-#define X64_PDE_USER                    0x0000000000000004
-#define X64_PDE_WRITETHROUGH            0x0000000000000008
-#define X64_PDE_CACHEDISABLE            0x0000000000000010
-#define X64_PDE_ACCESSED                0x0000000000000020
-#define X64_PDE_AVAIL_040               0x0000000000000040
-#define X64_PDE_PS                      0x0000000000000080
-#define X64_PDE_AVAIL_100               0x0000000000000100
-#define X64_PDE_AVAIL_200               0x0000000000000200
-#define X64_PDE_AVAIL_400               0x0000000000000400
-#define X64_PDE_AVAIL_800               0x0000000000000800
-#define X64_PDE_PTPHYS_MASK             0x000FFFFFFFFFF000
-#define X64_PDE_XD                      0x8000000000000000
-
-#define X64_KERN_PAGETABLE_PROTO        (X64_PDE_PRESENT | X64_PDE_WRITEABLE)
-#define X64_USER_PAGETABLE_PROTO        (X64_PDE_PRESENT | X64_PDE_WRITEABLE | X64_PDE_USER)
-
-#define X64_PTE_PRESENT                 0x0000000000000001
-#define X64_PTE_WRITEABLE               0x0000000000000002
-#define X64_PTE_USER                    0x0000000000000004
-#define X64_PTE_WRITETHROUGH            0x0000000000000008
-#define X64_PTE_CACHEDISABLE            0x0000000000000010
-#define X64_PTE_ACCESSED                0x0000000000000020
-#define X64_PTE_DIRTY                   0x0000000000000040
-#define X64_PTE_PAT                     0x0000000000000080
-#define X64_PTE_GLOBAL                  0x0000000000000100
-#define X64_PTE_AVAIL_200               0x0000000000000200
-#define X64_PTE_AVAIL_400               0x0000000000000400
-#define X64_PTE_AVAIL_800               0x0000000000000800
-#define X64_PTE_PAGEPHYS_MASK           0x000FFFFFFFFFF000
-#define X64_PTE_XD                      0x8000000000000000
-
-
-//
-//------------------------------------------------------------------------
-//
-
 #define A32_HIGH_VECTORS_ADDRESS                    0xFFFF0000
 
 #define A32_VECTOR_OFFSET_RESET                     0x0  
@@ -563,6 +483,34 @@
 #define A32_PSR_MODE_SYS                            0x1F
 #define A32_PSR_MODE_MASK                           0x1F
 
+#define A32_FSR_STATUS_03_MASK                      0x0000000F
+#define A32_DFSR_DOMAIN_MASK                        0x000000F0
+#define A32_DFSR_DOMAIN_SHL                         4
+#define A32_FSR_STATUS_4                            0x00000400 
+#define A32_FSR_STATUS_4_SHL                        10
+#define A32_DFSR_WnR                                0x00000800
+
+#define A32_FAULT_TYPE_ALIGNMENT                                0x01
+#define A32_FAULT_TYPE_DEBUG                                    0x02
+#define A32_FAULT_TYPE_ACCESS_FLAG_FIRST_LEVEL                  0x03
+#define A32_FAULT_TYPE_ACCESS_FLAG_SECOND_LEVEL                 0x06
+#define A32_FAULT_TYPE_ICACHE_MAINT                             0x04
+#define A32_FAULT_TYPE_TRANSLATION_FIRST_LEVEL                  0x05
+#define A32_FAULT_TYPE_TRANSLATION_SECOND_LEVEL                 0x07
+#define A32_FAULT_TYPE_SYNC_EXT_ABORT                           0x08
+#define A32_FAULT_TYPE_DOMAIN_FAULT_FIRST_LEVEL                 0x09
+#define A32_FAULT_TYPE_DOMAIN_FAULT_SECOND_LEVEL                0x0B
+#define A32_FAULT_TYPE_SYNC_ABORT_ON_TRANSLATION_FIRST_LEVEL    0x0C
+#define A32_FAULT_TYPE_SYNC_ABORT_ON_TRANSLATION_SECOND_LEVEL   0x0E
+#define A32_FAULT_TYPE_PERMISSION_FIRST_LEVEL                   0x0D
+#define A32_FAULT_TYPE_PERMISSION_SECOND_LEVEL                  0x0F
+#define A32_FAULT_TYPE_TLB_CONFLICT                             0x10
+#define A32_FAULT_TYPE_ASYNC_EXT_ABORT                          0x16
+#define A32_FAULT_TYPE_ASYNC_PARITY_ERROR                       0x18
+#define A32_FAULT_TYPE_SYNC_PARITY_ERROR                        0x19
+#define A32_FAULT_TYPE_SYNC_PARITY_ON_TRANSLATION_FIRST_LEVEL   0x1C
+#define A32_FAULT_TYPE_SYNC_PARITY_ON_TRANSLATION_SECOND_LEVEL  0x1E
+
 #define A32_DOMAIN_NOACCESS                         0x0
 #define A32_DOMAIN_CLIENT                           0x1
 #define A32_DOMAIN_RESERVED                         0x2
@@ -575,6 +523,8 @@
 #define A32_TTBASE_PROC_PHYS_SIZE                   0x00002000
 
 #define A32_MAX_CACHE_LEVELS                        8
+
+#define A32_SGI_COUNT                               16
 
 #define A32_SCTRL_M_MMUENABLE                       0x00000001  // 0
 #define A32_SCTRL_A_ALIGNFAULTCHECKENABLE           0x00000002  // 1
@@ -779,6 +729,56 @@
 
 #define A32_PERIF_GICC_ICCIAR_ACKINTID                  0x3FF
 
+#define A32_PERIF_GTIMER_OFFSET_COUNTLOW                0x000
+#define A32_PERIF_GTIMER_OFFSET_COUNTHIGH               0x004
+#define A32_PERIF_GTIMER_OFFSET_CONTROL                 0x008
+#define A32_PERIF_GTIMER_OFFSET_INTSTATUS               0x00C
+#define A32_PERIF_GTIMER_OFFSET_COMPVALLOW              0x010
+#define A32_PERIF_GTIMER_OFFSET_COMPVALHIGH             0x014
+#define A32_PERIF_GTIMER_OFFSET_AUTOINC                 0x018
+
+#define A32_PERIF_GTIMER_CONTROL_ENABLE                 0x00000001
+#define A32_PERIF_GTIMER_CONTROL_COMP_ENABLE            0x00000002
+#define A32_PERIF_GTIMER_CONTROL_IRQ_ENABLE             0x00000004
+#define A32_PERIF_GTIMER_CONTROL_AUTOINC                0x00000008
+#define A32_PERIF_GTIMER_CONTROL_PRESCALE_MASK          0x0000FF00
+#define A32_PERIF_GTIMER_CONTROL_PRESCALE_SHIFT         8
+
+#define A32_PERIF_GTIMER_INTSTATUS_EVENT                0x00000001
+
+#define A32_PERIF_PTIMERS_OFFSET_LOAD                   0x000
+#define A32_PERIF_PTIMERS_OFFSET_COUNTER                0x004
+#define A32_PERIF_PTIMERS_OFFSET_CONTROL                0x008
+#define A32_PERIF_PTIMERS_OFFSET_INTSTATUS              0x00C
+#define A32_PERIF_PTIMERS_OFFSET_WATCHDOGLOAD           0x020
+#define A32_PERIF_PTIMERS_OFFSET_WATCHDOGCOUNTER        0x024
+#define A32_PERIF_PTIMERS_OFFSET_WATCHDOGCONTROL        0x028
+#define A32_PERIF_PTIMERS_OFFSET_WATCHDOGINTSTATUS      0x02C
+#define A32_PERIF_PTIMERS_OFFSET_WATCHDOGRESETSTATUS    0x030
+#define A32_PERIF_PTIMERS_OFFSET_WATCHDOGDISABLE        0x034
+
+#define A32_PERIF_PTIMERS_CONTROL_ENABLE                0x00000001
+#define A32_PERIF_PTIMERS_CONTROL_AUTORELOAD            0x00000002
+#define A32_PERIF_PTIMERS_CONTROL_IRQ_ENABLE            0x00000004
+#define A32_PERIF_PTIMERS_CONTROL_PRESCALER_MASK        0x0000FF00
+#define A32_PERIF_PTIMERS_CONTROL_PRESCALER_SHIFT       8
+
+#define A32_PERIF_PTIMERS_INTSTATUS_EVENT               0x00000001
+
+#define A32_PERIF_PTIMERS_WDOG_CONTROL_ENABLE           0x00000001
+#define A32_PERIF_PTIMERS_WDOG_CONTROL_AUTORELOAD       0x00000002
+#define A32_PERIF_PTIMERS_WDOG_CONTROL_IT_ENABLE        0x00000004
+#define A32_PERIF_PTIMERS_WDOG_CONTROL_MODE             0x00000008
+#define A32_PERIF_PTIMERS_WDOG_CONTROL_PRESCALER_MASK   0x0000FF00
+#define A32_PERIF_PTIMERS_WDOG_CONTROL_PRESCALER_SHIFT  8
+
+#define A32_PERIF_PTIMERS_WDOG_INTSTATUS_EVENT          0x00000001
+
+#define A32_PERIF_PTIMERS_WDOG_RESETSTATUS_FLAG         0x00000001
+
+#define A32_PERIF_PTIMERS_WDOG_DISABLE_VALUE0           0x12345678
+#define A32_PERIF_PTIMERS_WDOG_DISABLE_VALUE1           0x87654321
+
 #define A32_PERIF_GICD_OFFSET_ICDDCR                    0x000 // Distributor Control Register
 #define A32_PERIF_GICD_OFFSET_ICDICTR                   0x004 // Interrupt Controller Type Register
 #define A32_PERIF_GICD_OFFSET_ICDIIDR                   0x008 // Implementer Identification Register
@@ -818,11 +818,12 @@
 #define A32_PERIF_GICD_PPISTATUS_nFIQ                   0x00001000
 #define A32_PERIF_GICD_PPISTATUS_GTIMER                 0x00008000
 
-//
-//------------------------------------------------------------------------
-//
-
-#define A64_PML4E_PHYS_SIZE                             0x00008000
+#define A32_MP_GTIMER_IRQ                               27
+#define A32_MP_LEGACY_FIQ_IRQ                           28
+#define A32_MP_PTIMERS_IRQ                              29
+#define A32_MP_WDOG_IRQ                                 30
+#define A32_MP_LEGACY_IRQ                               31
+#define A32_MP_PPI_START_IRQ                            32
 
 //
 //------------------------------------------------------------------------
@@ -852,36 +853,11 @@
 #define K2_VA32_TO_PT_ADDR(vamap_base, x)           ((vamap_base) + (((x) >> (K2_VA_MEMPAGE_BYTES_POW2 - 2)) & K2_VA_PAGEFRAME_MASK))
 
 #if K2_TARGET_ARCH_IS_INTEL
-#define K2_VA32_TRANSTAB_SIZE   X32_PAGEDIR_PHYS_SIZE
+#define K2_VA32_TRANSTAB_SIZE       X32_PAGEDIR_PHYS_SIZE
+#define K2_VA32_PROC_TRANSTAB_SIZE  X32_PAGEDIR_PHYS_SIZE
 #else
-#define K2_VA32_TRANSTAB_SIZE   A32_TTBASE_PHYS_SIZE
-#endif
-
-/* --------------------------------------------------------------------------------- */
-
-#define K2_VA64_PML4E_PDPTES_POW2                   9
-#define K2_VA64_PDPTE_PAGEDIRS_POW2                 9
-#define K2_VA64_PAGEDIR_PAGETABLES_POW2             9
-#define K2_VA64_PAGETABLE_PAGES_POW2                9
-
-#define K2_VA64_PAGETABLE_MAP_BYTES_POW2            (K2_VA64_PAGETABLE_PAGES_POW2 + K2_VA_MEMPAGE_BYTES_POW2)
-#define K2_VA64_PAGETABLE_MAP_BYTES                 (1 << K2_VA64_PAGETABLE_MAP_BYTES_POW2)
-
-#define K2_VA64_PDPT_MAP_BYTES_POW2                 (K2_VA64_PAGEDIR_PAGETABLES_POW2 + K2_VA64_PAGETABLE_MAP_BYTES_POW2)
-#define K2_VA64_PDPT_MAP_BYTES                      (1 << K2_VA64_PDPT_MAP_BYTES_POW2)
-
-#define K2_VA64_PML4_MAP_BYTES_POW2                 (K2_VA64_PML4E_PDPTES_POW2 + K2_VA64_PDPT_MAP_BYTES_POW2)
-#define K2_VA64_PML4_MAP_BYTES                      (1 << K2_VA64_PML4_MAP_BYTES_POW2)
-
-#define K2_VA64_ENTRIES_PER_PAGETABLE               (1 << K2_VA64_PAGETABLE_PAGES_POW2)
-
-#define K2_VA64_TO_PTE_ADDR(vamap_base, x)          ((vamap_base) + (((x) >> (K2_VA_MEMPAGE_BYTES_POW2 - 3)) & ~7))
-#define K2_VA64_TO_PT_ADDR(vamap_base, x)           ((vamap_base) + (((x) >> (K2_VA_MEMPAGE_BYTES_POW2 - 3)) & K2_VA_PAGEFRAME_MASK))
-
-#if K2_TARGET_ARCH_IS_INTEL
-#define K2_VA64_TRANSTAB_SIZE   X64_PML4E_PHYS_SIZE
-#else
-#define K2_VA64_TRANSTAB_SIZE   A64_PML4E_PHYS_SIZE
+#define K2_VA32_TRANSTAB_SIZE       A32_TTBASE_PHYS_SIZE
+#define K2_VA32_PROC_TRANSTAB_SIZE  A32_TTBASE_PROC_PHYS_SIZE
 #endif
 
 /* --------------------------------------------------------------------------------- */

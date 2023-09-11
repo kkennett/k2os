@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -43,11 +43,29 @@ BuildFileUser_SrcXml::Construct_Xdl(
     VfsFile *           pVfsFile;
     bool                ok;
     char *              pInfFilePath;
+    char const *        pCheckPlat;
+    char const *        pScan;
     UINT_PTR            infCount;
     UINT_PTR            subProjCount;
     VfsFile *           pInfVfsFile;
+    bool                isInPlat;
+    UINT_PTR            platLen;
 
     ok = false;
+    isInPlat = false;
+
+    pCheckPlat = apFullPath + gVfsRootSpecLen + 4 + 1 + K2ASC_Len(gpOsVer);
+    isInPlat = (0 == K2ASC_CompInsLen(pCheckPlat, "\\plat\\", 6));
+    if (isInPlat)
+    {
+        pScan = pCheckPlat + 6;
+        do {
+            if (*pScan == '\\')
+                break;
+            pScan++;
+        } while ((*pScan) != 0);
+        platLen = (UINT_PTR)(pScan - pCheckPlat);
+    }
 
     Proj.Xdl.mIsCrt = (0 == K2ASC_CompIns(mpVfsFile->mpParentFolder->mpNameZ, "k2oscrt")) ? true : false;
 
@@ -149,7 +167,8 @@ BuildFileUser_SrcXml::Construct_Xdl(
             //
             // add crtstub obj project
             //
-            if (!AddProjectByPath(apFullPath, "src\\os8\\crtstub", ProjectType_Obj, &Proj.Xdl.ObjProjList))
+            K2ASC_Printf(gStrBuf, "src\\%s\\crtstub", gpOsVer);
+            if (!AddProjectByPath(apFullPath, gStrBuf, ProjectType_Obj, &Proj.Xdl.ObjProjList))
             {
                 printf("*** Could not add crtstub as subproject for [%s]\n", apFullPath);
                 break;
@@ -158,9 +177,9 @@ BuildFileUser_SrcXml::Construct_Xdl(
             //
             // add k2oscrt xdl project
             //
-            K2ASC_Printf(gStrBuf, "src\\os8%s\\crt\\bits%d\\%s\\k2oscrt",
+            K2ASC_Printf(gStrBuf, "src\\%s%s\\crt\\%s\\k2oscrt",
+                gpOsVer,
                 mIsKernelTarget ? "\\kern" : "\\user",
-                gArchBits,
                 gpArchName[gArch]);
 
             if (!AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Xdl.XdlProjList))
@@ -170,8 +189,10 @@ BuildFileUser_SrcXml::Construct_Xdl(
             }
         }
 
-        K2ASC_Printf(gStrBuf, "bld\\out\\gcc\\xdl%s\\%s\\%s.xdl",
+        K2ASC_Printf(gStrBuf, "bld\\out\\gcc\\xdl%s%.*s\\%s\\%s.xdl",
             mIsKernelTarget ? "\\kern" : "",
+            isInPlat ? platLen : 0,
+            isInPlat ? pCheckPlat : "",
             gpArchMode,
             mpVfsFile->mpParentFolder->mpNameZ);
 

@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,7 @@
 
 // void A32_TLBInvalidateAll_UP(void);
 BEGIN_A32_PROC(A32_TLBInvalidateAll_UP)
-    mcr p15, 0, r12, c8, c7, 0
+    mcr p15, 0, r12, c8, c7, 0  // TLBIALL
     isb
     bx lr
 END_A32_PROC(A32_TLBInvalidateAll_UP)
@@ -46,7 +46,7 @@ BEGIN_A32_PROC(A32_TLBInvalidateMVA_UP_OneASID)
     bic r0, r0, #0xF00
     and r1, r1, #0xFF
     orr r0, r0, r1
-    mcr p15, 0, r0, c8, c7, 1
+    mcr p15, 0, r0, c8, c7, 1   // TLBIMVA
     isb
     bx lr
 END_A32_PROC(A32_TLBInvalidateMVA_UP_OneASID)
@@ -54,14 +54,14 @@ END_A32_PROC(A32_TLBInvalidateMVA_UP_OneASID)
 // void A32_TLBInvalidateASID_UP(UINT32 aASID);
 BEGIN_A32_PROC(A32_TLBInvalidateASID_UP)
     and r0, r0, #0xFF
-    mcr p15, 0, r0, c8, c7, 2
+    mcr p15, 0, r0, c8, c7, 2   // TLBIASID
     isb
     bx lr
 END_A32_PROC(A32_TLBInvalidateASID_UP)
 
 // void A32_TLBInvalidateMVA_UP_AllASID(UINT32 aMVA);
 BEGIN_A32_PROC(A32_TLBInvalidateMVA_UP_AllASID)
-    mcr p15, 0, r0, c8, c7, 3
+    mcr p15, 0, r0, c8, c7, 3   // TLBIMVAA
     isb
     bx lr
 END_A32_PROC(A32_TLBInvalidateMVA_UP_AllASID)
@@ -70,7 +70,7 @@ END_A32_PROC(A32_TLBInvalidateMVA_UP_AllASID)
 
 // void A32_TLBInvalidateAll_MP(void);
 BEGIN_A32_PROC(A32_TLBInvalidateAll_MP)
-    mcr p15, 0, r12, c8, c3, 0
+    mcr p15, 0, r12, c8, c3, 0  // TLBIALLIS ** MP ONLY
     isb
     bx lr
 END_A32_PROC(A32_TLBInvalidateAll_MP)
@@ -81,7 +81,7 @@ BEGIN_A32_PROC(A32_TLBInvalidateMVA_MP_OneASID)
     bic r0, r0, #0xF00
     and r1, r1, #0xFF
     orr r0, r0, r1
-    mcr p15, 0, r0, c8, c3, 1
+    mcr p15, 0, r0, c8, c3, 1   // TLBIMVAIS ** MP ONLY
     isb
     bx lr
 END_A32_PROC(A32_TLBInvalidateMVA_MP_OneASID)
@@ -89,14 +89,14 @@ END_A32_PROC(A32_TLBInvalidateMVA_MP_OneASID)
 // void A32_TLBInvalidateASID_MP(UINT32 aASID);
 BEGIN_A32_PROC(A32_TLBInvalidateASID_MP)
     and r0, r0, #0xFF
-    mcr p15, 0, r0, c8, c3, 2
+    mcr p15, 0, r0, c8, c3, 2   // TLBIASIDIS   ** MP ONLY
     isb
     bx lr
 END_A32_PROC(A32_TLBInvalidateASID_MP)
 
 // void A32_TLBInvalidateMVA_MP_AllASID(UINT32 aMVA);
 BEGIN_A32_PROC(A32_TLBInvalidateMVA_MP_AllASID)
-    mcr p15, 0, r0, c8, c3, 3
+    mcr p15, 0, r0, c8, c3, 3   // TLBIMVAAIS   ** MP ONLY
     isb
     bx lr
 END_A32_PROC(A32_TLBInvalidateMVA_MP_AllASID)

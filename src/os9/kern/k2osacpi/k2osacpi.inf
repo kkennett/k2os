@@ -1,0 +1,201 @@
+#   
+#   BSD 3-Clause License
+#   
+#   Copyright (c) 2023, Kurt Kennett
+#   All rights reserved.
+#   
+#   Redistribution and use in source and binary forms, with or without
+#   modification, are permitted provided that the following conditions are met:
+#   
+#   1. Redistributions of source code must retain the above copyright notice, this
+#      list of conditions and the following disclaimer.
+#   
+#   2. Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the documentation
+#      and/or other materials provided with the distribution.
+#   
+#   3. Neither the name of the copyright holder nor the names of its
+#      contributors may be used to endorse or promote products derived from
+#      this software without specific prior written permission.
+#   
+#   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+#   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+#   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+#   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+#   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+#   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+#   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+[XDL]
+ID {9C432903-3B4F-4D72-BEAC-CDDD987FF681}
+
+[Code]
+AcpiInitializeTables
+AcpiInitializeSubsystem
+AcpiEnableSubsystem
+AcpiInitializeObjects
+AcpiTerminate
+AcpiEnable
+AcpiDisable
+AcpiSubsystemStatus
+AcpiGetSystemInfo
+AcpiGetStatistics
+AcpiFormatException
+AcpiPurgeCachedObjects
+AcpiInstallInterface
+AcpiRemoveInterface
+AcpiUpdateInterfaces
+AcpiCheckAddressRange
+AcpiDecodePldBuffer
+AcpiInstallTable
+AcpiLoadTable
+AcpiUnloadParentTable
+AcpiLoadTables
+AcpiReallocateRootTable
+AcpiFindRootPointer
+AcpiGetTableHeader
+AcpiGetTable
+AcpiPutTable
+AcpiGetTableByIndex
+AcpiInstallTableHandler
+AcpiRemoveTableHandler
+AcpiWalkNamespace
+AcpiGetDevices
+AcpiGetName
+AcpiGetHandle
+AcpiAttachData
+AcpiDetachData
+AcpiGetData
+AcpiDebugTrace
+AcpiEvaluateObject
+AcpiEvaluateObjectTyped
+AcpiGetObjectInfo
+AcpiInstallMethod
+AcpiGetNextObject
+AcpiGetType
+AcpiGetParent
+AcpiInstallInitializationHandler
+AcpiInstallSciHandler
+AcpiRemoveSciHandler
+AcpiInstallGlobalEventHandler
+AcpiInstallFixedEventHandler
+AcpiRemoveFixedEventHandler
+AcpiInstallGpeHandler
+AcpiInstallGpeRawHandler
+AcpiRemoveGpeHandler
+AcpiInstallNotifyHandler
+AcpiRemoveNotifyHandler
+AcpiInstallAddressSpaceHandler
+AcpiRemoveAddressSpaceHandler
+AcpiInstallExceptionHandler
+AcpiInstallInterfaceHandler
+AcpiAcquireGlobalLock
+AcpiReleaseGlobalLock
+AcpiAcquireMutex
+AcpiReleaseMutex
+AcpiEnableEvent
+AcpiDisableEvent
+AcpiClearEvent
+AcpiGetEventStatus
+AcpiUpdateAllGpes
+AcpiEnableGpe
+AcpiDisableGpe
+AcpiClearGpe
+AcpiSetGpe
+AcpiFinishGpe
+AcpiMaskGpe
+AcpiMarkGpeForWake
+AcpiSetupGpeForWake
+AcpiSetGpeWakeMask
+AcpiGetGpeStatus
+AcpiDisableAllGpes
+AcpiEnableAllRuntimeGpes
+AcpiEnableAllWakeupGpes
+AcpiGetGpeDevice
+AcpiInstallGpeBlock
+AcpiRemoveGpeBlock
+AcpiGetVendorResource
+AcpiGetCurrentResources
+AcpiGetPossibleResources
+AcpiGetEventResources
+AcpiWalkResourceBuffer
+AcpiWalkResources
+AcpiSetCurrentResources
+AcpiGetIrqRoutingTable
+AcpiResourceToAddress64
+AcpiBufferToResource
+AcpiReset
+AcpiRead
+AcpiWrite
+AcpiReadBitRegister
+AcpiWriteBitRegister
+AcpiGetSleepTypeData
+AcpiEnterSleepStatePrep
+AcpiEnterSleepState
+AcpiEnterSleepStateS4bios
+AcpiLeaveSleepStatePrep
+AcpiLeaveSleepState
+AcpiSetFirmwareWakingVector
+AcpiGetTimerResolution
+AcpiGetTimer
+AcpiGetTimerDuration
+AcpiError
+AcpiException
+AcpiWarning
+AcpiInfo
+AcpiBiosError
+AcpiBiosWarning
+AcpiEvInstallXruptHandlers
+
+AcpiOsReadPort
+AcpiOsWritePort
+
+#
+# added exports
+#
+K2OSACPI_Init
+K2OSACPI_SetPciConfigOverride
+K2OSACPI_RunDeviceNumericMethod
+AcpiOsReadPciConfiguration
+AcpiOsWritePciConfiguration
+K2OSACPI_EnumChildren
+K2OSACPI_RunSTA
+
+[Data]
+AcpiGbl_EnableInterpreterSlack
+AcpiGbl_AutoSerializeMethods
+AcpiGbl_CreateOsiMethod
+AcpiGbl_UseDefaultRegisterWidths
+AcpiGbl_EnableTableValidation
+AcpiGbl_EnableAmlDebugObject
+AcpiGbl_CopyDsdtLocally
+AcpiGbl_DoNotUseXsdt
+AcpiGbl_Use32BitFadtAddresses
+AcpiGbl_Use32BitFacsAddresses
+AcpiGbl_DisableAutoRepair
+AcpiGbl_DisableSsdtTableInstall
+AcpiGbl_RuntimeNamespaceOverride
+AcpiGbl_OsiData
+AcpiGbl_ReducedHardware
+AcpiGbl_MaxLoopIterations
+AcpiGbl_IgnorePackageResolutionErrors
+AcpiGbl_TraceFlags
+AcpiGbl_TraceMethodName
+AcpiGbl_TraceDbgLevel
+AcpiGbl_TraceDbgLayer
+AcpiDbgLevel
+AcpiDbgLayer
+AcpiGbl_DisplayDebugTimer
+AcpiGbl_FADT
+AcpiCurrentGpeCount
+AcpiGbl_SystemAwakeAndRunning
+
+#
+# added exports
+#
+AslPredefinedInfo
+AslDeviceIds

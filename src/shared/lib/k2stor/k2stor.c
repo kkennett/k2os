@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -206,7 +206,6 @@ K2STOR_PART_DiscoverFromMBR(
     UINT_PTR                    ix;
     UINT_PTR                    partCount;
     FAT_MBR_PARTITION_ENTRY *   pPart;
-    FAT_GENERIC_BOOTSECTOR *    pBootSec;
     UINT_PTR                    partStart[4];
     UINT_PTR                    partSectors[4];
     UINT_PTR                    maxCount;
@@ -228,8 +227,7 @@ K2STOR_PART_DiscoverFromMBR(
         return K2STAT_ERROR_NOT_FOUND;
     }
 
-    pBootSec = (FAT_GENERIC_BOOTSECTOR *)apSector0;
-    pPart = (FAT_MBR_PARTITION_ENTRY *)apSector0[446];
+    pPart = (FAT_MBR_PARTITION_ENTRY *)&apSector0[446];
     validMask = 0;
     partCount = 0;
     for (ix = 0; ix < 4; ix++)

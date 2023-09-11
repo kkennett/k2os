@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -193,7 +193,7 @@ BuildFileUser_SrcXml::CheckIfDamaged(
     if (ProjectType_Invalid == mProjectType)
         return true;
 
-    if (!mpVfsFile->Exists())
+    if (!FileExists())
         return true;
 
     pOutputUser = NULL;
@@ -216,7 +216,7 @@ BuildFileUser_SrcXml::CheckIfDamaged(
         return true;
     }
 
-    if (!pOutputUser->mpVfsFile->Exists())
+    if (!pOutputUser->FileExists())
         return true;
 
     if (pOutputUser->IsDamaged())
@@ -945,7 +945,7 @@ BuildFileUser_SrcXml::Eval(
         do {
             pSrcCode = K2_GET_CONTAINER(BuildFileUser_SrcCode, pListLink, SrcFileListLink);
             pListLink = pListLink->mpNext;
-            if (!pSrcCode->mpParentTmpDep->mpVfsFile->Exists())
+            if (!pSrcCode->mpParentTmpDep->FileExists())
                 pSrcCode->SetSomethingChangedSinceLastTryRepair();
         } while (NULL != pListLink);
     }
@@ -1039,6 +1039,18 @@ BuildFileUser_SrcXml::DiscoveredNew(
 
     if (0 != K2ASC_CompIns(apNameOnly, "k2build.xml"))
         return;
+
+    if (0 != K2ASC_CompInsLen(apFullPath + gVfsRootSpecLen + 1, "src\\", 4))
+    {
+        // k2build.xml files that are not under 'src' directory are ignored
+        return;
+    }
+
+    if (0 == K2ASC_CompInsLen(apFullPath + gVfsRootSpecLen + 1, "src\\os", 6))
+    {
+        if (0 != K2ASC_CompInsLen(apFullPath + gVfsRootSpecLen + 5, gpOsVer, 3))
+            return;
+    }
 
     pVfsFile = (VfsFile *)VfsFolder::Root().AcquireOrCreateSub(apFullPath + gVfsRootSpecLen + 1, false);
     if (NULL == pVfsFile)

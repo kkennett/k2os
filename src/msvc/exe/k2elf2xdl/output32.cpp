@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -160,23 +160,22 @@ RelocOne32_A32(
         targetAddend -= (apSrcSym->st_value - (aOldTargetAddr + 8));
         targetAddend += (aNewSymValue - (aNewTargetAddr + 8));
 
-        targetAddend /= sizeof(UINT32);
         if (targetAddend & 0x80000000)
         {
             if ((targetAddend & 0xFF000000) != 0xFF000000)
             {
-                printf("*** 24-bit reloc blows range (-)\n");
+                printf("*** 24-bit reloc blows range (-) == %08X\n", targetAddend);
             }
         }
         else
         {
             if ((targetAddend & 0xFF000000) != 0)
             {
-                printf("*** 24-bit reloc blows range (+)\n");
+                printf("*** 24-bit reloc blows range (+) == %08X\n", targetAddend);
             }
         }
+        targetAddend /= sizeof(UINT32);
         valAtTarget = (valAtTarget & 0xFF000000) | (targetAddend & 0xFFFFFF);
-
         break;
 
     case R_ARM_ABS32:
@@ -198,13 +197,16 @@ RelocOne32_A32(
         valAtTarget = ((valAtTarget) & 0xFFF0F000) | ((targetAddend << 4) & 0xF0000) | (targetAddend & 0xFFF);
         break;
 
+    case R_ARM_V4BX:
+        break;
+
     case R_ARM_PREL31:
         targetAddend = valAtTarget + apSrcSym->st_value - aNewTargetAddr;
         valAtTarget = targetAddend & 0x7FFFFFFF;
         break;
 
     default:
-        printf("**** UNKNOWN RELOCATION TYPE FOUND\n");
+        printf("**** UNKNOWN RELOCATION TYPE FOUND (%d)\n", aRelType);
         break;
     }
 
@@ -993,7 +995,7 @@ CreateOutputFile32(
                     //
                     // alloc section that is not PROGBITS
                     //
-                    printf("Section %d in file is an ALLOC section that is not PROGBITS!\n", ixSection);
+                    printf("Section %d in file is an ALLOC section that is not PROGBITS! (it is %d)\n", ixSection, pSecHdr->sh_type);
                     return K2STAT_ERROR_BAD_FORMAT;
                 }
             }

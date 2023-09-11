@@ -1,0 +1,172 @@
+#   
+#   BSD 3-Clause License
+#   
+#   Copyright (c) 2023, Kurt Kennett
+#   All rights reserved.
+#   
+#   Redistribution and use in source and binary forms, with or without
+#   modification, are permitted provided that the following conditions are met:
+#   
+#   1. Redistributions of source code must retain the above copyright notice, this
+#      list of conditions and the following disclaimer.
+#   
+#   2. Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the documentation
+#      and/or other materials provided with the distribution.
+#   
+#   3. Neither the name of the copyright holder nor the names of its
+#      contributors may be used to endorse or promote products derived from
+#      this software without specific prior written permission.
+#   
+#   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+#   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+#   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+#   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+#   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+#   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+#   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+#
+# K2OSKERN.XDL
+#
+[XDL]
+ID {010FF1BB-C4A1-45D3-BC7B-1B252C07A9F4}
+
+[Code]
+#
+# Kernel-Only exports
+#
+K2OSKERN_Debug
+K2OSKERN_Panic
+K2OSKERN_MicroStall
+K2OSKERN_SetIntr
+K2OSKERN_GetIntr
+K2OSKERN_SeqInit
+K2OSKERN_SeqLock
+K2OSKERN_SeqUnlock
+K2OSKERN_GetCpuIndex
+K2OSKERN_PageArray_CreateAt
+K2OSKERN_SysProc_Notify
+K2OSKERN_IrqDefine
+K2OSKERN_IrqHook
+K2OSKERN_IrqSetEnable
+K2OSKERN_IntrVoteIrqEnable
+K2OSKERN_IntrDone
+
+#
+# k2os exports for kernel
+# 
+K2OS_Debug_OutputString
+
+K2OS_RaiseException
+
+K2OS_System_GetMsTick
+K2OS_System_GetMsTick32
+K2OS_System_GetHfFreq
+K2OS_System_GetHfTick
+K2OS_System_HfTickFromMsTick
+K2OS_System_MsTickFromHfTick
+K2OS_System_HfTickFromMsTick32
+K2OS_System_MsTick32FromHfTick
+K2OS_System_CreateProcess
+
+K2OS_Process_GetId
+# K2OS_Process_Exit	// cannot exit from the kernel
+
+K2OS_Thread_Create
+K2OS_Thread_SetName
+K2OS_Thread_GetName
+K2OS_Thread_GetId
+K2OS_Thread_GetLastStatus
+K2OS_Thread_SetLastStatus
+K2OS_Thread_GetCpuCoreAffinityMask
+K2OS_Thread_SetCpuCoreAffinityMask
+K2OS_Thread_Exit
+K2OS_Thread_Sleep
+K2OS_Thread_StallMicroseconds
+K2OS_Thread_GetExitCode
+K2OS_Thread_WaitMany
+K2OS_Thread_WaitOne
+
+K2OS_CritSec_Init
+K2OS_CritSec_TryEnter
+K2OS_CritSec_Enter
+K2OS_CritSec_Leave
+K2OS_CritSec_Done
+
+K2OS_Tls_AllocSlot
+K2OS_Tls_FreeSlot
+K2OS_Tls_SetValue
+K2OS_Tls_GetValue
+
+K2OS_Heap_Alloc
+K2OS_Heap_Free
+
+K2OS_Token_Clone
+K2OS_Token_Destroy
+
+K2OS_Notify_Create
+K2OS_Notify_Signal
+
+K2OS_Gate_Create
+K2OS_Gate_Open
+K2OS_Gate_Close
+
+K2OS_Semaphore_Create
+K2OS_Semaphore_Inc
+
+K2OS_PageArray_Create
+K2OS_PageArray_GetLength
+
+K2OS_Virt_Reserve
+K2OS_Virt_Get
+K2OS_Virt_Release
+
+K2OS_VirtMap_Create
+K2OS_VirtMap_AcquirePageArray
+K2OS_VirtMap_Acquire
+K2OS_VirtMap_GetInfo
+
+K2OS_Alarm_Create
+
+K2OS_Xdl_Acquire
+K2OS_Xdl_AddRef
+K2OS_Xdl_AddRefContaining
+K2OS_Xdl_Release
+K2OS_Xdl_FindExport
+K2OS_Xdl_GetIdent
+
+K2OS_Mailbox_Create
+K2OS_Mailbox_Send
+K2OS_Mailbox_Recv
+K2OS_Mailbox_Share
+
+K2OS_IfInst_Create
+K2OS_IfInst_GetId
+K2OS_IfInst_SetMailbox
+K2OS_IfInst_GetContext
+K2OS_IfInst_SetContext
+K2OS_IfInst_Publish
+K2OS_IfInstId_GetDetail
+K2OS_IfEnum_Create
+K2OS_IfEnum_Reset
+K2OS_IfEnum_Next
+K2OS_IfSubs_Create
+
+K2OS_IpcEnd_Create
+K2OS_IpcEnd_GetParam
+K2OS_IpcEnd_SendRequest
+K2OS_IpcEnd_AcceptRequest
+K2OS_IpcEnd_Send
+K2OS_IpcEnd_SendVector
+K2OS_IpcEnd_Disconnect
+K2OS_IpcEnd_Delete
+K2OS_Ipc_RejectRequest
+K2OS_Ipc_ProcessMsg
+
+#########################################################
+[Data]
+gpK2OSKERN_CacheInfo

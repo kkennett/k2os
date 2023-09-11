@@ -1,7 +1,7 @@
 /*   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -241,6 +241,7 @@
 #define R_ARM_CALL                      28        // ((S + A) | T) – P
 #define R_ARM_JUMP24                    29        // ((S + A) | T) – P
 #define R_ARM_TARGET1                   38        // (S + A) | T or ((S + A) | T) – P
+#define R_ARM_V4BX                      40        // ignored
 #define R_ARM_PREL31                    42        // ((S + A) | T) – P
 #define R_ARM_MOVW_ABS_NC               43        // (S + A) | T
 #define R_ARM_MOVT_ABS                  44        // S + A

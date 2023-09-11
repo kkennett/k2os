@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -38,25 +38,38 @@
 
 // -----------------------------------------------------------------------------
 
+typedef struct _IMX6_GPT IMX6_GPT;
+struct _IMX6_GPT
+{
+    UINT32  mRegs_GPT;
+    UINT32  mRate;
+};
+
+VOID
+EFIAPI
+IMX6_GPT_Init(
+    IMX6_GPT *  apGpt,
+    UINT32      Regs_CCM,
+    UINT32      Regs_GPT
+);
+
 UINT32
 EFIAPI
-IMX6_GPT_GetRate(
-    UINT32 Regs_CCM,
-    UINT32 Regs_GPT
+IMX6_GPT_GetTickCount(
+    IMX6_GPT *  apGpt
 );
 
 UINT32
 EFIAPI
 IMX6_GPT_TicksFromUs(
-    UINT32 GPTRate,
-    UINT32 uSeconds
+    IMX6_GPT *  apGpt,
+    UINT32      aUs
 );
 
 void
 IMX6_GPT_DelayUs(
-    UINT32 Regs_GPT,
-    UINT32 GPTRate,
-    UINT32 usDelay
+    IMX6_GPT *  apGpt,
+    UINT32      aUsDelay
 );
 
 // -----------------------------------------------------------------------------

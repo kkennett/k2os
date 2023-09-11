@@ -98,10 +98,13 @@
     <ClCompile Include="img.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="imgBoot.cpp">
+    <ClCompile Include="imgDstBoot.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="imgDstXdl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="imgSrcBoot.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

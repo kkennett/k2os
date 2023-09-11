@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -254,7 +254,7 @@ BuildFileUser_OutObj::CheckIfDamaged(
     void
 )
 {
-    if (!mpVfsFile->Exists())
+    if (!FileExists())
         return true;
 
     K2_ASSERT(NULL != mpChildTmpObj);
@@ -280,6 +280,7 @@ BuildFileUser_OutObj::Dump(
     printf("  OUTOBJ %s %s\n", IsDamaged() ? "DAMG" : "GOOD", pFullPath + gVfsRootSpecLen + 5);
     delete[] pFullPath;
 
-    mpChildTmpObj->Dump(aDamagedOnly);
+    if (IsDamaged())
+        mpChildTmpObj->Dump(aDamagedOnly);
 }
 

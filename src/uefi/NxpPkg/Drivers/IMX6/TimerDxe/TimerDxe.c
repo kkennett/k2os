@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -101,7 +101,7 @@ TimerDriverSetTimerPeriod (
     TimerCount = 0;
 	sgCurrentTimerPeriod = 0;
     MmioWrite32(sgTimerRegs + IMX6_EPIT_OFFSET_SR, IMX6_EPIT_SR_OCIF);
-	return Status;
+    return Status;
   } 
 
   sgCurrentTimerPeriod = TimerPeriod;
@@ -139,7 +139,8 @@ TimerDriverSetTimerPeriod (
   else
       TimerCount = (UINT32)TimerPeriod;
 
-  MmioWrite32(sgTimerRegs + IMX6_EPIT_OFFSET_CMPR, TimerCount);
+  // emulator does not work right and won't match at TimerCount, so subtract 1 and it works
+  MmioWrite32(sgTimerRegs + IMX6_EPIT_OFFSET_CMPR, TimerCount-1);
   MmioWrite32(sgTimerRegs + IMX6_EPIT_OFFSET_LR, TimerCount);
   Status = gInterrupt->EnableInterruptSource(gInterrupt, sgTimerIrq);
 
@@ -213,17 +214,26 @@ TimerInitialize (
 {
   EFI_HANDLE  Handle = NULL;
   EFI_STATUS  Status;
+  UINT32      regVal;
 
   if (FixedPcdGet32(PcdTimerDxeUseEpit) == 1)
   {
       sgTimerRegs = IMX6_PHYSADDR_EPIT1;
       sgTimerIrq = IMX6_IRQ_EPIT1;
+      regVal = MmioRead32(IMX6_PHYSADDR_CCM_CCGR1);
+      regVal &= ~((IMX6_RUN_AND_WAIT << IMX6_SHL_CCM_CCGR1_EPIT1) | (IMX6_RUN_AND_WAIT << IMX6_SHL_CCM_CCGR1_EPIT1));
+      regVal |= ((IMX6_RUN_AND_WAIT << IMX6_SHL_CCM_CCGR1_EPIT1) | (IMX6_RUN_AND_WAIT << IMX6_SHL_CCM_CCGR1_EPIT1));
+      MmioWrite32(IMX6_PHYSADDR_CCM_CCGR1, regVal);
   }
   else
   {
       ASSERT(FixedPcdGet32(PcdTimerDxeUseEpit) == 2);
       sgTimerRegs = IMX6_PHYSADDR_EPIT2;
       sgTimerIrq = IMX6_IRQ_EPIT2;
+      regVal = MmioRead32(IMX6_PHYSADDR_CCM_CCGR1);
+      regVal &= ~((IMX6_RUN_AND_WAIT << IMX6_SHL_CCM_CCGR1_EPIT2) | (IMX6_RUN_AND_WAIT << IMX6_SHL_CCM_CCGR1_EPIT2));
+      regVal |= ((IMX6_RUN_AND_WAIT << IMX6_SHL_CCM_CCGR1_EPIT2) | (IMX6_RUN_AND_WAIT << IMX6_SHL_CCM_CCGR1_EPIT2));
+      MmioWrite32(IMX6_PHYSADDR_CCM_CCGR1, regVal);
   }
 
   // Find the interrupt controller protocol.  ASSERT if not found.

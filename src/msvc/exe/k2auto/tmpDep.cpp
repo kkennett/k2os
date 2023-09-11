@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -245,13 +245,13 @@ BuildFileUser_TmpDep::CheckIfDamaged(
     K2LIST_LINK *           pListLink;
     BuildFileUser_SrcInc *  pSrcInc;
 
-    if (!mpVfsFile->Exists())
+    if (!FileExists())
         return true;
 
     if (mDepParseProblem)
         return true;
 
-    if (!mpChildSrcCode->mpVfsFile->Exists())
+    if (!mpChildSrcCode->FileExists())
         return true;
     if (mpVfsFile->IsOlderThan(mpChildSrcCode->mpVfsFile))
         return true;
@@ -263,7 +263,7 @@ BuildFileUser_TmpDep::CheckIfDamaged(
     do {
         pSrcInc = K2_GET_CONTAINER(BuildFileUser_SrcInc, pListLink, ParentIncDepListLink);
         pListLink = pListLink->mpNext;
-        if (!pSrcInc->mpVfsFile->Exists())
+        if (!pSrcInc->FileExists())
             return true;
         if (mpVfsFile->IsOlderThan(pSrcInc->mpVfsFile))
             return true;
@@ -292,14 +292,17 @@ BuildFileUser_TmpDep::Dump(
 
     mpChildSrcCode->Dump();
 
-    pListLink = GeneratedSrcIncDepList.mpHead;
-    if (NULL == pListLink)
-        return;
-    do {
-        pSrcInc = K2_GET_CONTAINER(BuildFileUser_SrcInc, pListLink, ParentIncDepListLink);
-        pListLink = pListLink->mpNext;
-        pSrcInc->Dump();
-    } while (NULL != pListLink);
+    if (mpChildSrcCode->IsDamaged())
+    {
+        pListLink = GeneratedSrcIncDepList.mpHead;
+        if (NULL == pListLink)
+            return;
+        do {
+            pSrcInc = K2_GET_CONTAINER(BuildFileUser_SrcInc, pListLink, ParentIncDepListLink);
+            pListLink = pListLink->mpNext;
+            pSrcInc->Dump();
+        } while (NULL != pListLink);
+    }
 }
 
 bool
@@ -432,7 +435,7 @@ BuildFileUser_TmpDep::BuildGeneratedDeps(
 
     K2_ASSERT(0 == GeneratedSrcIncDepList.mNodeCount);
 
-    K2_ASSERT(mpVfsFile->Exists());
+    K2_ASSERT(FileExists());
 
     mDepParseProblem = true;
 
@@ -448,7 +451,7 @@ BuildFileUser_TmpDep::BuildGeneratedDeps(
 
     pSrcXml = mpParentTmpObj->mpParentSrcXml;
     K2_ASSERT(NULL != pSrcXml);
-    K2_ASSERT(pSrcXml->mpVfsFile->Exists());
+    K2_ASSERT(pSrcXml->FileExists());
     K2_ASSERT(NULL != pSrcXml->XmlParse.mpRootNode);
 
     mInDepBuild = true;

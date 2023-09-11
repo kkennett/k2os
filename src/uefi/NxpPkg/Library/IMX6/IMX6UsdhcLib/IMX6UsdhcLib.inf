@@ -1,7 +1,7 @@
 #   
 #   BSD 3-Clause License
 #   
-#   Copyright (c) 2020, Kurt Kennett
+#   Copyright (c) 2023, Kurt Kennett
 #   All rights reserved.
 #   
 #   Redistribution and use in source and binary forms, with or without
@@ -39,13 +39,16 @@
     LIBRARY_CLASS       = IMX6UsdhcLib
 
 [Sources]
-    IMX6UsdhcLib.c
+    Init.c
+    Transfer.c
 
 [LibraryClasses]
     IoLib
     DebugLib
+    BaseMemoryLib
     IMX6ClockLib
     IMX6GptLib
+    CacheMaintenanceLib
 
 [Packages]
     MdePkg/MdePkg.dec

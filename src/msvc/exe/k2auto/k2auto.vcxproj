@@ -94,6 +94,10 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);k2win32.lib;k2asc.lib;k2mem.lib;k2list.lib;k2tree.lib;k2atomic.lib;k2xml.lib;k2parse.lib</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(TargetPath) $(SolutionDir)..\..\k2tools</Command>
+      <Message>copy to k2tools</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -149,8 +153,9 @@
   <ItemGroup>
     <ClCompile Include="buildFileUser.cpp" />
     <ClCompile Include="img.cpp" />
-    <ClCompile Include="imgBoot.cpp" />
+    <ClCompile Include="imgDstBoot.cpp" />
     <ClCompile Include="imgDstXdl.cpp" />
+    <ClCompile Include="imgSrcBoot.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="outLib.cpp" />
     <ClCompile Include="outObj.cpp" />

@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,7 @@ BuildFileUser_Img *
 BuildFileUser_Img::Construct(
     VfsFile *               apVfsFile,
     BuildFileUser_SrcXml *  apSrcXml,
-    BuildFileUser_ImgBoot * apImgBoot,
+    BuildFileUser_ImgDstBoot * apImgBoot,
     char const *            apXmlFullPath
 )
 {
@@ -157,7 +157,7 @@ BuildFileUser_Img::Construct(
 BuildFileUser_Img::BuildFileUser_Img(
     VfsFile *               apVfsFile, 
     BuildFileUser_SrcXml *  apSrcXml, 
-    BuildFileUser_ImgBoot * apImgBoot
+    BuildFileUser_ImgDstBoot * apImgBoot
 ) :
     BuildFileUser(apVfsFile, BuildFileUserType_OutObj),
     mpParentSrcXml(apSrcXml),
@@ -468,7 +468,7 @@ BuildFileUser_Img::CheckIfDamaged(
     BuildFileUser_ImgDstXdl *   pImgDstXdl;
     ProjDep *                   pProjDep;
 
-    if (!mpVfsFile->Exists())
+    if (!FileExists())
         return true;
 
     K2_ASSERT(NULL != mpChildImgBoot);
@@ -532,13 +532,16 @@ BuildFileUser_Img::Dump(
     bool aDamagedOnly
 )
 {
-    if ((aDamagedOnly) && (!IsDamaged()))
+    bool isDamaged = IsDamaged();
+
+    if ((aDamagedOnly) && (!isDamaged))
         return;
 
     char *pFullPath = mpVfsFile->AllocFullPath();
-    printf("  IMG %s %s\n", IsDamaged() ? "DAMG" : "GOOD", pFullPath + gVfsRootSpecLen + 5);
+    printf("  IMG %s %s\n", isDamaged ? "DAMG" : "GOOD", pFullPath + gVfsRootSpecLen + 5);
     delete[] pFullPath;
 
-    mpChildImgBoot->Dump(aDamagedOnly);
+    if (isDamaged)
+        mpChildImgBoot->Dump(aDamagedOnly);
 }
 

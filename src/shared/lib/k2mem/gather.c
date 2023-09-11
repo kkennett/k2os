@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -74,16 +74,18 @@ K2MEM_Gather(
     for (ixVec = 0; ixVec < aVectorCount; ixVec++)
     {
         thisVec = apVectorArray[ixVec].mByteCount;
-        
-        if (thisVec > spaceBytes)
-            thisVec = spaceBytes;
-        
-        K2MEM_Copy(apBuffer, apVectorArray[ixVec].mpBuffer, thisVec);
-        apBuffer += thisVec;
-        spaceBytes -= thisVec;
+        if (thisVec > 0)
+        {
+            if (thisVec > spaceBytes)
+                thisVec = spaceBytes;
 
-        if (0 == spaceBytes)
-            break;
+            K2MEM_Copy(apBuffer, apVectorArray[ixVec].mpBuffer, thisVec);
+            apBuffer += thisVec;
+            spaceBytes -= thisVec;
+
+            if (0 == spaceBytes)
+                break;
+        }
     }
 
     *apBufferBytes = vecData;

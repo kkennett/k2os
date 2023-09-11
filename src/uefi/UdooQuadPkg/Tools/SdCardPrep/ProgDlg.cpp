@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -33,31 +33,28 @@
 #if 0
 SD card LBA map - 512 byte sectors
 -------------------------------------------
-0x000000 0      Protective MBR --------------------------BEGINNING OF UEFI FD FILE
+0x000000 0      Protective MBR --------------------------BEGINNING OF FD FILE
 0x000200 1      GPT Header
-0x000400 2      SPL first sector
+0x000400 2      IVT offset for iMX6 
+0x000600 3      spare sector
+0x000800 4      GPT Partition Table Entries 0, 1, 2, 3
+0x000A00 5      GPT Partition Table Entries 4, 5, 6, 7
+0x000C00 6      GPT Partition Table Entries 8, 9, 10, 11
+0x000E00 7      GPT Partition Table Entries 12, 13, 14, 15
+0x001000 8      Start of hole (Temp ram area page 1 (starting at 0))
+0x001200 9      Hole..
+..
+0x008E00 71     Hole 
+0x009000 72     SEC FV start sector
+0x009200 73     SEC FV..
 ...
-0x00FE00 127    SPL last possible sector
-0x010000 128    GPT Partition Table Entries 0, 1, 2, 3
-0x010200 129    GPT Partition Table Entries 4, 5, 6, 7
-0x010400 130    GPT Partition Table Entries 8, 9, 10, 11
-0x010600 131    GPT Partition Table Entries 12, 13, 14, 15
-0x010800 132    free space
+0x030E00 391    SEC FV
+0x031000 392    VarStore first sector 
+0x031200 393    VarStore...
 ...
-0x011200 137    free space
-0x011400 138    u-boot.img and env first sector
-...
-0x0C1E00 1551   u-boot and env last possible sector
-0x0C2000 1552    UEFI first sector
-...
-0x17FE00 3071   UEFI last sector        -------------------------- END OF UEFI FD FILE
-0x180000 3072   VarStore first sector  128KB
-...
-0x1BFE00 3327   VarStore last sector 128KB
-0x1A0000 3328   VarStore 'spare' area first sector  384KB
-...
-0x1FFE00 4095   VarStore 'spare' area last sector
-0x200000 4096   GPT "First Usable LBA" (2MB)
+0x07FE00 1023   Varstore 
+0x080000 1024   GPT "First Usable LBA" (512KB)
+0x080200 1025   Second usable LBA
 ...
 0x?      n-6    GPT "Last Usable LBA"
 0x?      n-5    GPT Partition Table Entries 0,1,2,3

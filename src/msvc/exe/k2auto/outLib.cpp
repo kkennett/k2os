@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -415,7 +415,7 @@ BuildFileUser_OutLib::CheckIfDamaged(
     BuildFileUser_TmpObj *  pTmpObj;
     ProjDep *               pProjDep;
 
-    if (!mpVfsFile->Exists())
+    if (!FileExists())
         return true;
 
     pListLink = TmpObjList.mpHead;
@@ -462,14 +462,17 @@ BuildFileUser_OutLib::Dump(
     printf("  OUTLIB %s %s\n", IsDamaged() ? "DAMG" : "GOOD", pFullPath + gVfsRootSpecLen + 5);
     delete[] pFullPath;
 
-    pListLink = TmpObjList.mpHead;
-    if (NULL != pListLink)
+    if (IsDamaged())
     {
-        do {
-            pTmpObj = K2_GET_CONTAINER(BuildFileUser_TmpObj, pListLink, SrcXmlProjOutputTmpObjListLink);
-            pListLink = pListLink->mpNext;
-            pTmpObj->Dump(aDamagedOnly);
-        } while (NULL != pListLink);
+        pListLink = TmpObjList.mpHead;
+        if (NULL != pListLink)
+        {
+            do {
+                pTmpObj = K2_GET_CONTAINER(BuildFileUser_TmpObj, pListLink, SrcXmlProjOutputTmpObjListLink);
+                pListLink = pListLink->mpNext;
+                pTmpObj->Dump(aDamagedOnly);
+            } while (NULL != pListLink);
+        }
     }
 }
 

@@ -1,0 +1,112 @@
+//   
+//   BSD 3-Clause License
+//   
+//   Copyright (c) 2020, Kurt Kennett
+//   All rights reserved.
+//   
+//   Redistribution and use in source and binary forms, with or without
+//   modification, are permitted provided that the following conditions are met:
+//   
+//   1. Redistributions of source code must retain the above copyright notice, this
+//      list of conditions and the following disclaimer.
+//   
+//   2. Redistributions in binary form must reproduce the above copyright notice,
+//      this list of conditions and the following disclaimer in the documentation
+//      and/or other materials provided with the distribution.
+//   
+//   3. Neither the name of the copyright holder nor the names of its
+//      contributors may be used to endorse or promote products derived from
+//      this software without specific prior written permission.
+//   
+//   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+//   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+//   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+//   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+//   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+//   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+//   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+//   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+//   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+//   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+
+#include "AutoACPI.h"
+
+char FACP[268] = {
+    // Signature 'FACP'
+    0x46, 0x41, 0x43, 0x50, 
+    // Length
+    0x0C, 0x01, 0x00, 0x00, 
+    // Revision
+    0x05, 
+    // CheckSum
+    0x00, 
+    // OemId "K2____"
+    0x4B, 0x32, 0x5F, 0x5F, 0x5F, 0x5F, 
+    // OemTableId "QEMUQUAD"
+    0x51, 0x45, 0x4d, 0x55, 0x51, 0x55, 0x41, 0x44, 
+    // OemRevision
+    0x01, 0x00, 0x00, 0x00, 
+    // CreatorId "K2__""
+    0x4b, 0x32, 0x5F, 0x5F, 
+    // CreatorRevision
+    0x01, 0x00, 0x00, 0x00, 
+
+    0x00, 0x00, 0x00, 0x00,                                                               // FirmwareCtrl;
+    0x00, 0x00, 0x00, 0x00,                                                               // Dsdt;
+    0x00,                                                                                 // Reserved0;
+    0x08,                                                                                 // PreferredPmProfi
+    0x00, 0x00,                                                                           // SciInt;
+    0x00, 0x00, 0x00, 0x00,                                                               // SmiCmd;
+    0x00,                                                                                 // AcpiEnable;
+    0x00,                                                                                 // AcpiDisable;
+    0x00,                                                                                 // S4BiosReq;
+    0x00,                                                                                 // PstateCnt;
+    0x00, 0x00, 0x00, 0x00,                                                               // Pm1aEvtBlk;
+    0x00, 0x00, 0x00, 0x00,                                                               // Pm1bEvtBlk;
+    0x00, 0x00, 0x00, 0x00,                                                               // Pm1aCntBlk;
+    0x00, 0x00, 0x00, 0x00,                                                               // Pm1bCntBlk;
+    0x00, 0x00, 0x00, 0x00,                                                               // Pm2CntBlk;
+    0x00, 0x00, 0x00, 0x00,                                                               // PmTmrBlk;
+    0x00, 0x00, 0x00, 0x00,                                                               // Gpe0Blk;
+    0x00, 0x00, 0x00, 0x00,                                                               // Gpe1Blk;
+    0x00,                                                                                 // Pm1EvtLen;
+    0x00,                                                                                 // Pm1CntLen;
+    0x00,                                                                                 // Pm2CntLen;
+    0x04,                                                                                 // PmTmrLen;
+    0x00,                                                                                 // Gpe0BlkLen;
+    0x00,                                                                                 // Gpe1BlkLen;
+    0x00,                                                                                 // Gpe1Base;
+    0xE3,                                                                                 // CstCnt;
+    0x00, 0x00,                                                                           // PLvl2Lat;
+    0x00, 0x00,                                                                           // PLvl3Lat;
+    0x00, 0x00,                                                                           // FlushSize;
+    0x00, 0x00,                                                                           // FlushStride;
+    0x00,                                                                                 // DutyOffset;
+    0x00,                                                                                 // DutyWidth;
+    0x00,                                                                                 // DayAlrm;
+    0x00,                                                                                 // MonAlrm;
+    0x00,                                                                                 // Century;
+    0x3C, 0x00,                                                                           // IaPcBootArch;
+    0x00,                                                                                 // Reserved1;
+    0x21, 0x00, 0x30, 0x00,                                                               // Flags;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // ResetReg;
+    0x00,                                                                                 // ResetValue;
+    0x00, 0x00, 0x00,                                                                     // Reserved2[3];
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                                       // XFirmwareCtrl;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                                       // XDsdt;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // XPm1aEvtBlk;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // XPm1bEvtBlk;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // XPm1aCntBlk;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // XPm1bCntBlk;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // XPm2CntBlk;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // XPmTmrBlk;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // XGpe0Blk;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // XGpe1Blk;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,               // SleepControlReg;
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00                // SleepStatusReg;
+};
+
+void * ReferenceAcpiTable(void) {
+    return (void *) &FACP;
+}

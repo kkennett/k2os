@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -181,7 +181,7 @@ BuildFileUser_OutXdl::TryRepair(
     {
         if (!CreatePath(pParentPath, pParentFolder->GetFullPathLen()))
         {
-            printf("*** Failed to create path for OutObj [%s]\n", pParentPath);
+            printf("*** Failed to create path for OutXdl [%s]\n", pParentPath);
             delete[] pParentPath;
             return false;
         }
@@ -209,7 +209,7 @@ BuildFileUser_OutXdl::SetSomethingChangedSinceLastTryRepair(
 bool 
 BuildFileUser_OutXdl::CheckIfDamaged(void) 
 { 
-    if (!mpVfsFile->Exists())
+    if (!FileExists())
         return true;
 
     K2_ASSERT(NULL != mpChildOutXdlLib);
@@ -235,6 +235,7 @@ BuildFileUser_OutXdl::Dump(
     printf("  OUTXDL %s %s\n", IsDamaged() ? "DAMG" : "GOOD", pFullPath + gVfsRootSpecLen + 5);
     delete[] pFullPath;
 
-    mpChildOutXdlLib->Dump(aDamagedOnly);
+    if (IsDamaged())
+        mpChildOutXdlLib->Dump(aDamagedOnly);
 }
 

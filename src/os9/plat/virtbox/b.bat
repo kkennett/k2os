@@ -1,0 +1,1 @@
+@..\..\..\..\k2tools\k2auto.exe

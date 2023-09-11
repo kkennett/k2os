@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -68,6 +68,8 @@ UINT32 A32_ReadStackPointer(void)
 
 UINT32  A32_SetCoreInterruptMask(UINT32 aMaskBits);
 UINT32  A32_GetCoreInterruptMask(void);
+
+void A32_ResetStackAndJump(UINT32 aNewStackPtr, UINT32 aJumpTarget);
 
 UINT32  A32_ReadMIDR(void);
 

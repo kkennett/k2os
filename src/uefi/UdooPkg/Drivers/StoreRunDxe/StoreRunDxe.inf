@@ -1,0 +1,57 @@
+[Defines]
+    INF_VERSION                    = 0x00010005
+    BASE_NAME                      = UdooStoreRunDxe
+    FILE_GUID                      = 648BB229-0D12-4556-87BE-5D45F8F40FD7
+    MODULE_TYPE                    = DXE_RUNTIME_DRIVER
+    VERSION_STRING                 = 1.0
+    ENTRY_POINT                    = UdooStoreRunDxeInit
+
+[Sources.common]
+    StoreRunDxe.c
+    StoreFvb.c
+
+[Packages]
+    ArmPkg/ArmPkg.dec
+    MdePkg/MdePkg.dec
+    MdeModulePkg/MdeModulePkg.dec
+    NxpPkg/NxpPkg.dec
+    UdooPkg/UdooPkg.dec
+
+[LibraryClasses]
+    BaseLib
+    BaseMemoryLib
+    DebugLib
+    IoLib
+    HobLib
+    UefiBootServicesTableLib
+    UefiDriverEntryPoint
+    UefiRuntimeLib
+    DxeServicesTableLib
+    CacheMaintenanceLib
+    IMX6GptLib
+    IMX6ClockLib
+    IMX6UsdhcLib
+
+[Guids]
+    gUdooTokenSpaceGuid
+    gVarRunDxeFileGuid
+    gEfiSystemNvDataFvGuid
+    gEfiVariableGuid
+    gEfiEventVirtualAddressChangeGuid
+    gUdooPeiBootCardMediaGuid
+
+[Protocols]
+    gEfiBlockIoProtocolGuid                 # PRODUCES
+    gEfiFirmwareVolumeBlock2ProtocolGuid    # PRODUCES
+    gEfiDevicePathProtocolGuid
+
+[Pcd.common]
+    gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase
+    gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
+    gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase
+    gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize
+    gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase
+    gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
+
+[depex]
+    gEfiCpuArchProtocolGuid

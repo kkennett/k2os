@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -39,10 +39,10 @@ IXDL_DoCallback(
 )
 {
     K2STAT              status;
-    K2_EXCEPTION_TRAP   trap;
+//    K2_EXCEPTION_TRAP   trap;
     XDL_pf_ENTRYPOINT   entryPoint;
     BOOL                saveDisable;
-    
+
     if (apXdl->mpHeader->mElfMachine != K2ELF_TARGET_MACHINE_TYPE)
         return K2STAT_NO_ERROR;
 
@@ -60,7 +60,8 @@ IXDL_DoCallback(
     saveDisable = gpXdlGlobal->mAcqDisabled;
     gpXdlGlobal->mAcqDisabled = TRUE;
 
-    status = K2_EXTRAP(&trap, entryPoint(apXdl, aIsLoad ? XDL_ENTRY_REASON_LOAD : XDL_ENTRY_REASON_UNLOAD));
+//    status = K2_EXTRAP(&trap, entryPoint(apXdl, aIsLoad ? XDL_ENTRY_REASON_LOAD : XDL_ENTRY_REASON_UNLOAD));
+    status = entryPoint(apXdl, aIsLoad ? XDL_ENTRY_REASON_LOAD : XDL_ENTRY_REASON_UNLOAD);
 
     gpXdlGlobal->mAcqDisabled = saveDisable;
 

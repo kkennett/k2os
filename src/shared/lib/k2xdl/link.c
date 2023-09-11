@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -93,6 +93,10 @@ IXDL_UnlinkOneA32(
         valAtTarget = ((valAtTarget) & 0xFFF0F000) | ((targetAddend << 4) & 0xF0000) | (targetAddend & 0xFFF);
         break;
 
+    case R_ARM_V4BX:
+        // ignored
+        break;
+
     case R_ARM_PREL31:
         // value is an addend already
         break;
@@ -117,6 +121,7 @@ IXDL_RelinkOneA32(
     UINT32 valAtTarget;
     UINT32 targetAddend;
     UINT32 newVal;
+    UINT32 distance;
 
     K2MEM_Copy(&valAtTarget, apRelAddr, sizeof(UINT32));
 
@@ -129,6 +134,16 @@ IXDL_RelinkOneA32(
         if (targetAddend & 0x2000000)
             targetAddend |= 0xFC000000;
         newVal = (aSymVal + targetAddend) - (aNewRelAddr + 8);
+        distance = newVal;
+        if (0 != (distance & 0x80000000))
+        {
+            distance = (~distance) + 1;
+        }
+        if (0 != (distance & 0xFC000000))
+        {
+            // jump is too far
+            return K2STAT_ERROR_OUT_OF_BOUNDS;
+        }
         valAtTarget = (valAtTarget & 0xFF000000) | ((newVal >> 2) & 0xFFFFFF);
         break;
 
@@ -146,6 +161,10 @@ IXDL_RelinkOneA32(
         targetAddend = ((valAtTarget & 0xF0000) >> 4) | (valAtTarget & 0xFFF);
         newVal = ((((aSymVal & 0xFFFF0000) + (targetAddend << 16))) >> 16) & 0xFFFF;
         valAtTarget = (valAtTarget & 0xFFF0F000) | ((newVal << 4) & 0xF0000) | (newVal & 0xFFF);
+        break;
+
+    case R_ARM_V4BX:
+        // ignored
         break;
 
     case R_ARM_PREL31:

@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,7 @@ BuildFileUser_SrcInf::BuildFileUser_SrcInf(
     BuildFileUser(apVfsFile, BuildFileUserType_SrcInf)
 {
     mpParentTmpExpObj = NULL;
-    if (mpVfsFile->Exists())
+    if (FileExists())
         OnRepaired();
 }
 

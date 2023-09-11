@@ -1,7 +1,7 @@
 //   
 //   BSD 3-Clause License
 //   
-//   Copyright (c) 2020, Kurt Kennett
+//   Copyright (c) 2023, Kurt Kennett
 //   All rights reserved.
 //   
 //   Redistribution and use in source and binary forms, with or without
@@ -45,19 +45,19 @@
 #define DISK_SECTOR_SIZE_POW2       9
 #define DISK_SECTOR_BYTES           (1<<DISK_SECTOR_SIZE_POW2)
 
-#define PARTITION_TABLE_START_LBA   128
+#define EFI_FILE_SIZE               0x31000
+#define EFI_VARSTORE_SIZE           0x4F000
+#define DISK_HEADER_SIZE            0x80000
+
+#define GPT_PART_ENTRY_SIZE         128
+#define PARTITION_TABLE_START_LBA   4
 #define PARTITION_TABLE_ENTRY_COUNT 16
 #define PARTITION_TABLE_LBA_COUNT   4
 
-#define DISK_HEADER_SIZE            (2 * 1024 * 1024)
-#define EFI_FILE_SIZE               ((1024+512) * 1024)
-#define EFI_SPARE_SIZE              (384 * 1024)
-#define EFI_VARSTORE_SIZE           (128 * 1024)
-
-typedef int checkHdrSize[(DISK_HEADER_SIZE > EFI_FILE_SIZE) ? 1 : -1];
+typedef int checkGpt0[(EFI_FILE_SIZE & (DISK_SECTOR_BYTES - 1)) == 0 ? 1 : -1];
 typedef int checkAlign[((DISK_HEADER_SIZE % DISK_SECTOR_BYTES) == 0) ? 1 : -1];
 typedef int checkFileAlign[((EFI_FILE_SIZE % DISK_SECTOR_BYTES) == 0) ? 1 : -1];
-typedef int checkTotalSize[((EFI_FILE_SIZE + EFI_SPARE_SIZE + EFI_VARSTORE_SIZE) == DISK_HEADER_SIZE) ? 1 : -1];
+typedef int checkTotalSize[((EFI_FILE_SIZE + EFI_VARSTORE_SIZE) == DISK_HEADER_SIZE) ? 1 : -1];
 
 #pragma pack(push, 1)
 typedef struct _GPT_HEADER
