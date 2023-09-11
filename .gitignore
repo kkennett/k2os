@@ -3,7 +3,6 @@
 .vs/**
 *.suo
 *.opendb
-k2tools/*
 bld/*
 img/* 
 *.ipch
