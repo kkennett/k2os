@@ -32,6 +32,17 @@
 
 #include "ide.h"
 
+K2OS_RPC_OBJECT_CLASSDEF const gIdeBlockIoDevice_ObjectClassDef =
+{
+    // {191336DB-3E2C-4C4F-AC1D-BCE8158078E0}
+    { 0x191336db, 0x3e2c, 0x4c4f, { 0xac, 0x1d, 0xbc, 0xe8, 0x15, 0x80, 0x78, 0xe0 } },
+    IdeBlockIoDevice_Create,
+    IdeBlockIoDevice_Call,
+    IdeBlockIoDevice_Delete
+};
+
+extern K2OS_CRITSEC gCreateInstanceSec;
+
 K2STAT
 CreateInstance(
     K2OS_DEVCTX aDevCtx,
@@ -42,11 +53,22 @@ CreateInstance(
     IDE_CHANNEL *       pChannel;
     K2STAT              stat;
 
+    K2OS_CritSec_Enter(&gCreateInstanceSec);
+
+    if (NULL == K2OS_RpcServer_Register(&gIdeBlockIoDevice_ObjectClassDef, 0))
+    {
+        stat = K2OS_Thread_GetLastStatus();
+        K2OSKERN_Debug("*** IDE: Could not register block io device rpc class (0x%08X)\n", stat);
+        K2OS_CritSec_Leave(&gCreateInstanceSec);
+        return stat;
+    }
+
     pIdeController = (IDE_CONTROLLER *)K2OS_Heap_Alloc(sizeof(IDE_CONTROLLER));
     if (NULL == pIdeController)
     {
         stat = K2OS_Thread_GetLastStatus();
         K2_ASSERT(K2STAT_IS_ERROR(stat));
+        K2OS_CritSec_Leave(&gCreateInstanceSec);
         return stat;
     }
 
@@ -95,6 +117,8 @@ CreateInstance(
     {
         K2OS_Heap_Free(pIdeController);
     }
+
+    K2OS_CritSec_Leave(&gCreateInstanceSec);
 
     return stat;
 }

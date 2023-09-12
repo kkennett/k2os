@@ -45,6 +45,7 @@
     <source>channel.c</source>
     <source>init.c</source>
     <source>regio.c</source>
+    <source>object.c</source>
 
     <lib arch="x32">@shared/lib/k2archx32</lib>
     <lib arch="a32">@shared/lib/k2archa32</lib>

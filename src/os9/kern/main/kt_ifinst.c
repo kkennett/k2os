@@ -343,6 +343,8 @@ K2OS_IfInst_Publish(
                     pSchedItem = &pThisThread->SchedItem;
                     pSchedItem->mType = KernSchedItem_KernThread_IfInstPublish;
                     pSchedItem->Args.IfInst_Publish.mClassCode = aClassCode;
+                    K2MEM_Copy(&pThisThread->mpKernRwViewOfThreadPage->mMiscBuffer, apSpecific, sizeof(K2_GUID128));
+
                     KernObj_CreateRef(&pSchedItem->ObjRef, refObj.AsAny);
 
                     KernThread_CallScheduler(pThisCore);
@@ -350,7 +352,7 @@ K2OS_IfInst_Publish(
                     // interrupts will be back on again here
                     KernObj_ReleaseRef(&pSchedItem->ObjRef);
 
-                    if (!pThisThread->Kern.mSchedCall_Result)
+                    if (0 == pThisThread->Kern.mSchedCall_Result)
                     {
                         stat = pThisThread->mpKernRwViewOfThreadPage->mLastStatus;
                     }

@@ -292,6 +292,12 @@ void DevMgr_NodeLocked_DelTimer(DEVNODE *apNode);
 // -------------------------------------------------------------------------
 // 
 
+void StorMgr_Init(void);
+
+//
+// -------------------------------------------------------------------------
+// 
+
 typedef struct _EXEC_PLAT EXEC_PLAT;
 struct _EXEC_PLAT
 {

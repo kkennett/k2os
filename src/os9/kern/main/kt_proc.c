@@ -37,8 +37,8 @@ K2OS_Process_GetId(
     void
 )
 {
-    K2OSKERN_Debug("*** K2OS_Process_GetId() call from inside kernel!\n");
-    K2OS_Thread_SetLastStatus(K2STAT_ERROR_UNSUPPORTED);
+//    K2OSKERN_Debug("*** K2OS_Process_GetId() call from inside kernel!\n");
+//    K2OS_Thread_SetLastStatus(K2STAT_ERROR_UNSUPPORTED);
     return 0;
 }
 

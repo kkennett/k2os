@@ -114,7 +114,7 @@ StartDriver(
         }
         else
         {
-            pChannel->mTokNotify = K2OS_Notify_Create(FALSE);
+            pChannel->mTokNotify = K2OS_Notify_Create(TRUE);    // starts in evalident
             if (NULL == pChannel->mTokNotify)
             {
                 stat = K2OS_Thread_GetLastStatus();
@@ -155,7 +155,7 @@ StartDriver(
         }
         else
         {
-            pChannel->mTokNotify = K2OS_Notify_Create(FALSE);
+            pChannel->mTokNotify = K2OS_Notify_Create(TRUE);    // starts in evalident
             if (NULL == pChannel->mTokNotify)
             {
                 stat = K2OS_Thread_GetLastStatus();

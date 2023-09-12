@@ -29,74 +29,41 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
+#ifndef __K2OSDRV_BLOCKIO_H
+#define __K2OSDRV_BLOCKIO_H
 
-#include "k2osexec.h"
+#include <k2osddk.h>
 
-UINT32      gMainThreadId;
-EXEC_PLAT   gPlat;
+#if __cplusplus
+extern "C" {
+#endif
 
-void
-Plat_Init(
-    void
-)
-{
-    K2OS_XDL xdl;
+//
+//------------------------------------------------------------------------
+//
 
-    K2MEM_Zero(&gPlat, sizeof(gPlat));
+// {5D2DAF34-2B80-48DC-8ED5-DB4E1DDA4055}
+#define K2OS_IFACE_BLOCKIO_DEVICE_CLASSID   { 0x5d2daf34, 0x2b80, 0x48dc, { 0x8e, 0xd5, 0xdb, 0x4e, 0x1d, 0xda, 0x40, 0x55 } }
 
-    xdl = K2OS_Xdl_Acquire("k2osplat");
-    if (NULL == xdl)
-    {
-        K2OSKERN_Panic("***k2osexec could not find k2osplat!\n");
-        return;
-    }
+//
+//------------------------------------------------------------------------
+//
 
-    gPlat.DeviceCreate = (K2OSPLAT_pf_DeviceCreate)K2OS_Xdl_FindExport(xdl, TRUE, "K2OSPLAT_DeviceCreate");
-    if (NULL == gPlat.DeviceCreate)
-    {
-        K2OSKERN_Panic("***k2osexec could not find K2OSPLAT_DeviceCreate!\n");
-        return;
-    }
-    gPlat.DeviceAddRes = (K2OSPLAT_pf_DeviceAddRes)K2OS_Xdl_FindExport(xdl, TRUE, "K2OSPLAT_DeviceAddRes");
-    if (NULL == gPlat.DeviceAddRes)
-    {
-        K2OSKERN_Panic("***k2osexec could not find K2OSPLAT_DeviceAddRes!\n");
-        return;
-    }
-    gPlat.DeviceRemove = (K2OSPLAT_pf_DeviceRemove)K2OS_Xdl_FindExport(xdl, TRUE, "K2OSPLAT_DeviceRemove");
-    if (NULL == gPlat.DeviceRemove)
-    {
-        K2OSKERN_Panic("***k2osexec could not find K2OSPLAT_DeviceRemove!\n");
-        return;
-    }
+#define K2OS_BLOCKIO_NOTIFY_MEDIA_CHANGE            1
+// sent to handles with notify mailslots specified when media changes
+
+#define K2OS_BLOCKIO_METHOD_GET_MEDIA               1
+// input: nothing
+// output: current K2OS_STORAGE_MEDIA structure
+
+
+
+//
+//------------------------------------------------------------------------
+//
+
+#if __cplusplus
 }
+#endif
 
-UINT32
-MainThread(
-    K2OSACPI_INIT *apInit
-)
-{
-    gMainThreadId = K2OS_Thread_GetId();
-
-    Plat_Init();
-
-    Dev_Init();
-
-    ACPI_Init(apInit);
-
-    DevMgr_Init();
-
-    StorMgr_Init();
-
-    ACPI_Enable();
-
-    ACPI_StartSystemBusDriver();
-
-    DevMgr_Run();
-
-    K2OS_RaiseException(K2STAT_EX_LOGIC);
-
-    return 0;
-}
-
- 
+#endif // __K2OSDRV_BLOCKIO_H

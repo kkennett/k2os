@@ -33,89 +33,16 @@
 #include "ide.h"
 
 UINT32
-IDE_Channel_Thread(
-    IDE_CHANNEL *apChannel
+IDE_Device_Service_Idle(
+    IDE_DEVICE *apDevice
 )
 {
-    K2OS_WAITABLE_TOKEN     tokWait[2];
-    UINT32                  numWait;
-    K2OS_WaitResult         waitResult;
-    BOOL                    ok;
-    K2STAT                  stat;
-    UINT32                  bEnable;
-
-    tokWait[0] = apChannel->mTokNotify;
-    numWait = 1;
-
-    if (NULL != apChannel->mpIrqRes)
-    {
-        tokWait[1] = apChannel->mpIrqRes->Irq.mTokInterrupt;
-        numWait++;
-        ok = K2OSKERN_IntrVoteIrqEnable(tokWait[1], TRUE);
-        K2_ASSERT(ok);
-    }
-
-    bEnable = apChannel->mpController->mPopMask;
-    if (apChannel->mChannelIndex == IDE_CHANNEL_PRIMARY)
-    {
-        bEnable &= 0x03;
-    }
-    else
-    {
-        bEnable &= 0x0C;
-    }
-
-    if (apChannel->mpController->mPopMask == K2ATOMIC_Or(&apChannel->mpController->mEnableMask, bEnable))
-    {
-        //
-        // we are the last channel to get here, so enable the controller now
-        //
-        K2OSDDK_SetEnable(apChannel->mpController->mDevCtx, TRUE);
-    }
-
-    //
-    // service channel
-    //
-    do {
-        ok = K2OS_Thread_WaitMany(&waitResult, numWait, tokWait, FALSE, K2OS_TIMEOUT_INFINITE);
-        if (!ok)
-        {
-            stat = K2OS_Thread_GetLastStatus();
-            if (K2STAT_ERROR_TIMEOUT != stat)
-            {
-                K2OSKERN_Debug("IDE Channel %d wait failure (%08X)\n", apChannel->mChannelIndex, stat);
-                break;
-            }
-        }
-        else
-        {
-            if (waitResult == K2OS_Wait_Signalled_0)
-            {
-                //
-                // notify fired
-                //
-                K2OSKERN_Debug("IDE Channel %d notify\n", apChannel->mChannelIndex);
-            }
-            else
-            {
-                //
-                // interrupt fired
-                //
-                K2OSKERN_Debug("IDE Channel %d interrupt\n", apChannel->mChannelIndex);
-                K2OSKERN_IntrDone(tokWait[1]);
-            }
-        }
-    } while (1);
-
+    apDevice->mWaitMs = K2OS_TIMEOUT_INFINITE;
     return 0;
 }
 
-
-#if 0
-
-
 UINT32
-IDE_DeviceService_EvalIdent(
+IDE_Device_Service_EvalIdent(
     IDE_DEVICE *apDevice
 )
 {
@@ -127,12 +54,13 @@ IDE_DeviceService_EvalIdent(
     char    ch;
 
     // return 0 to wait for further service
+    K2OSKERN_Debug("IDE(%08X) Device %d/%d eval ident\n", apDevice->mpChannel->mpController, apDevice->mpChannel->mChannelIndex, apDevice->mDeviceIndex);
 
     if (ATA_IDENTIFY_SIG_CORRECT != (apDevice->AtaIdent.SigCheck & ATA_IDENTIFY_SIGCHECK_SIG_MASK))
     {
         K2OSKERN_Debug(
-            "IDE device %d/%d IDENTIFY signature incorrect (0x%02X)\n",
-            apDevice->mpChannel->mIndex, apDevice->mIndex,
+            "IDE(%08X) device %d/%d IDENTIFY signature incorrect (0x%02X)\n",
+            apDevice->mpChannel->mpController, apDevice->mpChannel->mChannelIndex, apDevice->mDeviceIndex,
             apDevice->AtaIdent.SigCheck & ATA_IDENTIFY_SIGCHECK_SIG_MASK);
 
         // switch to check for media change after 5 seconds
@@ -154,8 +82,8 @@ IDE_DeviceService_EvalIdent(
     if (cl != ((apDevice->AtaIdent.SigCheck & ATA_IDENTIFY_SIGCHECK_CHKSUM_MASK) >> ATA_IDENTIFY_SIGCHECK_CHKSUM_SHL))
     {
         K2OSKERN_Debug(
-            "IDE device %d/%d IDENTIFY checksum incorrect (calc 0x%02X but see 0x%02X)\n",
-            apDevice->mpChannel->mIndex, apDevice->mIndex,
+            "IDE(%08X) device %d/%d IDENTIFY checksum incorrect (calc 0x%02X but see 0x%02X)\n",
+            apDevice->mpChannel->mpController, apDevice->mpChannel->mChannelIndex, apDevice->mDeviceIndex,
             cl,
             (apDevice->AtaIdent.SigCheck & ATA_IDENTIFY_SIGCHECK_CHKSUM_MASK) >> ATA_IDENTIFY_SIGCHECK_CHKSUM_SHL);
 
@@ -232,11 +160,20 @@ IDE_DeviceService_EvalIdent(
 
     if (apDevice->mIsRemovable)
     {
+        // ATAPI - do TEST UNIT READY command to determine if media present ("MEDIUM NOT PRESENT" error)
+//        K2OSKERN_Debug("device removable: %04X %04X %04X...\n",
+//            apDevice->AtaIdent.CurrentMediaSerialNumber[0],
+//            apDevice->AtaIdent.CurrentMediaSerialNumber[1],
+//            apDevice->AtaIdent.CurrentMediaSerialNumber[2]);
         ixData = K2CRC_Calc32(0, &apDevice->AtaIdent.CurrentMediaSerialNumber, 15);
         apDevice->Media.mUniqueId = (((UINT64)ixData) << 32) | (UINT64)K2CRC_Calc32(0, &apDevice->AtaIdent.CurrentMediaSerialNumber[15], 15);
     }
     else
     {
+//        K2OSKERN_Debug("device not removable: %04X %04X %04X...\n",
+//            apDevice->AtaIdent.SerialNumber[0],
+//            apDevice->AtaIdent.SerialNumber[1],
+//            apDevice->AtaIdent.SerialNumber[2]);
         ixData = K2CRC_Calc32(0, &apDevice->AtaIdent.SerialNumber, 10);
         apDevice->Media.mUniqueId = (((UINT64)ixData) << 32) | (UINT64)K2CRC_Calc32(0, &apDevice->AtaIdent.SerialNumber[10], 10);
     }
@@ -247,9 +184,9 @@ IDE_DeviceService_EvalIdent(
         if (NULL == apDevice->mRpcIfInst)
         {
             K2OSKERN_Debug(
-                "IDE device blockio interface for %d/%d could not be published (0x%08X)\n",
-                apDevice->mpChannel->mIndex, apDevice->mIndex,
-                K2OS_Thread_GetLastStatus
+                "IDE(%08X) device blockio interface for %d/%d could not be published (0x%08X)\n",
+                apDevice->mpChannel->mpController, apDevice->mpChannel->mChannelIndex, apDevice->mDeviceIndex,
+                K2OS_Thread_GetLastStatus()
             );
 
             // switch to check for media change after 5 seconds
@@ -259,11 +196,156 @@ IDE_DeviceService_EvalIdent(
             return 0;
         }
 
-        K2OSKERN_Debug("IDE: Published %d/%d BlockIo Interface as id %d\n", apDevice->mpChannel->mIndex, apDevice->mIndex, apDevice->mRpcIfInstId);
+        K2OSKERN_Debug("IDE(%08X): Published %d/%d BlockIo Interface as id %d\n", 
+            apDevice->mpChannel->mpController, apDevice->mpChannel->mChannelIndex, apDevice->mDeviceIndex,
+            apDevice->mRpcIfInstId);
     }
 
     apDevice->mState = IdeState_Idle;
     apDevice->mWaitMs = K2OS_TIMEOUT_INFINITE;
 
+    return 0;
+}
 
-#endif
+UINT32
+IDE_Device_Service_CheckMediaChange(
+    IDE_DEVICE *    apDevice
+)
+{
+    apDevice->mState = IdeState_WaitMediaChange;
+    apDevice->mWaitMs = 5000;
+    return 0;
+}
+
+UINT32
+IDE_Device_Service(
+    IDE_DEVICE *    apDevice,
+    BOOL            aDueToInterrupt
+)
+{
+    switch (apDevice->mState)
+    {
+    case IdeState_WaitIdent:
+        K2_ASSERT(0);
+        break;
+
+    case IdeState_EvalIdent:
+        return IDE_Device_Service_EvalIdent(apDevice);
+
+    case IdeState_WaitMediaChange:
+        return IDE_Device_Service_CheckMediaChange(apDevice);
+        break;
+
+    case IdeState_Idle:
+        return IDE_Device_Service_Idle(apDevice);
+
+    default:
+        K2_ASSERT(0);
+    }
+
+    return 0;
+}
+
+UINT32
+IDE_Channel_Service(
+    IDE_CHANNEL *   apChannel,
+    BOOL            aDueToInterrupt
+)
+{
+    UINT32 more_service_needed;
+    UINT32 result;
+
+    result = K2OS_TIMEOUT_INFINITE;
+
+    do {
+        more_service_needed = 0;
+
+        if (apChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mState != IdeState_DeviceNotPresent)
+        {
+            more_service_needed |= IDE_Device_Service(&apChannel->Device[IDE_CHANNEL_DEVICE_MASTER], aDueToInterrupt);
+            if (apChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mWaitMs < result)
+                result = apChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mWaitMs;
+        }
+
+        if (apChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mState != IdeState_DeviceNotPresent)
+        {
+            more_service_needed |= IDE_Device_Service(&apChannel->Device[IDE_CHANNEL_DEVICE_SLAVE], aDueToInterrupt);
+            if (apChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mWaitMs < result)
+                result = apChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mWaitMs;
+        }
+
+        aDueToInterrupt = FALSE;
+
+    } while (0 != more_service_needed);
+
+    return result;
+}
+
+UINT32
+IDE_Channel_Thread(
+    IDE_CHANNEL *apChannel
+)
+{
+    K2OS_WAITABLE_TOKEN     tokWait[2];
+    UINT32                  numWait;
+    K2OS_WaitResult         waitResult;
+    BOOL                    ok;
+    K2STAT                  stat;
+    UINT32                  bEnable;
+    UINT32                  waitMs;
+
+    tokWait[0] = apChannel->mTokNotify;
+    numWait = 1;
+
+    if (NULL != apChannel->mpIrqRes)
+    {
+        tokWait[1] = apChannel->mpIrqRes->Irq.mTokInterrupt;
+        numWait++;
+        ok = K2OSKERN_IntrVoteIrqEnable(tokWait[1], TRUE);
+        K2_ASSERT(ok);
+    }
+
+    bEnable = apChannel->mpController->mPopMask;
+    if (apChannel->mChannelIndex == IDE_CHANNEL_PRIMARY)
+    {
+        bEnable &= 0x03;
+    }
+    else
+    {
+        bEnable &= 0x0C;
+    }
+
+    if (apChannel->mpController->mPopMask == K2ATOMIC_Or(&apChannel->mpController->mEnableMask, bEnable))
+    {
+        //
+        // we are the last channel to get here, so enable the controller now
+        //
+        K2OSDDK_SetEnable(apChannel->mpController->mDevCtx, TRUE);
+    }
+
+    //
+    // service channel
+    //
+    waitMs = K2OS_TIMEOUT_INFINITE;
+
+    do {
+        K2OSKERN_Debug("IDE Channel %d sleep\n", apChannel->mChannelIndex);
+        ok = K2OS_Thread_WaitMany(&waitResult, numWait, tokWait, FALSE, waitMs);
+        if (!ok)
+        {
+            stat = K2OS_Thread_GetLastStatus();
+            if (K2STAT_ERROR_TIMEOUT != stat)
+            {
+                K2OSKERN_Debug("IDE Channel %d wait failure (%08X)\n", apChannel->mChannelIndex, stat);
+                break;
+            }
+        }
+
+        K2OSKERN_Debug("IDE Channel %d wake\n", apChannel->mChannelIndex);
+        waitMs = IDE_Channel_Service(apChannel, (waitResult == (K2OS_Wait_Signalled_0 + 1)));
+
+    } while (1);
+
+    return 0;
+}
+

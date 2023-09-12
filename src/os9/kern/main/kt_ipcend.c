@@ -921,7 +921,7 @@ K2OS_IpcEnd_Delete(
 }
 
 BOOL        
-K2OS_Ipc_ProcessMsg(
+K2OS_IpcEnd_ProcessMsg(
     K2OS_MSG const *apMsg
 )
 {

@@ -31,6 +31,7 @@
 //
 
 #include "kern.h"
+#include "..\lib\k2osrpc\k2osrpc.h"
 
 static K2OSKERN_DPC_SIMPLE sgDpc_OneTimeInitInMonitor;
 
@@ -76,6 +77,8 @@ KernThread_FirstThreadEntryPoint(
     acpiInit.mFwBaseVirt = gData.mpShared->LoadInfo.mFwTabPagesVirt;
     acpiInit.mFacsVirt = K2OS_KVA_FACS_BASE;
     acpiInit.mXFacsVirt = K2OS_KVA_XFACS_BASE;
+
+    K2OSRPC_Init();
 
     KernThread_Exit(((K2OS_pf_THREAD_ENTRY)gData.Exec.mfMainThreadEntryPoint)(&acpiInit));
 

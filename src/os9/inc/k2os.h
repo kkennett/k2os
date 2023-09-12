@@ -99,7 +99,10 @@ enum _K2OS_VirtToPhys_MapType
     K2OS_MapType_Count,
 };
 
-#define K2OS_SYSPROC_ID     1
+#define K2OS_SYSPROC_ID                         1
+
+#define K2OS_IFACE_CLASSCODE_RPC                1
+#define K2OS_IFACE_CLASSCODE_STORAGE_DEVICE     2
 
 typedef struct _K2OS_IFINST_DETAIL K2OS_IFINST_DETAIL;
 struct _K2OS_IFINST_DETAIL
@@ -491,11 +494,11 @@ BOOL        K2OS_IpcEnd_Send(K2OS_IPCEND aEndpoint, void const *apBuffer, UINT32
 BOOL        K2OS_IpcEnd_SendVector(K2OS_IPCEND aEndpoint, UINT32 aVectorCount, K2MEM_BUFVECTOR const *apVectors);
 BOOL        K2OS_IpcEnd_Disconnect(K2OS_IPCEND aEndpoint);
 BOOL        K2OS_IpcEnd_Delete(K2OS_IPCEND aEndpoint);
+BOOL        K2OS_IpcEnd_ProcessMsg(K2OS_MSG const *apMsg);
 
 #define K2OS_SYSTEM_MSG_IPC_SHORT_REQUEST           1
 
 BOOL        K2OS_Ipc_RejectRequest(UINT32 aRequestId, UINT32 aReasonCode);
-BOOL        K2OS_Ipc_ProcessMsg(K2OS_MSG const *apMsg);
 
 //
 //------------------------------------------------------------------------

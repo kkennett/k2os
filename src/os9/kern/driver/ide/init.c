@@ -486,9 +486,14 @@ IDE_InitAndDiscover(
 
             pDevice->mState = IdeState_EvalIdent;
             pDevice->mIsATAPI = isATAPI;
-            if (K2OS_CritSec_Init(&pDevice->Sec))
+            pDevice->mRpcObjHandle = K2OS_Rpc_CreateObj(0, &gIdeBlockIoDevice_ObjectClassDef.ClassId, (UINT32)pDevice);
+            if (NULL != pDevice->mRpcObj)
             {
-                apController->mPopMask |= (1 << pDevice->mLocation);
+                K2_ASSERT(NULL != pDevice->mRpcObj);
+                if (K2OS_CritSec_Init(&pDevice->Sec))
+                {
+                    apController->mPopMask |= (1 << pDevice->mLocation);
+                }
             }
         }
     }

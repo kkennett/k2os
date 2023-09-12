@@ -39,7 +39,7 @@ struct _WORKER_THREAD
     UINT32                	    mThreadId;
 
     BOOL                        mIsDoingWork;
-    K2OS_NOTIFY_TOKEN           mWorkNotifyToken;
+    K2OS_NOTIFY_TOKEN           mTokWorkNotify;
 
     UINT32                      mUserContext;
 
@@ -76,7 +76,7 @@ WorkerThread(
     pThis = (WORKER_THREAD *)apArg;
 
     do {
-        if (!K2OS_Thread_WaitOne(&waitResult, pThis->mWorkNotifyToken, K2OS_TIMEOUT_INFINITE))
+        if (!K2OS_Thread_WaitOne(&waitResult, pThis->mTokWorkNotify, K2OS_TIMEOUT_INFINITE))
         {
             break;
         }
@@ -117,8 +117,8 @@ WorkerThread_Get(
             }
 
             K2MEM_Zero(pHead, sizeof(WORKER_THREAD));
-            pHead->mWorkNotifyToken = K2OS_Notify_Create(FALSE);
-            if (NULL == pHead->mWorkNotifyToken)
+            pHead->mTokWorkNotify = K2OS_Notify_Create(FALSE);
+            if (NULL == pHead->mTokWorkNotify)
             {
                 K2OS_Heap_Free(pHead);
                 return NULL;
@@ -127,7 +127,7 @@ WorkerThread_Get(
             tokThread = K2OS_Thread_Create("WorkerThread", WorkerThread, pHead, NULL, &pHead->mThreadId);
             if (NULL == tokThread)
             {
-                K2OS_Token_Destroy(pHead->mWorkNotifyToken);
+                K2OS_Token_Destroy(pHead->mTokWorkNotify);
                 K2OS_Heap_Free(pHead);
                 return NULL;
             }
@@ -168,7 +168,7 @@ WorkerThread_Exec(
     pWorkerThread->mfDoWork = aWorkFunc;
     pWorkerThread->mUserContext = (UINT32)apArg;
 
-    if (!K2OS_Notify_Signal(pWorkerThread->mWorkNotifyToken))
+    if (!K2OS_Notify_Signal(pWorkerThread->mTokWorkNotify))
     {
         WorkerThread_Put(pWorkerThread);
     }

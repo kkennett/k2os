@@ -50,6 +50,7 @@
     <source>devmgr.c</source>
     <source>workthread.c</source>
     <source>ddk.c</source>
+    <source>stormgr.c</source>
 
     <xdl>~kern/k2osacpi</xdl>
     <xdl arch="x32">~kern/main/x32/k2oskern</xdl>

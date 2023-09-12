@@ -261,8 +261,8 @@ K2OS_IpcEnd_Send
 K2OS_IpcEnd_SendVector
 K2OS_IpcEnd_Disconnect
 K2OS_IpcEnd_Delete
+K2OS_IpcEnd_ProcessMsg
 K2OS_Ipc_RejectRequest
-K2OS_Ipc_ProcessMsg
 
 #########################################################
 [Data]

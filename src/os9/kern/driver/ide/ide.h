@@ -33,6 +33,7 @@
 #define __IDE_H
 
 #include <k2osddk.h>
+#include <k2osdev_blockio.h>
 
 /* ------------------------------------------------------------------------- */
 
@@ -414,6 +415,11 @@ struct _IDE_DEVICE
     ATA_IDENT_DATA      AtaIdent;
     K2OS_STORAGE_MEDIA  Media;
     K2OS_CRITSEC        Sec;
+
+    K2OS_IFINST_ID      mRpcIfInstId;
+    K2OS_RPC_IFINST     mRpcIfInst;
+    K2OS_RPC_OBJ        mRpcObj;
+    K2OS_RPC_OBJ_HANDLE mRpcObjHandle;
 };
 
 struct _IDE_CHANNEL
@@ -477,5 +483,14 @@ UINT32 IDE_Instance_Thread(IDE_CONTROLLER *apController);
 UINT32 IDE_Channel_Thread(IDE_CHANNEL *apChannel);
 
 /* ------------------------------------------------------------------------- */
+
+extern K2OS_RPC_OBJECT_CLASSDEF const gIdeBlockIoDevice_ObjectClassDef;
+
+K2STAT IdeBlockIoDevice_Create(K2OS_RPC_OBJ aObj, K2OS_RPC_OBJECT_CREATE const *apCreate, UINT32 *apRetContext, BOOL *apRetSingleUsage);
+K2STAT IdeBlockIoDevice_Call(K2OS_RPC_OBJ aObj, UINT32 aObjContext, K2OS_RPC_OBJECT_CALL const *apCall, UINT32 *apRetUsedOutBytes);
+K2STAT IdeBlockIoDevice_Delete(K2OS_RPC_OBJ aObj, UINT32 aObjContext);
+
+/* ------------------------------------------------------------------------- */
+
 
 #endif // __IDE_H

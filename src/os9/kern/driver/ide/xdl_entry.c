@@ -32,6 +32,8 @@
 
 #include "ide.h"
 
+K2OS_CRITSEC gCreateInstanceSec;
+
 K2STAT
 K2_CALLCONV_REGS
 xdl_entry(
@@ -39,6 +41,11 @@ xdl_entry(
     UINT32  aReason
 )
 {
+    if (!K2OS_CritSec_Init(&gCreateInstanceSec))
+    {
+        return K2OS_Thread_GetLastStatus();
+    }
+
     return K2STAT_NO_ERROR;
 }
 

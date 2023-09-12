@@ -65,9 +65,9 @@ K2OS_IfSubs_Create(
 
     refMailboxOwner.AsAny = NULL;
     stat = KernToken_Translate(aTokMailboxOwner, &refMailboxOwner);
-    if (!K2STAT_IS_ERROR(stat))
+    if (K2STAT_IS_ERROR(stat))
     {
-        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_TOKEN);
+        K2OS_Thread_SetLastStatus(stat);
         return NULL;
     }
 

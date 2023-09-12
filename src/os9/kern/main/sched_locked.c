@@ -1572,6 +1572,8 @@ KernSched_Locked_EarlySatisfyWaitEntry(
     case KernObj_Process:
     case KernObj_Thread:
     case KernObj_Gate:
+    case KernObj_Interrupt:
+    case KernObj_MailboxOwner:
         break;
 
     case KernObj_Notify:
@@ -2416,7 +2418,6 @@ KernSched_Locked_IfInstPublish(
 
                 do {
                     pSubs = K2_GET_CONTAINER(K2OSKERN_OBJ_IFSUBS, pListLink, ListLink);
-
                     if (((0 == pSubs->mClassCode) || (pSubs->mClassCode == apIfInst->mClassCode)) &&
                         ((!pSubs->mHasSpecific) || (0 == K2MEM_Compare(&pSubs->Specific, &apIfInst->SpecificGuid, sizeof(K2_GUID128)))) &&
                         (!pSubs->MailboxRef.AsMailbox->mOwnerDead))
@@ -2451,6 +2452,8 @@ KernSched_Locked_IfInstPublish(
 
                 } while (NULL != pListLink);
             }
+
+            stat = K2STAT_NO_ERROR;
         }
     }
 
