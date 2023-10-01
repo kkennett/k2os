@@ -324,6 +324,13 @@
 
 /* --------------------------------------------------------------------------------- */
 
+#define K2OS_ACCESS_NONE                            0
+#define K2OS_ACCESS_R                               PF_R 
+#define K2OS_ACCESS_W                               PF_W 
+#define K2OS_ACCESS_RW                              (PF_R | PF_W)
+
+/* --------------------------------------------------------------------------------- */
+
 #define K2OS_MEMPAGE_ATTR_NONE                      0
 #define K2OS_MEMPAGE_ATTR_EXEC                      PF_X        // elf32, 0x00000001
 #define K2OS_MEMPAGE_ATTR_WRITEABLE                 PF_W        // elf32, 0x00000002

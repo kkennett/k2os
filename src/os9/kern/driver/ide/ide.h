@@ -37,15 +37,23 @@
 
 /* ------------------------------------------------------------------------- */
 
-typedef struct _IDE_CONTROLLER  IDE_CONTROLLER;
+typedef struct _IDE_CONTROLLER      IDE_CONTROLLER;
 
-typedef struct _IDE_CHANNEL     IDE_CHANNEL;
+typedef struct _IDE_CHANNEL         IDE_CHANNEL;
 #define IDE_CHANNEL_PRIMARY         0
 #define IDE_CHANNEL_SECONDARY       1
 
-typedef struct _IDE_DEVICE      IDE_DEVICE;
+typedef struct _IDE_DEVICE          IDE_DEVICE;
 #define IDE_CHANNEL_DEVICE_MASTER   0
 #define IDE_CHANNEL_DEVICE_SLAVE    1
+
+typedef struct _IDE_DEVICE_USER IDE_DEVICE_USER;
+struct _IDE_DEVICE_USER
+{
+    UINT32          mProcessId;
+    IDE_DEVICE *    mpDevice;
+    K2LIST_LINK     DeviceUserListLink;
+};
 
 /* ------------------------------------------------------------------------- */
 
@@ -393,7 +401,7 @@ enum _IdeStateType
     IdeState_WaitIdent,
     IdeState_EvalIdent,
     IdeState_WaitMediaChange,
-    IdeState_Idle,
+    IdeState_InService,
 
     IdeState_Count
 };
@@ -415,57 +423,51 @@ struct _IDE_DEVICE
     ATA_IDENT_DATA      AtaIdent;
     K2OS_STORAGE_MEDIA  Media;
     K2OS_CRITSEC        Sec;
-
-    K2OS_IFINST_ID      mRpcIfInstId;
-    K2OS_RPC_IFINST     mRpcIfInst;
-    K2OS_RPC_OBJ        mRpcObj;
-    K2OS_RPC_OBJ_HANDLE mRpcObjHandle;
 };
 
 struct _IDE_CHANNEL
 {
-    IDE_CONTROLLER *    mpController;
-    UINT32              mChannelIndex;
+    IDE_CONTROLLER *        mpController;
+    UINT32                  mChannelIndex;
 
-    UINT32              mThreadId;
+    UINT32                  mThreadId;
 
-    K2OS_CRITSEC        Sec;
+    K2OS_CRITSEC            Sec;
 
-    UINT8               mIrqMaskFlag;   // bit 1
+    UINT8                   mIrqMaskFlag;   // bit 1
 
-    IDE_DEVICE          Device[2];
-    IDE_CHANNEL_REGS    ChanRegs;
+    IDE_DEVICE              Device[2];
+    IDE_CHANNEL_REGS        ChanRegs;
 
-    K2OSDDK_RES *       mpIrqRes;
+    K2OSDDK_RES *           mpIrqRes;
 
-    K2OS_NOTIFY_TOKEN   mTokNotify;
+    K2OS_NOTIFY_TOKEN       mTokNotify;
 };
 
 struct _IDE_CONTROLLER
 {
-    K2OS_DEVCTX             mDevCtx;
+    K2OS_DEVCTX         mDevCtx;
 
-    K2_DEVICE_IDENT         Ident;
-    UINT32                  mCountIo;
-    UINT32                  mCountPhys;
-    UINT32                  mCountIrq;
+    K2_DEVICE_IDENT     Ident;
+    UINT32              mCountIo;
+    UINT32              mCountPhys;
+    UINT32              mCountIrq;
 
-    K2OS_THREAD_TOKEN       mTokThread;
-    UINT32                  mThreadId;
+    K2OS_THREAD_TOKEN   mTokThread;
+    UINT32              mThreadId;
 
-    K2OS_MAILBOX_TOKEN      mTokMailbox;
+    K2OS_MAILBOX_TOKEN  mTokMailbox;
 
-    K2OSDDK_RES             ResIo[5];
-    K2OSDDK_RES             ResPhys[5];
-    K2OSDDK_RES             ResIrq[2];
+    K2OSDDK_RES         ResIo[5];
+    K2OSDDK_RES         ResPhys[5];
+    K2OSDDK_RES         ResIrq[2];
 
-    BOOL                    mBusMasterIsPhys;
-    UINT32                  mBusMasterAddr;
+    BOOL                mBusMasterIsPhys;
+    UINT32              mBusMasterAddr;
 
-    UINT32                  mPopMask;
-    UINT32 volatile         mEnableMask;
+    UINT32              mPopMask;
 
-    IDE_CHANNEL             Channel[2];
+    IDE_CHANNEL         Channel[2];
 };
 
 K2STAT IDE_InitAndDiscover(IDE_CONTROLLER *apController);
@@ -479,18 +481,11 @@ void   IDE_Write16(IDE_CHANNEL *apChannel, IdeChanRegType aReg, UINT16 aValue);
 UINT32 IDE_Read32(IDE_CHANNEL *apChannel, IdeChanRegType aReg);
 void   IDE_Write32(IDE_CHANNEL *apChannel, IdeChanRegType aReg, UINT32 aValue);
 
-UINT32 IDE_Instance_Thread(IDE_CONTROLLER *apController);
 UINT32 IDE_Channel_Thread(IDE_CHANNEL *apChannel);
 
-/* ------------------------------------------------------------------------- */
-
-extern K2OS_RPC_OBJECT_CLASSDEF const gIdeBlockIoDevice_ObjectClassDef;
-
-K2STAT IdeBlockIoDevice_Create(K2OS_RPC_OBJ aObj, K2OS_RPC_OBJECT_CREATE const *apCreate, UINT32 *apRetContext, BOOL *apRetSingleUsage);
-K2STAT IdeBlockIoDevice_Call(K2OS_RPC_OBJ aObj, UINT32 aObjContext, K2OS_RPC_OBJECT_CALL const *apCall, UINT32 *apRetUsedOutBytes);
-K2STAT IdeBlockIoDevice_Delete(K2OS_RPC_OBJ aObj, UINT32 aObjContext);
+K2STAT IDE_Device_GetMedia(IDE_DEVICE *apDevice, K2OS_STORAGE_MEDIA *apRetMedia);
+K2STAT IDE_Device_Transfer(IDE_DEVICE *apDevice, K2OS_BLOCKIO_TRANSFER const *apTransfer);
 
 /* ------------------------------------------------------------------------- */
-
 
 #endif // __IDE_H

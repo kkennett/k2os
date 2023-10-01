@@ -271,8 +271,7 @@ K2OS_Thread_Create(
             pThisThread->Hdr.ObjDpc.Func = KernThread_Cleanup_Dpc;
             KernCpu_QueueDpc(&pThisThread->Hdr.ObjDpc.Dpc, &pThisThread->Hdr.ObjDpc.Func, KernDpcPrio_Med);
 
-            pThisCore->mIsInMonitor = TRUE;
-            KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, &pThisThread->Kern.mStackPtr);
+            KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
             //
             // this is return point from entering the monitor to do the process create
             // interrupts will be on
@@ -311,8 +310,7 @@ K2OS_Thread_Create(
             pThisThread->Hdr.ObjDpc.Func = KernThread_Cleanup_Dpc;
             KernCpu_QueueDpc(&pThisThread->Hdr.ObjDpc.Dpc, &pThisThread->Hdr.ObjDpc.Func, KernDpcPrio_Med);
 
-            pThisCore->mIsInMonitor = TRUE;
-            KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, &pThisThread->Kern.mStackPtr);
+            KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
             //
             // this is return point from entering the monitor to do the new thread cleanup
             // interrupts will be on
@@ -321,7 +319,7 @@ K2OS_Thread_Create(
         else
         {
             // current thread is starting the new thread
-            if (apRetThreadId)
+            if (NULL != apRetThreadId)
             {
                 *apRetThreadId = pNewThread->mGlobalIx;
             }
@@ -518,6 +516,7 @@ K2OS_Thread_GetExitCode(
         return (UINT32)-1;
     }
 
+    threadRef.AsAny = NULL;
     stat = KernToken_Translate(aThreadToken, &threadRef);
     if (K2STAT_IS_ERROR(stat))
     {

@@ -37,24 +37,7 @@ K2OS_Debug_OutputString(
     char const *apString
 )
 {
-    UINT32    result;
-    char        ch;
-
-    if (gData.mpShared->FuncTab.DebugOut == NULL)
-        return 0;
-
-    result = 0;
-
-    do {
-        ch = *apString;
-        if (0 == ch)
-            break;
-        KernDbg_Emitter(NULL, ch);
-        result++;
-        apString++;
-    } while (1);
-
-    return result;
+    return K2OSKERN_Debug("%s", apString);
 }
 
 void

@@ -846,8 +846,8 @@ KernSched_Locked_GateChange(
     } while (NULL != pListLink);
 }
 
-BOOL
-KernSched_Locked_Mailbox_RecvFirst(
+void
+KernSched_Locked_Mailbox_SentFirst(
     K2OSKERN_OBJ_MAILBOX *  apMailbox
 );
 
@@ -863,7 +863,7 @@ KernSched_Locked_Mailbox_DeliverFromReserve(
     KernMailbox_Deliver(apMailbox, apMsg, FALSE, apReserve, &doSignal);
     if (doSignal)
     {
-        KernSched_Locked_Mailbox_RecvFirst(apMailbox);
+        KernSched_Locked_Mailbox_SentFirst(apMailbox);
     }
 }
 
@@ -930,6 +930,73 @@ KernSched_Locked_LastToken_Destroyed(
     K2OSKERN_OBJ_PROCESS *  apProc
 );
 
+BOOL
+KernSched_Locked_ProcTokenLocked_Token_Destroy(
+    K2OSKERN_OBJ_PROCESS *  apProc, 
+    K2OS_TOKEN              aToken
+)
+{
+    K2STAT          stat;
+    BOOL            hitZero;
+    K2OSKERN_OBJREF objRef;
+
+    hitZero = FALSE;
+    objRef.AsAny = NULL;
+    stat = KernProc_TokenLocked_Destroy(apProc, aToken, &hitZero, &objRef);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2_ASSERT(0);
+        return FALSE;
+    }
+
+    if (hitZero)
+    {
+        K2_ASSERT(NULL != objRef.AsAny);
+        if (objRef.AsAny->RefObjList.mNodeCount)
+        {
+            //
+            // there are references left even though there are no tokens
+            // so if there are threads not from this process that are waiting
+            // on this object then those waits need to be cancelled
+            // (this is the other-process-thread-waits-and-another-thread-from-that-process-async-deletes-token case)
+            //
+            switch (objRef.AsAny->mObjType)
+            {
+                // for this one its because we need to send out messages that the public ifinst departed
+            case KernObj_IfInst:
+                if (objRef.AsIfInst->mIsPublic)
+                {
+                    objRef.AsIfInst->mIsDeparting = TRUE;
+                }
+                else
+                {
+                    KernObj_ReleaseRef(&objRef);
+                    break;
+                }
+                // fall through
+            case KernObj_Notify:
+            case KernObj_Gate:
+            case KernObj_MailboxOwner:
+                KernSched_Locked_LastToken_Destroyed(&objRef, apProc);
+                break;
+
+            default:
+                // not a waitable object
+                KernObj_ReleaseRef(&objRef);
+                break;
+            };
+        }
+        else
+        {
+            KernObj_ReleaseRef(&objRef);
+        }
+    }
+
+    K2_ASSERT(NULL == objRef.AsAny);
+
+    return TRUE;
+}
+
 void
 KernSched_Locked_AllProcThreadsExitedAndDpcRan(
     K2OSKERN_OBJ_PROCESS *  apProc
@@ -940,8 +1007,7 @@ KernSched_Locked_AllProcThreadsExitedAndDpcRan(
     K2OSKERN_WAITENTRY *    pWaitEntry;
     K2OSKERN_MACROWAIT *    pMacroWait;
     BOOL                    disp;
-    BOOL                    hitZero;
-    K2OSKERN_OBJREF         objRef;
+    BOOL                    ok;
     UINT32                  ixPage;
     K2OSKERN_TOKEN_PAGE *   pTokenPage;
     K2OSKERN_TOKEN *        pToken;
@@ -1073,7 +1139,6 @@ KernSched_Locked_AllProcThreadsExitedAndDpcRan(
     // this takes care of closing mailboxes (owner token destroyed)
     // this takes care of published interfaces (last token destroyed)
     //
-    objRef.AsAny = NULL;
     disp = K2OSKERN_SeqLock(&apProc->Token.SeqLock);
     if (apProc->Token.Locked.mCount > 0)
     {
@@ -1087,53 +1152,8 @@ KernSched_Locked_AllProcThreadsExitedAndDpcRan(
                 tokValue = pToken->InUse.mTokValue;
                 if (tokValue & K2OSKERN_TOKEN_VALID_BIT)
                 {
-                    hitZero = FALSE;
-                    KernProc_TokenLocked_Destroy(apProc, (K2OS_TOKEN)tokValue, &hitZero, &objRef);
-                    if (hitZero)
-                    {
-                        K2_ASSERT(NULL != objRef.AsAny);
-                        if (objRef.AsAny->RefObjList.mNodeCount)
-                        {
-                            //
-                            // there are references left even though there are no tokens
-                            // so if there are threads not from this process that are waiting
-                            // on this object then those waits need to be cancelled
-                            // (this is the other-process-thread-waits-and-another-thread-from-that-process-async-deletes-token case)
-                            //
-                            switch (objRef.AsAny->mObjType)
-                            {
-                            // for this one its because we need to send out messages that the public ifinst departed
-                            case KernObj_IfInst:
-                                if (objRef.AsIfInst->mIsPublic)
-                                {
-                                    objRef.AsIfInst->mIsDeparting = TRUE;
-                                }
-                                else
-                                {
-                                    KernObj_ReleaseRef(&objRef);
-                                    break;
-                                }
-                                // fall through
-                            case KernObj_Notify:
-                            case KernObj_Gate:
-                            case KernObj_MailboxOwner:
-                                KernSched_Locked_LastToken_Destroyed(&objRef, apProc);
-                                break;
-
-                            default:
-                                // not a waitable object
-                                KernObj_ReleaseRef(&objRef);
-                                break;
-                            };
-                        }
-                        else
-                        {
-                            KernObj_ReleaseRef(&objRef);
-                        }
-                    }
-
-                    K2_ASSERT(NULL == objRef.AsAny);
-
+                    ok = KernSched_Locked_ProcTokenLocked_Token_Destroy(apProc, (K2OS_TOKEN)tokValue);
+                    K2_ASSERT(ok);
                     if (0 == apProc->Token.Locked.mCount)
                         break;
                 }
@@ -1175,6 +1195,7 @@ KernSched_Locked_StopProcess(
 {
     K2LIST_LINK *           pListLink;
     K2OSKERN_OBJ_THREAD *   pThread;
+    UINT32                  v;
 
     if (apProc->mState >= KernProcState_Stopping)
     {
@@ -1209,9 +1230,29 @@ KernSched_Locked_StopProcess(
         } while (NULL != pListLink);
     }
 
+    //
+    // tell the io manager this process is dying so all threads in io
+    // can be taken out of it and die.
+    //
+    apProc->ExitIop.mType = KernIop_ProcExit;
+    KernObj_CreateRef(&apProc->ExitIop.RefObj, &apProc->Hdr);
+    // this is KernIoMgr_Queue but for inside the scheduler
+    do {
+        v = (UINT32)gData.IoMgr.mpIopIn;
+        K2_CpuReadBarrier();
+        apProc->ExitIop.mpChainNext = (KERN_IOP *)v;
+        K2_CpuWriteBarrier();
+    } while (v != K2ATOMIC_CompareExchange((UINT32 volatile *)&gData.IoMgr.mpIopIn, (UINT32)&apProc->ExitIop, v));
+    if (0 == K2ATOMIC_Inc((INT32 volatile *)&gData.IoMgr.mAwake))
+    {
+        // iomgr sleeping. wake it up
+        K2_ASSERT(NULL != gData.IoMgr.RefNotify.AsAny); // sanity
+        KernSched_Locked_SignalNotify(gData.IoMgr.RefNotify.AsNotify);
+    }
+
     // 
     // any active threads from this process waiting need to have those waits aborted
-    // and the threads exited
+    // and the threads exited.  
     //
     pListLink = apProc->Thread.SchedLocked.ActiveList.mpHead;
     if (NULL != pListLink)
@@ -1824,8 +1865,8 @@ KernSched_Locked_Thread_SysCall_AlarmCreate(
     apCallerThread->User.mSysCall_Result = apCallerThread->SchedItem.Args.Alarm_Create.mAlarmToken;
 }
 
-BOOL
-KernSched_Locked_Mailbox_RecvFirst(
+void
+KernSched_Locked_Mailbox_SentFirst(
     K2OSKERN_OBJ_MAILBOX *  apMailbox
 )
 {
@@ -1840,13 +1881,11 @@ KernSched_Locked_Mailbox_RecvFirst(
     {
         K2ATOMIC_And(&pCons->IxConsumer.mVal, ~K2OS_MAILBOX_GATE_CLOSED_BIT);
         KernSched_Locked_GateChange(apMailbox->RefGate.AsGate, TRUE);
-        return TRUE;
     }
-    return FALSE;
 }
 
 K2STAT
-KernSched_Locked_MailboxOneShotRecv(
+KernSched_Locked_MailboxRecvLast(
     K2OSKERN_OBJ_MAILBOX *  apMailbox,
     K2OS_MSG *              apRetMsg,
     UINT32 *                apRetSlotIx
@@ -1886,7 +1925,7 @@ KernSched_Locked_MailboxOneShotRecv(
         //
         // gate is closed already and so there is no message available
         //
-        return K2STAT_ERROR_TIMEOUT;
+        return K2STAT_ERROR_EMPTY;
     }
 
     //
@@ -1975,7 +2014,7 @@ KernSched_Locked_MailboxOneShotRecv(
 }
 
 void
-KernSched_Locked_Thread_SysCall_MailboxRecvFirst(
+KernSched_Locked_Thread_SysCall_MailboxSentFirst(
     K2OSKERN_OBJ_THREAD *   apCallerThread
 )
 {
@@ -1984,17 +2023,13 @@ KernSched_Locked_Thread_SysCall_MailboxRecvFirst(
     pMailbox = apCallerThread->SchedItem.ObjRef.AsMailbox;
     K2_ASSERT(pMailbox->Hdr.mObjType == KernObj_Mailbox);
 
-    apCallerThread->User.mSysCall_Result = (UINT32)KernSched_Locked_Mailbox_RecvFirst(pMailbox);
-    if (0 == apCallerThread->User.mSysCall_Result)
-    {
-        apCallerThread->mpKernRwViewOfThreadPage->mLastStatus = K2STAT_ERROR_CHANGED;
-    }
+    KernSched_Locked_Mailbox_SentFirst(pMailbox);
 
     KernObj_ReleaseRef(&apCallerThread->SchedItem.ObjRef);
 }
 
 void
-KernSched_Locked_Thread_SysCall_MailboxOneShotRecv(
+KernSched_Locked_Thread_SysCall_MailboxRecvLast(
     K2OSKERN_OBJ_THREAD *   apCallerThread
 )
 {
@@ -2008,6 +2043,11 @@ KernSched_Locked_Thread_SysCall_MailboxOneShotRecv(
 
     pThreadPage = apCallerThread->mpKernRwViewOfThreadPage;
 
+    stat = KernSched_Locked_MailboxRecvLast(
+        pMailbox, 
+        (K2OS_MSG *)pThreadPage->mMiscBuffer, 
+        &pThreadPage->mSysCall_Arg7_Result0);
+
     //
     // if we did not receive for any reason, 
     //      set last status
@@ -2016,10 +2056,6 @@ KernSched_Locked_Thread_SysCall_MailboxOneShotRecv(
     //      mSysCall_Arg7_Result0 = slot we received into
     //      return TRUE
     //
-    stat = KernSched_Locked_MailboxOneShotRecv(
-        pMailbox, 
-        (K2OS_MSG *)pThreadPage->mMiscBuffer, 
-        &pThreadPage->mSysCall_Arg7_Result0);
     if (K2STAT_IS_ERROR(stat))
     {
         apCallerThread->User.mSysCall_Result = 0;
@@ -2254,7 +2290,7 @@ KernSched_Locked_IpcRejectRequest(
         );
         if (doSignal)
         {
-            KernSched_Locked_Mailbox_RecvFirst(pMailbox);
+            KernSched_Locked_Mailbox_SentFirst(pMailbox);
         }
     }
     else
@@ -2350,8 +2386,7 @@ KernSched_Locked_LastToken_Destroyed(
                             &doSignal);
                         if (doSignal)
                         {
-                            // we don't care if this fails
-                            KernSched_Locked_Mailbox_RecvFirst(pSubs->MailboxRef.AsMailbox);
+                            KernSched_Locked_Mailbox_SentFirst(pSubs->MailboxRef.AsMailbox);
                         }
                     }
                 }
@@ -2443,8 +2478,7 @@ KernSched_Locked_IfInstPublish(
                                 &doSignal);
                             if (doSignal)
                             {
-                                // we don't care if this fails
-                                KernSched_Locked_Mailbox_RecvFirst(pSubs->MailboxRef.AsMailbox);
+                                KernSched_Locked_Mailbox_SentFirst(pSubs->MailboxRef.AsMailbox);
                             }
                         }
                     }
@@ -2541,6 +2575,116 @@ KernSched_Locked_Thread_SysCall_IpcRejectRequest(
     KernObj_ReleaseRef(&apCallerThread->SchedItem.ObjRef);
 }
 
+void
+KernSched_Locked_KernToken_Destroy(
+    K2OS_TOKEN aToken
+)
+{
+    BOOL                    disp;
+    K2OSKERN_KERN_TOKEN *   pKernToken;
+    K2OSKERN_OBJREF         objRef;
+    BOOL                    decToZero;
+    BOOL                    doSchedCall;
+
+    pKernToken = (K2OSKERN_KERN_TOKEN *)aToken;
+    K2_ASSERT(KERN_TOKEN_SENTINEL1 == pKernToken->mSentinel1);
+    K2_ASSERT(KERN_TOKEN_SENTINEL2 == pKernToken->mSentinel2);
+
+    pKernToken->mSentinel1 = 0;
+    pKernToken->mSentinel2 = 0;
+
+    objRef.AsAny = NULL;
+
+    disp = K2OSKERN_SeqLock(&gData.Token.SeqLock);
+
+    KernObj_CreateRef(&objRef, pKernToken->Ref.AsAny);
+
+    if (0 == K2ATOMIC_Dec((INT32 volatile *)&pKernToken->Ref.AsAny->mTokenCount))
+    {
+        decToZero = TRUE;
+    }
+    else
+    {
+        decToZero = FALSE;
+    }
+
+    KernObj_ReleaseRef(&pKernToken->Ref);
+
+    K2LIST_AddAtTail(&gData.Token.FreeList, (K2LIST_LINK *)pKernToken);
+
+    K2OSKERN_SeqUnlock(&gData.Token.SeqLock, disp);
+
+    if (!decToZero)
+    {
+        KernObj_ReleaseRef(&objRef);
+        return;
+    }
+    //
+    // objRef just destroyed a token and that made the token count
+    // go to zero.  If this is for a waitable object then anything
+    // waiting on it needs to have the waits aborted. also need to
+    // deal with case of interface instance leaving
+    //
+    doSchedCall = FALSE;
+
+    switch (objRef.AsAny->mObjType)
+    {
+    case KernObj_Gate:
+    case KernObj_Notify:
+    case KernObj_MailboxOwner:
+    case KernObj_IfInst:
+        doSchedCall = TRUE;
+        break;
+
+    case KernObj_IpcEnd:
+        // must already be disconnected 
+        K2_ASSERT(objRef.AsIpcEnd->Connection.Locked.mState == KernIpcEndState_Disconnected);
+        break;
+
+    default:
+        break;
+    }
+
+    if (doSchedCall)
+    {
+        if (objRef.AsAny->mObjType == KernObj_IfInst)
+        {
+            disp = K2OSKERN_SeqLock(&gData.Iface.SeqLock);
+            K2_ASSERT(disp);
+
+            if (objRef.AsIfInst->mIsPublic)
+            {
+                objRef.AsIfInst->mIsDeparting = TRUE;
+            }
+            else
+            {
+                doSchedCall = FALSE;
+            }
+
+            K2OSKERN_SeqUnlock(&gData.Iface.SeqLock, disp);
+        }
+
+        if (doSchedCall)
+        {
+            KernSched_Locked_LastToken_Destroyed(&objRef, NULL);
+        }
+    }
+
+    if (!doSchedCall)
+    {
+        K2_ASSERT(NULL != objRef.AsAny);
+        KernObj_ReleaseRef(&objRef);
+    }
+
+    K2_ASSERT(NULL == objRef.AsAny);
+}
+
+BOOL
+KernSched_Locked_ProcTokenLocked_Token_Destroy(
+    K2OSKERN_OBJ_PROCESS *  apProc,
+    K2OS_TOKEN              aToken
+);
+
 K2STAT
 KernSched_Locked_IpcAccept(
     K2OSKERN_OBJ_THREAD *   apCallerThread,
@@ -2575,7 +2719,7 @@ KernSched_Locked_IpcAccept(
                     (pRemoteIpcEnd->Connection.Locked.mpOpenRequest->mPending == (UINT32)&apLocalIpcEnd->Hdr))
                 {
                     //
-                    // connect
+                    // can connect if we can manufacture the tokens for each endpoint
                     //
                     stat = K2STAT_NO_ERROR;
 
@@ -2622,11 +2766,12 @@ KernSched_Locked_IpcAccept(
 
     if (!K2STAT_IS_ERROR(stat))
     {
+//        K2OSKERN_Debug("\nCONNECT\n\n");
         connectMsg.mType = K2OS_SYSTEM_MSGTYPE_IPCEND;
         connectMsg.mShort = K2OS_SYSTEM_MSG_IPCEND_SHORT_CONNECTED;
         connectMsg.mPayload[0] = (UINT32)apLocalIpcEnd->mpUserKey;
         connectMsg.mPayload[1] = (pRemoteIpcEnd->mMaxMsgCount << 16) | pRemoteIpcEnd->mMaxMsgBytes;
-        connectMsg.mPayload[2] = pSchedItem->Args.Ipc_Accept.RemoteMapOfLocalBufferRef.AsVirtMap->OwnerMapTreeNode.mUserVal;
+        connectMsg.mPayload[2] = (UINT32)pSchedItem->Args.Ipc_Accept.mTokLocalMapOfRemote;
         KernSched_Locked_Mailbox_DeliverFromReserve(
             apLocalIpcEnd->MailboxOwnerRef.AsMailboxOwner->RefMailbox.AsMailbox, 
             &connectMsg, 
@@ -2635,7 +2780,7 @@ KernSched_Locked_IpcAccept(
 
         connectMsg.mPayload[0] = (UINT32)pRemoteIpcEnd->mpUserKey;
         connectMsg.mPayload[1] = (apLocalIpcEnd->mMaxMsgCount << 16) | apLocalIpcEnd->mMaxMsgBytes;
-        connectMsg.mPayload[2] = pSchedItem->Args.Ipc_Accept.LocalMapOfRemoteBufferRef.AsVirtMap->OwnerMapTreeNode.mUserVal;
+        connectMsg.mPayload[2] = (UINT32)pSchedItem->Args.Ipc_Accept.mTokRemoteMapOfLocal;
         KernSched_Locked_Mailbox_DeliverFromReserve(
             pRemoteIpcEnd->MailboxOwnerRef.AsMailboxOwner->RefMailbox.AsMailbox,
             &connectMsg,
@@ -2648,6 +2793,28 @@ KernSched_Locked_IpcAccept(
     else
     {
         K2_ASSERT(NULL == pReq);
+
+        if (apCallerThread->mIsKernelThread)
+        {
+            // local is the kernel
+            KernSched_Locked_KernToken_Destroy(pSchedItem->Args.Ipc_Accept.mTokLocalMapOfRemote);
+        }
+        else
+        {
+            // local is a process
+            KernSched_Locked_ProcTokenLocked_Token_Destroy(apCallerThread->User.ProcRef.AsProc, pSchedItem->Args.Ipc_Accept.mTokLocalMapOfRemote);
+        }
+
+        if (NULL == pRemoteProc)
+        {
+            // remote is the kernel
+            KernSched_Locked_KernToken_Destroy(pSchedItem->Args.Ipc_Accept.mTokRemoteMapOfLocal);
+        }
+        else
+        {
+            // remote is a process
+            KernSched_Locked_ProcTokenLocked_Token_Destroy(pRemoteProc, pSchedItem->Args.Ipc_Accept.mTokRemoteMapOfLocal);
+        }
     }
 
     KernObj_ReleaseRef(&apCallerThread->SchedItem.Args.Ipc_Accept.LocalMapOfRemoteBufferRef);
@@ -2838,7 +3005,10 @@ KernSched_Locked_Thread_SysCall(
         }
         break;
 
-    case K2OS_SYSCALL_ID_MAILBOX_RECVFIRST:
+    case K2OS_SYSCALL_ID_MAILBOX_SENTFIRST:
+    case K2OS_SYSCALL_ID_IPCEND_CREATE:
+    case K2OS_SYSCALL_ID_IPCEND_SEND:
+    case K2OS_SYSCALL_ID_IPCEND_REQUEST:
         K2_ASSERT(apItem->ObjRef.AsAny != NULL);
         K2_ASSERT(apItem->ObjRef.AsAny->mObjType == KernObj_Mailbox);
         if (!procIsAlive)
@@ -2847,11 +3017,10 @@ KernSched_Locked_Thread_SysCall(
             KernSched_Locked_ExitThread(pCallerThread, pCallerProc->mExitCode);
             return;
         }
-        KernSched_Locked_Thread_SysCall_MailboxRecvFirst(pCallerThread);
+        KernSched_Locked_Thread_SysCall_MailboxSentFirst(pCallerThread);
         break;
 
-    case K2OS_SYSCALL_ID_MAILBOXOWNER_RECV:
-    case K2OS_SYSCALL_ID_IPCEND_CREATE:
+    case K2OS_SYSCALL_ID_MAILBOXOWNER_RECVLAST:
         K2_ASSERT(apItem->ObjRef.AsAny != NULL);
         K2_ASSERT(apItem->ObjRef.AsAny->mObjType == KernObj_Mailbox);
         if (!procIsAlive)
@@ -2860,7 +3029,7 @@ KernSched_Locked_Thread_SysCall(
             KernSched_Locked_ExitThread(pCallerThread, pCallerProc->mExitCode);
             return;
         }
-        KernSched_Locked_Thread_SysCall_MailboxOneShotRecv(pCallerThread);
+        KernSched_Locked_Thread_SysCall_MailboxRecvLast(pCallerThread);
         break;
 
     case K2OS_SYSCALL_ID_IFINST_PUBLISH:
@@ -2912,6 +3081,19 @@ KernSched_Locked_Thread_SysCall(
             return;
         }
         KernSched_Locked_Thread_SysCall_IpcAccept(pCallerThread);
+        break;
+
+    case K2OS_SYSCALL_ID_BLOCKIO_GETMEDIA:
+    case K2OS_SYSCALL_ID_BLOCKIO_RANGE_CREATE:
+    case K2OS_SYSCALL_ID_BLOCKIO_RANGE_DELETE:
+    case K2OS_SYSCALL_ID_BLOCKIO_TRANSFER:
+    case K2OS_SYSCALL_ID_BLOCKIO_ERASE:
+        if (!procIsAlive)
+        {
+            KernSched_Locked_ExitThread(pCallerThread, pCallerProc->mExitCode);
+            return;
+        }
+        // else no-op, resume thread after io completion
         break;
 
     default:
@@ -3291,7 +3473,7 @@ KernSched_Locked_KernThread_LastTokenDestroyed(
 }
 
 void
-KernSched_Locked_KernThread_MailboxRecvFirst(
+KernSched_Locked_KernThread_MailboxSentFirst(
     K2OSKERN_SCHED_ITEM *apItem
 )
 {
@@ -3304,22 +3486,14 @@ KernSched_Locked_KernThread_MailboxRecvFirst(
     pMailbox = apItem->ObjRef.AsMailbox;
     K2_ASSERT(pMailbox->Hdr.mObjType == KernObj_Mailbox);
 
-    if (KernSched_Locked_Mailbox_RecvFirst(pMailbox))
-    {
-        pThread->Kern.mSchedCall_Result = TRUE;
-    }
-    else
-    {
-        pThread->Kern.mSchedCall_Result = FALSE;
-        pThread->mpKernRwViewOfThreadPage->mLastStatus = K2STAT_ERROR_ALREADY_OPEN;
-    }
+    KernSched_Locked_Mailbox_SentFirst(pMailbox);
 
     KernSched_Locked_MakeThreadRun(pThread);
 }
 
 void
-KernSched_Locked_KernThread_MailboxOneShotRecv(
-    K2OSKERN_SCHED_ITEM *apItem
+KernSched_Locked_KernThread_MailboxRecvLast(
+    K2OSKERN_SCHED_ITEM *   apItem
 )
 {
     K2OSKERN_OBJ_THREAD *   pThread;
@@ -3343,7 +3517,7 @@ KernSched_Locked_KernThread_MailboxOneShotRecv(
     //      mSysCall_Arg7_Result0 = slot we received into
     //      return TRUE
     //
-    stat = KernSched_Locked_MailboxOneShotRecv(
+    stat = KernSched_Locked_MailboxRecvLast(
         pMailbox, 
         (K2OS_MSG *)pThreadPage->mMiscBuffer,
         &pThreadPage->mSysCall_Arg7_Result0
@@ -3498,6 +3672,17 @@ KernSched_Locked_NotifyProxy(
     KernObj_ReleaseRef(&pNotifyProxy->RefSelf);
 }
 
+void
+KernSched_Locked_WakeIoMgr(
+    K2OSKERN_SCHED_ITEM * apItem
+)
+{
+    K2_ASSERT(apItem = &gData.IoMgr.SchedItem);
+    apItem->mType = KernSchedItem_Invalid;
+    K2_CpuWriteBarrier();
+    KernSched_Locked_SignalNotify(gData.IoMgr.RefNotify.AsNotify);
+}
+
 void 
 KernSched_Locked_ExecOneItem(
     K2OSKERN_SCHED_ITEM *apItem
@@ -3557,6 +3742,10 @@ KernSched_Locked_ExecOneItem(
         KernSched_Locked_ProcStopped(apItem);
         break;
 
+    case KernSchedItem_IoMgr_Wake:
+        KernSched_Locked_WakeIoMgr(apItem);
+        break;
+
     case KernSchedItem_KernThread_Exit:
         KernSched_Locked_KernThreadExit(apItem);
         break;
@@ -3597,12 +3786,12 @@ KernSched_Locked_ExecOneItem(
         KernSched_Locked_KernThread_LastTokenDestroyed(apItem);
         break;
 
-    case KernSchedItem_KernThread_MailboxRecvFirst:
-        KernSched_Locked_KernThread_MailboxRecvFirst(apItem);
+    case KernSchedItem_KernThread_MailboxSentFirst:
+        KernSched_Locked_KernThread_MailboxSentFirst(apItem);
         break;
 
-    case KernSchedItem_KernThread_MailboxOneShotRecv:
-        KernSched_Locked_KernThread_MailboxOneShotRecv(apItem);
+    case KernSchedItem_KernThread_MailboxRecvLast:
+        KernSched_Locked_KernThread_MailboxRecvLast(apItem);
         break;
 
     case KernSchedItem_KernThread_IfInstPublish:

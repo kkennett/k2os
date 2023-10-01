@@ -38,5 +38,6 @@
     
     <builtin>~kern/driver/pcibus</builtin>
     <builtin>~kern/driver/ide</builtin>
+    <builtin>~kern/driver/ramdisk</builtin>
     
 </k2build>

@@ -76,6 +76,7 @@
     <source>ipcend.c</source>
     <source>sysproc.c</source>
     <source>notifyproxy.c</source>
+    <source>blockio.c</source>
 
     <source>kt_ipcend.c</source>
     <source>kt_alarm.c</source>
@@ -102,6 +103,7 @@
     <source>kt_token.c</source>
     <source>kt_sysproc.c</source>
     <source>kt_intr.c</source>
+    <source>kt_iomgr.c</source>
 </k2build>
 
 

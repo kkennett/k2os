@@ -59,5 +59,6 @@
     <lib>@shared/lib/k2archx32</lib>
 
     <lib>~user/crt</lib>
+    <lib>~lib/k2osrpc</lib>
 
 </k2build>

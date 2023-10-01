@@ -43,6 +43,8 @@ Kern_Exec(
     KernAcpi_Init();
     KernPlat_Init();
 
+    K2OSKERN_Debug("\nK2OS Kernel %d CPU cores\n\n", gData.mCpuCoreCount);
+
     KernBootGraf_Init();
 
     KernObj_Init();

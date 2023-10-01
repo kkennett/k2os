@@ -34,6 +34,7 @@
 #define __K2OSACPI_H
 
 #include <kern/k2oskern.h>
+#include "../main/kernexec.h"
 #include <acenv.h>
 #include <actypes.h>
 #include <actbl.h>

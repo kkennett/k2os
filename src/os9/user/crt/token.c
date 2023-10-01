@@ -58,6 +58,15 @@ K2OS_Token_Clone(
     return FALSE;
 }
 
+UINT32
+K2OS_Token_Share(
+    K2OS_TOKEN  aToken,
+    UINT32      aProcessId
+)
+{
+    return CrtKern_SysCall2(K2OS_SYSCALL_ID_TOKEN_SHARE, (UINT32)aToken, aProcessId);
+}
+
 BOOL
 K2OS_Token_Destroy(
     K2OS_TOKEN aToken

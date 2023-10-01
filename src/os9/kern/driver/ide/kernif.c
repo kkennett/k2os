@@ -33,6 +33,48 @@
 #include "ide.h"
 
 K2STAT
+CreateInstance(
+    K2OS_DEVCTX aDevCtx,
+    void **     appRetDriverContext
+)
+{
+    IDE_CONTROLLER *    pIdeController;
+    IDE_CHANNEL *       pChannel;
+    K2STAT              stat;
+
+    pIdeController = (IDE_CONTROLLER *)K2OS_Heap_Alloc(sizeof(IDE_CONTROLLER));
+    if (NULL == pIdeController)
+    {
+        stat = K2OS_Thread_GetLastStatus();
+        K2_ASSERT(K2STAT_IS_ERROR(stat));
+        return stat;
+    }
+
+    K2MEM_Zero(pIdeController, sizeof(IDE_CONTROLLER));
+
+    pIdeController->mDevCtx = aDevCtx;
+    *appRetDriverContext = pIdeController;
+
+    pChannel = &pIdeController->Channel[IDE_CHANNEL_PRIMARY];
+    pChannel->mpController = pIdeController;
+    pChannel->mChannelIndex = IDE_CHANNEL_PRIMARY;
+    pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mpChannel = pChannel;
+    pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mDeviceIndex = IDE_CHANNEL_DEVICE_MASTER;
+    pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mpChannel = pChannel;
+    pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mDeviceIndex = IDE_CHANNEL_DEVICE_SLAVE;
+
+    pChannel = &pIdeController->Channel[IDE_CHANNEL_SECONDARY];
+    pChannel->mpController = pIdeController;
+    pChannel->mChannelIndex = IDE_CHANNEL_SECONDARY;
+    pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mpChannel = pChannel;
+    pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mDeviceIndex = IDE_CHANNEL_DEVICE_MASTER;
+    pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mpChannel = pChannel;
+    pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mDeviceIndex = IDE_CHANNEL_DEVICE_SLAVE;
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT
 StartDriver(
     IDE_CONTROLLER *apController
 )
@@ -103,6 +145,11 @@ StartDriver(
         return K2STAT_ERROR_NO_MORE_ITEMS;
     }
 
+    K2OSDDK_DriverStarted(apController->mDevCtx);
+
+    //
+    // start the channels
+    //
     if (apController->mPopMask & 0x3)
     {
         pChannel = &apController->Channel[IDE_CHANNEL_PRIMARY];
@@ -188,64 +235,29 @@ StartDriver(
     if (0 == apController->mPopMask)
     {
         K2OSKERN_Debug("*** IDE(%08X): All available channels failed to have threads start\n", apController);
+        K2OSDDK_DriverStopped(apController->mDevCtx, K2STAT_ERROR_NO_MORE_ITEMS);
         return K2STAT_ERROR_NO_MORE_ITEMS;
     }
+
+    K2OSDDK_SetEnable(apController->mDevCtx, TRUE);
 
     return K2STAT_NO_ERROR;
 }
 
 K2STAT
-OnDdkMessage(
-    IDE_CONTROLLER *    apController,
-    K2OS_MSG const *    apMsg
-)
-{
-    K2STAT stat;
-
-    if (apMsg->mShort == K2OS_SYSTEM_MSG_DDK_SHORT_START)
-    {
-        stat = StartDriver(apController);
-    }
-    else
-    {
-        K2OSKERN_Debug("IDE(%08X): caught unsupported DDK message %d\n", apController, apMsg->mShort);
-        stat = K2STAT_NO_ERROR;
-    }
-
-    return stat;
-}
-
-UINT32 
-IDE_Instance_Thread(
+StopDriver(
     IDE_CONTROLLER *apController
 )
 {
-    K2OS_MSG    msg;
-    K2STAT      stat;
-
-    stat = K2OSDDK_SetMailslot(apController->mDevCtx, (UINT32)apController->mTokMailbox);
-    K2_ASSERT(!K2STAT_IS_ERROR(stat));
-
-    do {
-        if (!K2OS_Mailbox_Recv(apController->mTokMailbox, &msg, K2OS_TIMEOUT_INFINITE))
-        {
-            stat = K2OS_Thread_GetLastStatus();
-            K2OSKERN_Debug("IDE(%08X): Mailbox Recv returned failure - %08X\n", apController, stat);
-            break;
-        }
-
-        if (msg.mType == K2OS_SYSTEM_MSGTYPE_DDK)
-        {
-            stat = OnDdkMessage(apController, &msg);
-            if (K2STAT_IS_ERROR(stat))
-                break;
-        }
-        else
-        {
-            K2OSKERN_Debug("IDE(%08X): caught unsupported type message 0x%04X\n", apController, msg.mType);
-        }
-    } while (1);
-
-    return K2OSDDK_DriverStopped(apController->mDevCtx, stat);
+    K2_ASSERT(0);
+    return K2STAT_ERROR_NOT_IMPL;
 }
 
+K2STAT
+DeleteInstance(
+    IDE_CONTROLLER *apController
+)
+{
+    K2_ASSERT(0);
+    return K2STAT_ERROR_NOT_IMPL;
+}

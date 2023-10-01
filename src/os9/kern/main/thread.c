@@ -31,7 +31,8 @@
 //
 
 #include "kern.h"
-#include "..\lib\k2osrpc\k2osrpc.h"
+
+K2STAT K2OSRPC_Init(void);
 
 static K2OSKERN_DPC_SIMPLE sgDpc_OneTimeInitInMonitor;
 
@@ -58,9 +59,9 @@ KernThread_FirstThreadEntryPoint(
     UINT32  aSecondArg
 )
 {
-    K2OSACPI_INIT acpiInit;
+    K2OSEXEC_INIT   execInit;
 
-//    K2OSKERN_Debug("\nFirst Kernel Thread Starts...\n");
+    K2OSKERN_Debug("%d: Kernel Start\n\n", K2OS_System_GetMsTick32());
 
     KernCritSec_Threaded_InitDeferred();
 
@@ -70,17 +71,25 @@ KernThread_FirstThreadEntryPoint(
 
     KernExec_Threaded_Init();
 
-    acpiInit.FwInfo.mFwBasePhys = gData.mpShared->LoadInfo.mFwTabPagesPhys;
-    acpiInit.FwInfo.mFwSizeBytes = gData.mpShared->LoadInfo.mFwTabPageCount * K2_VA_MEMPAGE_BYTES;
-    acpiInit.FwInfo.mFacsPhys = gData.mpShared->LoadInfo.mFwFacsPhys;
-    acpiInit.FwInfo.mXFacsPhys = gData.mpShared->LoadInfo.mFwXFacsPhys;
-    acpiInit.mFwBaseVirt = gData.mpShared->LoadInfo.mFwTabPagesVirt;
-    acpiInit.mFacsVirt = K2OS_KVA_FACS_BASE;
-    acpiInit.mXFacsVirt = K2OS_KVA_XFACS_BASE;
-
     K2OSRPC_Init();
 
-    KernThread_Exit(((K2OS_pf_THREAD_ENTRY)gData.Exec.mfMainThreadEntryPoint)(&acpiInit));
+    KernIoMgr_Threaded_Init();
+
+    execInit.AcpiInit.FwInfo.mFwBasePhys = gData.mpShared->LoadInfo.mFwTabPagesPhys;
+    execInit.AcpiInit.FwInfo.mFwSizeBytes = gData.mpShared->LoadInfo.mFwTabPageCount * K2_VA_MEMPAGE_BYTES;
+    execInit.AcpiInit.FwInfo.mFacsPhys = gData.mpShared->LoadInfo.mFwFacsPhys;
+    execInit.AcpiInit.FwInfo.mXFacsPhys = gData.mpShared->LoadInfo.mFwXFacsPhys;
+    execInit.AcpiInit.mFwBaseVirt = gData.mpShared->LoadInfo.mFwTabPagesVirt;
+    execInit.AcpiInit.mFacsVirt = K2OS_KVA_FACS_BASE;
+    execInit.AcpiInit.mXFacsVirt = K2OS_KVA_XFACS_BASE;
+
+    execInit.DdkInit.PageArray_CreateAt = K2OSKERN_PageArray_CreateAt;
+    execInit.DdkInit.PageArray_CreateIo = K2OSKERN_PageArray_CreateIo;
+    execInit.DdkInit.PageArray_GetPagePhys = K2OSKERN_PageArray_GetPagePhys;
+    execInit.DdkInit.Io_SetThread = K2OSKERN_IoMgr_SetThread;
+    execInit.DdkInit.Io_Complete = K2OSKERN_IoMgr_Complete;
+
+    KernThread_Exit(((K2OS_pf_THREAD_ENTRY)gData.Exec.mfMainThreadEntryPoint)(&execInit));
 
     K2OSKERN_Panic("*** - KernThread_FirstThreadEntryPoint return\n");
     while (1);
@@ -206,6 +215,7 @@ KernThread_Init(
     sgSysCall[K2OS_SYSCALL_ID_DEBUG_BREAK               ] = KernThread_SysCall_DebugBreak;
     sgSysCall[K2OS_SYSCALL_ID_RAISE_EXCEPTION           ] = KernThread_SysCall_RaiseException;
     sgSysCall[K2OS_SYSCALL_ID_TOKEN_CLONE               ] = KernProc_SysCall_TokenClone;
+    sgSysCall[K2OS_SYSCALL_ID_TOKEN_SHARE               ] = KernProc_SysCall_TokenShare;
     sgSysCall[K2OS_SYSCALL_ID_TOKEN_DESTROY             ] = KernProc_SysCall_TokenDestroy;
     sgSysCall[K2OS_SYSCALL_ID_NOTIFY_CREATE             ] = KernNotify_SysCall_Create;
     sgSysCall[K2OS_SYSCALL_ID_NOTIFY_SIGNAL             ] = KernNotify_SysCall_Signal;
@@ -236,10 +246,9 @@ KernThread_Init(
     sgSysCall[K2OS_SYSCALL_ID_SEM_INC                   ] = KernSemUser_SysCall_Inc;
     sgSysCall[K2OS_SYSCALL_ID_MAILBOX_CREATE            ] = KernMailbox_SysCall_Create;
     sgSysCall[K2OS_SYSCALL_ID_MAILBOXOWNER_RECVRES      ] = KernMailboxOwner_SysCall_RecvRes;
-    sgSysCall[K2OS_SYSCALL_ID_MAILBOXOWNER_RECV         ] = KernMailboxOwner_SysCall_Recv;
-    sgSysCall[K2OS_SYSCALL_ID_MAILBOXOWNER_SHARE        ] = KernMailboxOwner_SysCall_Share;
+    sgSysCall[K2OS_SYSCALL_ID_MAILBOXOWNER_RECVLAST     ] = KernMailboxOwner_SysCall_RecvLast;
     sgSysCall[K2OS_SYSCALL_ID_MAILSLOT_GET              ] = KernMailslot_SysCall_Get;
-    sgSysCall[K2OS_SYSCALL_ID_MAILBOX_RECVFIRST         ] = KernMailbox_SysCall_RecvFirst;
+    sgSysCall[K2OS_SYSCALL_ID_MAILBOX_SENTFIRST         ] = KernMailbox_SysCall_SentFirst;
     sgSysCall[K2OS_SYSCALL_ID_IFINST_CREATE             ] = KernIfInst_SysCall_Create;
     sgSysCall[K2OS_SYSCALL_ID_IFINST_SETMAILBOX         ] = KernIfInst_SysCall_SetMailbox;
     sgSysCall[K2OS_SYSCALL_ID_IFINST_PUBLISH            ] = KernIfInst_SysCall_Publish;
@@ -255,6 +264,12 @@ KernThread_Init(
     sgSysCall[K2OS_SYSCALL_ID_IPCEND_REQUEST            ] = KernIpcEnd_SysCall_Request;
     sgSysCall[K2OS_SYSCALL_ID_IPCREQ_REJECT             ] = KernIpcEnd_SysCall_RejectRequest;
     sgSysCall[K2OS_SYSCALL_ID_SYSPROC_REGISTER          ] = KernSysProc_SysCall_Register;
+    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_ATTACH            ] = KernBlockIo_SysCall_Attach;
+    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_GETMEDIA          ] = KernBlockIo_SysCall_To_IoMgr;
+    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_RANGE_CREATE      ] = KernBlockIo_SysCall_To_IoMgr;
+    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_RANGE_DELETE      ] = KernBlockIo_SysCall_To_IoMgr;
+    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_TRANSFER          ] = KernBlockIo_SysCall_To_IoMgr;
+    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_ERASE             ] = KernBlockIo_SysCall_To_IoMgr;
 
     sgDpc_OneTimeInitInMonitor.Func = KernThread_OneTimeInitInMonitor;
     KernCpu_QueueDpc(&sgDpc_OneTimeInitInMonitor.Dpc, &sgDpc_OneTimeInitInMonitor.Func, KernDpcPrio_Med);
@@ -1644,9 +1659,7 @@ KernThread_CallScheduler(
 
     KernSched_QueueItem(&pThisThread->SchedItem);
 
-    apThisCore->mIsInMonitor = TRUE;
-
-    KernArch_IntsOff_EnterMonitorFromKernelThread(apThisCore, &pThisThread->Kern.mStackPtr);
+    KernArch_IntsOff_EnterMonitorFromKernelThread(apThisCore, pThisThread);
 
     //
     // this is return point from a call to the scheduler

@@ -32,6 +32,8 @@
 #include "sysproc.h"
 #include "../../kern/main/kerniface.h"
 
+#define EMIT_THREAD_MSGS    0
+
 K2OS_NOTIFY_TOKEN   gTokKernNotify;
 K2OS_SYSPROC_PAGE * gpNotifyPage;
 K2OS_MSG const *    gpNotifyMsgBuf;
@@ -57,7 +59,48 @@ SysProc_ProcessOneMsgFromKernel(
     K2OS_MSG const * apMsg
 )
 {
-    Debug_Printf("SYSPROC: Recv <%d.%d> Msg from Kernel\n", apMsg->mType, apMsg->mShort);
+    if (apMsg->mType == K2OS_SYSTEM_MSGTYPE_SYSPROC)
+    {
+        switch (apMsg->mShort)
+        {
+        case K2OS_SYSTEM_MSG_SYSPROC_SHORT_PROCESS_CREATED:
+#if EMIT_THREAD_MSGS
+            Debug_Printf("SYSPROC: Process %d: Thread %d created Process %d\n", apMsg->mPayload[1], apMsg->mPayload[2], apMsg->mPayload[0]);
+#endif
+            break;
+
+        case K2OS_SYSTEM_MSG_SYSPROC_SHORT_PROCESS_STOPPED:
+#if EMIT_THREAD_MSGS
+            Debug_Printf("SYSPROC: Process %d: Stopped with exit code %08X\n\n", apMsg->mPayload[0], apMsg->mPayload[1]);
+#endif
+            break;
+
+        case K2OS_SYSTEM_MSG_SYSPROC_SHORT_PROCESS_PURGED:
+#if EMIT_THREAD_MSGS
+            Debug_Printf("SYSPROC: Process %d: Purged\n", apMsg->mPayload[0]);
+#endif
+            break;
+
+        case K2OS_SYSTEM_MSG_SYSPROC_SHORT_THREAD_EXITED:
+#if EMIT_THREAD_MSGS
+            Debug_Printf("SYSPROC: Process %d: Thread %d exited with exit code %08X(%d)\n", apMsg->mPayload[0], apMsg->mPayload[1], apMsg->mPayload[2]);
+#endif
+            break;
+
+        case K2OS_SYSTEM_MSG_SYSPROC_SHORT_THREAD_CREATED:
+#if EMIT_THREAD_MSGS
+            Debug_Printf("SYSPROC: Process %d: Thread %d created Thread %d\n", apMsg->mPayload[0], apMsg->mPayload[2], apMsg->mPayload[1]);
+#endif
+            break;
+
+        default:
+            Debug_Printf("SYSPROC: Recv unknown <%d> Msg from Kernel\n", apMsg->mShort);
+        }
+    }
+    else
+    {
+        Debug_Printf("SYSPROC: Recv <%d.%d> Msg from Kernel\n", apMsg->mType, apMsg->mShort);
+    }
 }
 
 void
@@ -186,17 +229,15 @@ MainThread(
 {
     K2OS_WaitResult waitResult;
 
-    Debug_Printf("SysProc::MainThread()\n");
-
     SysProc_SetupNotify();
 
+    StorMgr_Init();
+
     do {
-        if (K2OS_Thread_WaitOne(&waitResult, gTokKernNotify, 1000))
+        if (K2OS_Thread_WaitOne(&waitResult, gTokKernNotify, K2OS_TIMEOUT_INFINITE))
         {
             SysProc_ProcessKernelNotifies();
         }
-        Debug_Printf("Tick\n");
-
     } while (1);
 
     K2OS_RaiseException(K2STAT_EX_LOGIC);

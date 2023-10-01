@@ -143,7 +143,6 @@ K2OS_IfInst_SetMailbox(
     }
 
     refObj.AsAny = NULL;
-
     stat = KernToken_Translate(aTokIfInst, &refObj);
     if (K2STAT_IS_ERROR(stat))
     {

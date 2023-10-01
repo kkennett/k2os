@@ -515,6 +515,8 @@ BuildFileUser_Img::CheckIfDamaged(
     }
 
     pListLink = ImgTargetList.mpHead;
+    if (NULL == pListLink)
+        return true;    // nothing on the target list (yet)
     do {
         pImgDstXdl = K2_GET_CONTAINER(BuildFileUser_ImgDstXdl, pListLink, ImgTargetListLink);
         pListLink = pListLink->mpNext;

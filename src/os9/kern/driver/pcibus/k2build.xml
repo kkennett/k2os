@@ -40,8 +40,7 @@
     <include>~inc/kern</include>
 
     <source>xdl_entry.c</source>
-    <source>createInstance.c</source>
-    <source>thread.c</source>
+    <source>kernif.c</source>
     <source>init.c</source>
     <source>override.c</source>
     <source>bar.c</source>

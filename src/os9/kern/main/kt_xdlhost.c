@@ -212,8 +212,7 @@ KernXdl_Threaded_RemapSegment(
 
         KernXdl_Remap_SendIci(pThisCore, &pThisThread->Hdr.ObjDpc.Func);
 
-        pThisCore->mIsInMonitor = TRUE;
-        KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, &pThisThread->Kern.mStackPtr);
+        KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
         //
         // this is return point from entering the monitor to do the shootdown
         // interrupts will be on
@@ -341,8 +340,7 @@ KernXdl_Threaded_FreeSegment(
     K2_ASSERT(disp);
     pThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
     K2_ASSERT(pThisCore->mpActiveThread == pThisThread);
-    pThisCore->mIsInMonitor = TRUE;
-    KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, &pThisThread->Kern.mStackPtr);
+    KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
     //
     // this is return point from entering the monitor to do the shootdown
     // interrupts will be on

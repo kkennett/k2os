@@ -254,8 +254,7 @@ KernObj_ReleaseRef(
             pThisThread = pThisCore->mpActiveThread;
             K2_ASSERT(pThisThread->mIsKernelThread);
 
-            pThisCore->mIsInMonitor = TRUE;
-            KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, &pThisThread->Kern.mStackPtr);
+            KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
 
             //
             // interrupts will be on when we return
@@ -289,7 +288,8 @@ static const K2OSKERN_pf_Cleanup sgCleanupFunc[] =// KernObj_Count
     (K2OSKERN_pf_Cleanup)KernIfEnum_Cleanup,        // KernObj_IfEnum,         // 15
     (K2OSKERN_pf_Cleanup)KernIfSubs_Cleanup,        // KernObj_IfSubs,         // 16
     (K2OSKERN_pf_Cleanup)KernIpcEnd_Cleanup,        // KernObj_IpcEnd,         // 17
-    (K2OSKERN_pf_Cleanup)KernNotifyProxy_Cleanup    // KernObj_NotifyProxy     // 18
+    (K2OSKERN_pf_Cleanup)KernNotifyProxy_Cleanup,   // KernObj_NotifyProxy     // 18
+    (K2OSKERN_pf_Cleanup)KernBlockIo_Cleanup,       // KernObj_BlockIo         // 19
 };
 K2_STATIC_ASSERT(sizeof(sgCleanupFunc) == (KernObj_Count * sizeof(K2OSKERN_pf_Cleanup)));
 
@@ -332,7 +332,8 @@ char const * const sgNames[] =
     "IfEnum",
     "IfSubs",
     "IpcEnd",
-    "NotifyProxy"
+    "NotifyProxy",
+    "BlockIo",
 };
 
 char const * const  
@@ -344,4 +345,57 @@ KernObj_Name(
         (aType >= KernObj_Count))
         return sgpNoName;
     return sgNames[aType];
+}
+
+K2STAT              
+KernObj_Share(
+    K2OSKERN_OBJ_PROCESS *  apSrcProc,
+    K2OSKERN_OBJ_HEADER *   apObjHdr,
+    K2OSKERN_OBJ_PROCESS *  apTargetProc,
+    UINT32 *                apRetTokenValue
+)
+{
+    K2STAT stat;
+
+    K2_ASSERT(apSrcProc != apTargetProc);
+
+    stat = K2STAT_ERROR_NOT_SHAREABLE;
+    *apRetTokenValue = 0;
+
+    switch (apObjHdr->mObjType)
+    {
+    case KernObj_Process:
+    case KernObj_Thread:
+    case KernObj_PageArray:
+    case KernObj_Notify:
+    case KernObj_Gate:
+    case KernObj_Alarm:
+        if (NULL == apTargetProc)
+        {
+            stat = KernToken_Create(apObjHdr, (K2OS_TOKEN *)apRetTokenValue);
+        }
+        else
+        {
+            stat = KernProc_TokenCreate(apTargetProc, apObjHdr, (K2OS_TOKEN *)apRetTokenValue);
+        }
+        break;
+
+    case KernObj_SemUser:
+        stat = KernSem_Share((K2OSKERN_OBJ_SEM *)apObjHdr, apTargetProc, apRetTokenValue);
+        break;
+
+    case KernObj_MailboxOwner:
+        stat = KernMailbox_Share(((K2OSKERN_OBJ_MAILBOX *)apObjHdr), apTargetProc, apRetTokenValue);
+        break;
+
+    case KernObj_Mailslot:
+        stat = KernMailbox_Share(((K2OSKERN_OBJ_MAILSLOT *)apObjHdr)->RefMailbox.AsMailbox, apTargetProc, apRetTokenValue);
+        break;
+
+    default:
+        K2OSKERN_Debug("Proc %d attempt to share token of type %d\n", (NULL == apSrcProc) ? 0 : apSrcProc->mId, apObjHdr->mObjType);
+        break;
+    }
+
+    return stat;
 }

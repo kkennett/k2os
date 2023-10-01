@@ -32,8 +32,9 @@
 
 #include "k2osexec.h"
 
-UINT32      gMainThreadId;
-EXEC_PLAT   gPlat;
+UINT32          gMainThreadId;
+EXEC_PLAT       gPlat;
+K2OSKERN_DDK    gKernDdk;
 
 void
 Plat_Init(
@@ -71,22 +72,42 @@ Plat_Init(
     }
 }
 
+void
+SysProc_Start(
+    void
+)
+{
+    UINT32              id;
+    K2OS_PROCESS_TOKEN  tokProc;
+
+    id = 0;
+    tokProc = K2OS_System_CreateProcess(":sysproc", NULL, &id);
+    if (NULL == tokProc)
+    {
+        K2OSKERN_Panic("*** Sysproc process create failed\n");
+    }
+    K2_ASSERT(K2OS_SYSPROC_ID == id);
+    K2OS_Token_Destroy(tokProc);
+}
+
 UINT32
 MainThread(
-    K2OSACPI_INIT *apInit
+    K2OSEXEC_INIT *apInit
 )
 {
     gMainThreadId = K2OS_Thread_GetId();
+
+    K2MEM_Copy(&gKernDdk, &apInit->DdkInit, sizeof(K2OSKERN_DDK));
+
+    SysProc_Start();
 
     Plat_Init();
 
     Dev_Init();
 
-    ACPI_Init(apInit);
+    ACPI_Init(&apInit->AcpiInit);
 
     DevMgr_Init();
-
-    StorMgr_Init();
 
     ACPI_Enable();
 

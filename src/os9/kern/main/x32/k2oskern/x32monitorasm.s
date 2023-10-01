@@ -51,30 +51,33 @@ BEGIN_X32_PROC(X32KernAsm_EnterMonitor)
     jmp X32KernAsm_MonitorMainLoop
 END_X32_PROC(X32KernAsm_EnterMonitor)
 
-// void K2_CALLCONV_REGS X32KernAsm_EnterMonitorFromKernelThread(UINT32 aNewStackPtr, UINT32 aDummy);
+// void K2_CALLCONV_REGS X32KernAsm_EnterMonitorFromKernelThread(UINT32 aNewStackPtr, UINT32 *apStoreThreadStackPtr);
 BEGIN_X32_PROC(X32KernAsm_EnterMonitorFromKernelThread)
-    pop %edx                        // retrieve return address
-    mov dword ptr [%esp-12], %edx   // store as EIP in saved context on thread stack under eflags and cs 
+    pop %eax                        // retrieve return address
+    mov dword ptr [%esp-12], %eax   // store as EIP in saved context on thread stack under eflags and cs 
 
     pushf               // EFLAGS
-    pop %edx
-    or %edx, X32_EFLAGS_INTENABLE
-    push %edx           // pushed with interrupts enabled 
+    pop %eax
+    or %eax, X32_EFLAGS_INTENABLE
+    push %eax           // pushed with interrupts enabled 
 
-    xor %edx, %edx 
-    mov %edx, %cs       
-    push %edx           // CS
+    xor %eax, %eax 
+    mov %eax, %cs       
+    push %eax           // CS
 
     sub %esp, 4         // EIP saved above 
 
-    xor %edx, %edx
-    push %edx           // errorcode - store 0
-    push %edx           // exception vector - store 0
+    xor %eax, %eax
+    push %eax           // errorcode - store 0
+    push %eax           // exception vector - store 0
     
     pusha
 
-    mov %edx, %ds       // DS
-    push %edx 
+    mov %eax, %ds       // DS
+    push %eax 
+
+    mov dword ptr [%edx], %esp // save context stack pointer to target
+    sfence
 
     // ecx unchanged which is core stack address at which to enter monitor
     jmp X32KernAsm_EnterMonitor 

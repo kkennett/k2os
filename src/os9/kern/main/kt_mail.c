@@ -323,7 +323,7 @@ K2OS_Mailbox_Recv(
                         pThreadPage = pThisThread->mpKernRwViewOfThreadPage;
 
                         pSchedItem = &pThisThread->SchedItem;
-                        pSchedItem->mType = KernSchedItem_KernThread_MailboxOneShotRecv;
+                        pSchedItem->mType = KernSchedItem_KernThread_MailboxRecvLast;
                         KernObj_CreateRef(&pSchedItem->ObjRef, &pMailbox->Hdr);
 
                         KernThread_CallScheduler(pThisCore);
@@ -469,7 +469,7 @@ K2OS_Mailbox_Send(
                     K2_ASSERT(pThisThread->mIsKernelThread);
 
                     pSchedItem = &pThisThread->SchedItem;
-                    pSchedItem->mType = KernSchedItem_KernThread_MailboxRecvFirst;
+                    pSchedItem->mType = KernSchedItem_KernThread_MailboxSentFirst;
                     KernObj_CreateRef(&pSchedItem->ObjRef, &pMailbox->Hdr);
 
                     KernThread_CallScheduler(pThisCore);
@@ -486,56 +486,3 @@ K2OS_Mailbox_Send(
     return result;
 }
 
-UINT32
-K2OS_Mailbox_Share(
-    K2OS_MAILBOX_TOKEN  aTokMailbox,
-    UINT32              aProcessId
-)
-{
-    K2OSKERN_OBJREF     refMailboxOwner;
-    K2OS_THREAD_PAGE *  pThreadPage;
-    K2STAT              stat;
-    UINT32              result;
-
-    if (0 == aProcessId)
-    {
-        // kernel can't share with itself
-        K2OS_Thread_SetLastStatus(K2STAT_ERROR_NOT_ALLOWED);
-        return 0;
-    }
-
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
-
-    refMailboxOwner.AsAny = NULL;
-    stat = KernToken_Translate(aTokMailbox, &refMailboxOwner);
-    if (K2STAT_IS_ERROR(stat))
-    {
-        K2OS_Thread_SetLastStatus(stat);
-        return 0;
-    }
-
-    result = 0;
-
-    if (refMailboxOwner.AsAny->mObjType != KernObj_MailboxOwner)
-    {
-        stat = K2STAT_ERROR_BAD_TOKEN;
-    }
-    else
-    {
-        stat = KernMailbox_Share(
-            refMailboxOwner.AsMailboxOwner->RefMailbox.AsMailbox, 
-            aProcessId, 
-            &result
-        );
-    }
-
-    KernObj_ReleaseRef(&refMailboxOwner);
-
-    if (K2STAT_IS_ERROR(stat))
-    {
-        pThreadPage->mLastStatus = stat;
-        K2_ASSERT(0 == result);
-    }
-
-    return result;
-}

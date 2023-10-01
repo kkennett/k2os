@@ -163,7 +163,6 @@ K2OS_Token_Clone(
     K2_ASSERT(NULL != apRetNewToken);
 
     objRef.AsAny = NULL;
-
     stat = KernToken_Translate(aToken, &objRef);
     if (!K2STAT_IS_ERROR(stat))
     {
@@ -186,4 +185,54 @@ K2OS_Token_Clone(
     }
 
     return TRUE;
+}
+
+UINT32
+K2OS_Token_Share(
+    K2OS_TOKEN  aToken,
+    UINT32      aProcessId
+)
+{
+    K2STAT          stat;
+    K2OSKERN_OBJREF procRef;
+    K2OSKERN_OBJREF objRef;
+    UINT32          tokenValue;
+
+    // cannot share with yourself
+    if ((NULL == aToken) ||
+        (0 == aProcessId))
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
+        return 0;
+    }
+
+    procRef.AsAny = NULL;
+    if (!KernProc_FindAddRefById(aProcessId, &procRef))
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_NOT_FOUND);
+        return 0;
+    }
+
+    tokenValue = 0;
+    objRef.AsAny = NULL;
+    stat = KernToken_Translate(aToken, &objRef);
+    if (!K2STAT_IS_ERROR(stat))
+    {
+        stat = KernObj_Share(NULL, objRef.AsAny, procRef.AsProc, &tokenValue);
+
+        KernObj_ReleaseRef(&objRef);
+    }
+
+    KernObj_ReleaseRef(&procRef);
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2_ASSERT(0 == tokenValue);
+        K2OS_Thread_SetLastStatus(stat);
+        return 0;
+    }
+
+    K2_ASSERT(0 != tokenValue);
+
+    return tokenValue;
 }

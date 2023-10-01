@@ -439,7 +439,6 @@ K2OS_IpcEnd_Create(
                 K2OS_CritSec_Leave(&sgSec);
 
                 pIpcEnd->mIpcEndToken = (K2OS_TOKEN)CrtKern_SysCall4(K2OS_SYSCALL_ID_IPCEND_CREATE, (UINT32)&pIpcEnd->mfRecv, (UINT32)aTokMailbox, (UINT32)tokVirtMap, (aMaxMsgCount & 0xFFFF) << 16 | (aMaxMsgBytes & 0xFFFF));
-
                 if (NULL == pIpcEnd->mIpcEndToken)
                 {
                     K2OS_CritSec_Enter(&sgSec);
@@ -526,7 +525,9 @@ K2OS_IpcEnd_SendRequest(
 
     pIpcEnd = CrtIpcEnd_FindAddRef(aEndpoint);
     if (NULL == pIpcEnd)
+    {
         return FALSE;
+    }
 
     K2OS_CritSec_Enter(&pIpcEnd->Sec);
 

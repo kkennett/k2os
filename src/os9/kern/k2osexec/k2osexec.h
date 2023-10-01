@@ -35,8 +35,10 @@
 
 #include <k2osplat.h>
 #include <k2osddk.h>
+#include "../main/kernexec.h"
 #include "../k2osacpi/k2osacpi.h"
 #include <spec/k2pci.h>
+#include <k2osdev_blockio.h>
 
 #if __cplusplus
 extern "C" {
@@ -59,6 +61,8 @@ typedef struct  _DEV_IO             DEV_IO;
 typedef struct  _DEV_IRQ            DEV_IRQ;
 typedef struct  _DEV_PHYS           DEV_PHYS;
 typedef struct  _ACPI_NODE          ACPI_NODE;
+typedef struct  _BLOCKIO            BLOCKIO;
+typedef struct  _BLOCKIO_RANGE      BLOCKIO_RANGE;
 
 struct _DEVNODE_REF
 {
@@ -100,7 +104,8 @@ enum _DevNodeStateType
 {
     DevNodeState_Invalid = 0,
 
-    DevNodeState_GoingOnline_WaitMailbox,
+    DevNodeState_GoingOnline_PreInstantiate,
+    DevNodeState_GoingOnline_WaitStarted,
     DevNodeState_Online,
     DevNodeState_Online_Unresponsive,
 
@@ -135,8 +140,11 @@ struct _DEV_RES
     K2LIST_LINK     ListLink;
 };
 
+#define DRIVER_INSTANTIATE_TIMEOUT_MS   5000
+#define DRIVER_START_TIMEOUT_MS         5000
+
 typedef K2STAT (*K2OS_pf_Driver_CreateInstance)(K2OS_DEVCTX const aDevMgrContext, void **appRetDriverContext);
-#define DRIVER_START_TIMEOUT_MS 5000
+typedef K2STAT (*K2OS_pf_Driver_Call)(void *apDriverContext);
 
 struct _DEVNODE
 {
@@ -155,7 +163,13 @@ struct _DEVNODE
     K2_DEVICE_IDENT     DeviceIdent;
 
     struct {
-        K2TREE_NODE     InstanceTreeNode;
+        K2TREE_NODE                     InstanceTreeNode;
+        void *                          mpContext;
+        K2OS_pf_Driver_CreateInstance   mfCreateInstance;
+        K2OS_pf_Driver_Call             mfStartDriver;
+        K2OS_pf_Driver_Call             mfStopDriver;
+        K2OS_pf_Driver_Call             mfDeleteInstance;
+        K2OSKERN_pf_Hook_Key            mfIntrHookKey;
     } Driver;
 
     struct {
@@ -212,18 +226,14 @@ struct _DEVNODE
         char *              mpDriverCandidate;
 
         struct {
-            UINT32                          mLastStatus;
-            BOOL                            mEnabled;
-
-            K2OS_XDL                        mXdl;
-            K2OS_pf_Driver_CreateInstance   mfCreateInstance;
-
-            K2OSKERN_pf_Hook_Key            mfIntrHookKey;
-
-            void *                          mpContext;
-
-            K2OS_MAILBOX_TOKEN              mTokMailbox;
+            UINT32          mLastStatus;
+            BOOL            mEnabled;
+            K2OS_XDL        mXdl;
         } Driver;
+
+        struct {
+            K2LIST_ANCHOR   List;
+        } BlockIo;
 
     } InSec;
 };
@@ -292,12 +302,6 @@ void DevMgr_NodeLocked_DelTimer(DEVNODE *apNode);
 // -------------------------------------------------------------------------
 // 
 
-void StorMgr_Init(void);
-
-//
-// -------------------------------------------------------------------------
-// 
-
 typedef struct _EXEC_PLAT EXEC_PLAT;
 struct _EXEC_PLAT
 {
@@ -318,8 +322,50 @@ K2STAT WorkerThread_Exec(WorkerThread_pf_WorkFunc aWorkFunc, void *apArg);
 //------------------------------------------------------------------------
 //
 
+struct _BLOCKIO_RANGE
+{
+    UINT32          mStartBlock;
+    UINT32          mBlockCount;
+    UINT32          mOwner;
+    UINT32          mId;
+    UINT32          mPrivate;
+    K2LIST_LINK     ListLink;
+};
+
+struct _BLOCKIO
+{
+    DEVNODE *                   mpDevNode;
+    K2LIST_LINK                 DevNodeBlockIoListLink;
+    void *                      mpDriverContext;
+
+    K2OS_IFINST_TOKEN           mTokIfInst;
+    K2OS_IFINST_ID              mIfInstId;
+
+    K2OSDDK_BLOCKIO_REGISTER    Register;
+
+    UINT32                      mMediaBlockCount;
+    UINT32                      mMediaBlockSizeBytes;
+
+    K2OS_CRITSEC                Sec;
+    K2OS_NOTIFY_TOKEN           mTokNotify;
+    K2OS_THREAD_TOKEN           mTokThread;
+    UINT32                      mThreadId;
+    K2OSEXEC_IOTHREAD           IoThread;
+    K2LIST_ANCHOR               IopList;
+
+    UINT32                      mLastRangeId;
+    K2LIST_ANCHOR               RangeList;
+};
+
+UINT32 BlockIo_DeviceThread(void *apArg);
+
+//
+//------------------------------------------------------------------------
+//
+
 extern UINT32       gMainThreadId;
 extern EXEC_PLAT    gPlat;
+extern K2OSKERN_DDK gKernDdk;
 
 //
 // -------------------------------------------------------------------------
@@ -328,7 +374,5 @@ extern EXEC_PLAT    gPlat;
 #if __cplusplus
 }
 #endif
-
-
 
 #endif // __K2OSKERN_H

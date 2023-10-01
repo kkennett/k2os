@@ -112,6 +112,7 @@ K2OS_Semaphore_Inc(
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
+    semUserRef.AsAny = NULL;
     stat = KernToken_Translate(aTokSemaphore, &semUserRef);
     if (!K2STAT_IS_ERROR(stat))
     {

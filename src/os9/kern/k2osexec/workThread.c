@@ -134,7 +134,7 @@ WorkerThread_Get(
 
             K2OS_Token_Destroy(tokThread);
 
-            K2OSKERN_Debug("Created worker thread %d\n", pHead->mThreadId);
+//            K2OSKERN_Debug("Created worker thread %d\n", pHead->mThreadId);
 
             break;
         }
@@ -146,7 +146,7 @@ WorkerThread_Get(
 
     } while (pHead != (WORKER_THREAD *)K2ATOMIC_CompareExchange((UINT32 volatile *)&sgpThreadList, (UINT32)pReadyNext, (UINT32)pHead));
 
-    K2OSKERN_Debug("Returning worker thread %d\n", pHead->mThreadId);
+//    K2OSKERN_Debug("Returning worker thread %d\n", pHead->mThreadId);
 
     return pHead;
 }

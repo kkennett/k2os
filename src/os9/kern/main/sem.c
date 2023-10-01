@@ -253,3 +253,33 @@ KernSemUser_SysCall_Inc(
     }
 }
 
+K2STAT  
+KernSem_Share(
+    K2OSKERN_OBJ_SEM *      apSem,
+    K2OSKERN_OBJ_PROCESS *  apTargetProc,
+    UINT32 *                apRetToken
+)
+{
+    K2OSKERN_OBJREF semUserRef;
+    K2STAT          stat;
+
+    semUserRef.AsAny = NULL;
+
+    stat = KernSemUser_Create(apSem, 0, &semUserRef);
+    if (!K2STAT_IS_ERROR(stat))
+    {
+        if (NULL == apTargetProc)
+        {
+            stat = KernToken_Create(semUserRef.AsAny, (K2OS_TOKEN *)apRetToken);
+        }
+        else
+        {
+            stat = KernProc_TokenCreate(apTargetProc, semUserRef.AsAny, (K2OS_TOKEN *)apRetToken);
+        }
+
+        KernObj_ReleaseRef(&semUserRef);
+    }
+
+    return stat;
+}
+

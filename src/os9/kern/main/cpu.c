@@ -628,10 +628,6 @@ KernCpu_Schedule(
     }
 
     //
-    // only user mode threads from this point on
-    // 
-   
-    //
     // there are no threads on the run list, there is at 
     // least one thread on the ran list or migrated list,
     // and the active thread has exhausted its quantum
@@ -697,9 +693,10 @@ KernCpu_RunMonitor(
         pThisCore->mIsIdle = FALSE;
 //        K2OSKERN_Debug("Core %d Exit IDLE\n", pThisCore->mCoreIx);
     }
+
     KernCpu_SetTickMode(pThisCore, KernTickMode_Kern);
 
-    /* interrupts MUST BE ON running here */
+    /* interrupts MUST BE OFF entering here */
 #ifdef K2_DEBUG
     if (FALSE != K2OSKERN_GetIntr())
         K2OSKERN_Panic("Interrupts enabled on entry to monitor!\n");

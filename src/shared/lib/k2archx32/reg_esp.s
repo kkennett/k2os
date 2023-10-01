@@ -35,6 +35,7 @@
 //UINT32 K2_CALLCONV_REGS X32_ReadESP(void);
 BEGIN_X32_PROC(X32_ReadESP)
    mov %eax, %esp
+   add %eax, 4  // return address
    ret
 END_X32_PROC(X32_ReadESP)
 

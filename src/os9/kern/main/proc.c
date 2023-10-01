@@ -32,7 +32,41 @@
 
 #include "kern.h"
 
-K2HEAP_NODE * 
+BOOL
+KernProc_FindAddRefById(
+    UINT32              aProcId,
+    K2OSKERN_OBJREF *   apRetRef
+)
+{
+    BOOL                    disp;
+    K2LIST_LINK *           pListLink;
+    K2OSKERN_OBJ_PROCESS *  pProc;
+
+    K2_ASSERT(NULL == apRetRef->AsAny);
+
+    disp = K2OSKERN_SeqLock(&gData.Proc.SeqLock);
+    pListLink = gData.Proc.List.mpHead;
+    do {
+        pProc = K2_GET_CONTAINER(K2OSKERN_OBJ_PROCESS, pListLink, GlobalProcListLink);
+        if (pProc->mId == aProcId)
+        {
+            KernObj_CreateRef(apRetRef, &pProc->Hdr);
+            break;
+        }
+        pListLink = pListLink->mpNext;
+    } while (NULL != pListLink);
+
+    K2OSKERN_SeqUnlock(&gData.Proc.SeqLock, disp);
+
+    if (NULL == pListLink)
+        return FALSE;
+
+    K2_ASSERT(NULL != apRetRef->AsAny);
+
+    return TRUE;
+}
+
+K2HEAP_NODE *
 KernProc_UserHeapNodeAcquire(
     K2HEAP_ANCHOR *apHeap
 )
@@ -1595,6 +1629,67 @@ KernProc_TokenDestroyInSysCall(
     return stat;
 }
 
+void
+KernProc_SysCall_TokenShare(
+    K2OSKERN_CPUCORE volatile * apThisCore,
+    K2OSKERN_OBJ_THREAD *       apCurThread
+)
+{
+    K2OSKERN_OBJREF     refObj;
+    K2OS_THREAD_PAGE *  pThreadPage;
+    K2STAT              stat;
+    K2OSKERN_OBJREF     refTargetProc;
+    UINT32              targetProcId;
+
+    pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
+
+    targetProcId = pThreadPage->mSysCall_Arg1;
+
+    if (apCurThread->User.ProcRef.AsProc->mId == targetProcId)
+    {
+        // cant share with yourself
+        stat = K2STAT_ERROR_BAD_ARGUMENT;
+    }
+    else
+    {
+        refObj.AsAny = NULL;
+        stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
+        if (!K2STAT_IS_ERROR(stat))
+        {
+            refTargetProc.AsAny = NULL;
+
+            if (0 != targetProcId)
+            {
+                if (!KernProc_FindAddRefById(pThreadPage->mSysCall_Arg1, &refTargetProc))
+                {
+                    stat = K2STAT_ERROR_NOT_FOUND;
+                }
+            }
+
+            if (!K2STAT_IS_ERROR(stat))
+            {
+                stat = KernObj_Share(apCurThread->User.ProcRef.AsProc,
+                    refObj.AsAny,
+                    refTargetProc.AsProc,
+                    &apCurThread->User.mSysCall_Result);
+            }
+
+            if (NULL != refTargetProc.AsAny)
+            {
+                KernObj_ReleaseRef(&refTargetProc);
+            }
+
+            KernObj_ReleaseRef(&refObj);
+        }
+    }
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        apCurThread->User.mSysCall_Result = 0;
+        pThreadPage->mLastStatus = stat;
+    }
+}
+
 void    
 KernProc_SysCall_GetLaunchInfo(
     K2OSKERN_CPUCORE volatile * apThisCore,
@@ -1960,7 +2055,6 @@ KernProc_SysCall_TokenClone(
     K2STAT          stat;
 
     objRef.AsAny = NULL;
-
     stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &objRef);
     if (!K2STAT_IS_ERROR(stat))
     {

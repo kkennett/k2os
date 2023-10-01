@@ -257,7 +257,7 @@ K2OS_Mailbox_Recv(
                     //
                     // if successful, this receive may make the mailbox empty and close the gate
                     //
-                    result = CrtKern_SysCall1(K2OS_SYSCALL_ID_MAILBOXOWNER_RECV, (UINT32)aTokMailbox);
+                    result = CrtKern_SysCall1(K2OS_SYSCALL_ID_MAILBOXOWNER_RECVLAST, (UINT32)aTokMailbox);
                     if (result)
                     {
                         pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
@@ -454,18 +454,9 @@ K2OS_Mailbox_Send(
     K2_CpuReadBarrier();
     if (ixCons & K2OS_MAILBOX_GATE_CLOSED_BIT)
     {
-        CrtKern_SysCall1(K2OS_SYSCALL_ID_MAILBOX_RECVFIRST, (UINT32)aTokMailboxOrSlot);
+        CrtKern_SysCall1(K2OS_SYSCALL_ID_MAILBOX_SENTFIRST, (UINT32)aTokMailboxOrSlot);
     }
 
     return TRUE;
-}
-
-UINT32  
-K2OS_Mailbox_Share(
-    K2OS_MAILBOX_TOKEN  aTokMailbox,
-    UINT32              aProcessId
-)
-{
-    return CrtKern_SysCall2(K2OS_SYSCALL_ID_MAILBOXOWNER_SHARE, (UINT32)aTokMailbox, aProcessId);
 }
 

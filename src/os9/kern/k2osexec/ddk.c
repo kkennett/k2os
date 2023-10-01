@@ -33,32 +33,6 @@
 #include "k2osexec.h"
 
 K2STAT 
-K2OSDDK_SetMailslot(
-    K2OS_DEVCTX aDevCtx,
-    UINT32      aSharedMailbox
-)
-{
-    DEVNODE *   pDevNode;
-    K2STAT      stat;
-
-    if ((NULL == aDevCtx) ||
-        (0 == aSharedMailbox))
-    {
-        return K2STAT_ERROR_BAD_ARGUMENT;
-    }
-
-    pDevNode = (DEVNODE *)aDevCtx;
-
-    K2OS_CritSec_Enter(&pDevNode->Sec);
-
-    stat = Dev_NodeLocked_OnSetMailbox(pDevNode, (K2OS_MAILBOX_TOKEN)aSharedMailbox);
-
-    K2OS_CritSec_Leave(&pDevNode->Sec);
-
-    return stat;
-}
-
-K2STAT 
 K2OSDDK_GetInstanceInfo(
     K2OS_DEVCTX         aDevCtx,
     K2_DEVICE_IDENT *   apRetIdent,
@@ -79,7 +53,7 @@ K2OSDDK_GetInstanceInfo(
 
     K2OS_CritSec_Enter(&pDevNode->Sec);
 
-    if (pDevNode->InSec.mState != DevNodeState_Online)
+    if (pDevNode->InSec.mState < DevNodeState_GoingOnline_WaitStarted)
     {
         stat = K2STAT_ERROR_NOT_RUNNING;
     }
@@ -152,7 +126,7 @@ K2OSDDK_GetRes(
 
     K2OS_CritSec_Enter(&pDevNode->Sec);
 
-    if (pDevNode->InSec.mState != DevNodeState_Online)
+    if (pDevNode->InSec.mState < DevNodeState_GoingOnline_WaitStarted)
     {
         stat = K2STAT_ERROR_NOT_RUNNING;
     }
@@ -290,7 +264,7 @@ K2OSDDK_RunAcpiMethod(
 
     K2OS_CritSec_Enter(&pDevNode->Sec);
 
-    if (pDevNode->InSec.mState != DevNodeState_Online)
+    if (pDevNode->InSec.mState < DevNodeState_GoingOnline_WaitStarted)
     {
         stat = K2STAT_ERROR_NOT_RUNNING;
     }
@@ -387,13 +361,142 @@ K2OSDDK_AddChildRes(
     return stat;
 }
 
-UINT32
+K2STAT
+K2OSDDK_DriverStarted(
+    K2OS_DEVCTX aDevCtx
+)
+{
+    DEVNODE *   pDevNode;
+    K2STAT      stat;
+
+    if (NULL == aDevCtx)
+    {
+        K2_ASSERT(0);
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    pDevNode = (DEVNODE *)aDevCtx;
+
+    K2OS_CritSec_Enter(&pDevNode->Sec);
+
+    if (pDevNode->InSec.mState != DevNodeState_GoingOnline_WaitStarted)
+    {
+        K2_ASSERT(0);
+        stat = K2STAT_ERROR_API_ORDER;
+    }
+    else
+    {
+        pDevNode->InSec.mState = DevNodeState_Online;
+        stat = K2STAT_NO_ERROR;
+//        K2OSKERN_Debug("Driver(\"%s\") instance %08X started\n", pDevNode->InSec.mpDriverCandidate, pDevNode->Driver.mpContext);
+    }
+
+    K2OS_CritSec_Leave(&pDevNode->Sec);
+
+    return stat;
+}
+
+K2STAT
 K2OSDDK_DriverStopped(
     K2OS_DEVCTX aDevCtx,
     K2STAT      aResult
 )
 {
-    // any state is fine
     K2_ASSERT(0);
     return K2STAT_ERROR_NOT_IMPL;
 }
+
+K2STAT 
+K2OSDDK_BlockIoRegister(
+    K2OS_DEVCTX                     aDevCtx,
+    void *                          apDevice,
+    K2OSDDK_BLOCKIO_REGISTER const *apRegister
+)
+{
+    DEVNODE *   pDevNode;
+    K2STAT      stat;
+    BLOCKIO *   pBlockIo;
+
+    if (NULL == aDevCtx)
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    pBlockIo = (BLOCKIO *)K2OS_Heap_Alloc(sizeof(BLOCKIO));
+    if (NULL == pBlockIo)
+    {
+        return K2STAT_ERROR_OUT_OF_MEMORY;
+    }
+
+    pDevNode = (DEVNODE *)aDevCtx;
+
+    K2MEM_Zero(pBlockIo, sizeof(BLOCKIO));
+    pBlockIo->mpDevNode = pDevNode;
+    pBlockIo->mpDriverContext = apDevice;
+    K2MEM_Copy(&pBlockIo->Register, apRegister, sizeof(K2OSDDK_BLOCKIO_REGISTER));
+    K2LIST_Init(&pBlockIo->IopList);
+
+    K2OS_CritSec_Enter(&pDevNode->Sec);
+
+    if (pDevNode->InSec.mState != DevNodeState_Online)
+    {
+        K2_ASSERT(0);
+        stat = K2STAT_ERROR_API_ORDER;
+    }
+    else
+    {
+        K2LIST_AddAtTail(&pDevNode->InSec.BlockIo.List, &pBlockIo->DevNodeBlockIoListLink);
+        stat = K2STAT_NO_ERROR;
+    }
+
+    K2OS_CritSec_Leave(&pDevNode->Sec);
+
+    if (!K2STAT_IS_ERROR(stat))
+    {
+        pBlockIo->mTokIfInst = K2OS_IfInst_Create((UINT32)pBlockIo, &pBlockIo->mIfInstId);
+        if (NULL == pBlockIo->mTokIfInst)
+        {
+            stat = K2OS_Thread_GetLastStatus();
+            K2_ASSERT(K2STAT_IS_ERROR(stat));
+        }
+        else
+        {
+            //
+            // start the device service thread
+            //
+            pBlockIo->mTokThread = K2OS_Thread_Create("BlockIo", BlockIo_DeviceThread, pBlockIo, NULL, &pBlockIo->mThreadId);
+            if (NULL == pBlockIo->mTokThread)
+            {
+                stat = K2OS_Thread_GetLastStatus();
+                K2_ASSERT(K2STAT_IS_ERROR(stat));
+
+                K2OS_Token_Destroy(pBlockIo->mTokIfInst);
+            }
+        }
+
+        if (K2STAT_IS_ERROR(stat))
+        {
+            K2OS_CritSec_Enter(&pDevNode->Sec);
+            K2LIST_Remove(&pDevNode->InSec.BlockIo.List, &pBlockIo->DevNodeBlockIoListLink);
+            K2OS_CritSec_Leave(&pDevNode->Sec);
+        }
+    }
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OS_Heap_Free(pBlockIo);
+    }
+
+    return stat;
+}
+
+K2STAT 
+K2OSDDK_BlockIoDeregister(
+    K2OS_DEVCTX aDevCtx,
+    void *      apDevice
+)
+{
+    K2_ASSERT(0);
+    return K2STAT_ERROR_NOT_IMPL;
+}
+

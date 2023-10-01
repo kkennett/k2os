@@ -109,20 +109,20 @@ IDE_InitAndDiscover(
     {
         if (barIsPhys[barToIx[1]])
         {
-            K2OSKERN_Debug("*** Ide(%d): primary channel interface split between phys and io\n", K2OS_Process_GetId());
+            K2OSKERN_Debug("*** IDE(%d): primary channel interface split between phys and io\n", K2OS_Process_GetId());
             return K2STAT_ERROR_UNSUPPORTED;
         }
 
         if (apController->ResIo[barToIx[0]].Def.Io.Range.mSizeBytes != 8)
         {
-            K2OSKERN_Debug("*** Ide(%d): primary channel base io range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[0]].Def.Io.Range.mSizeBytes);
+            K2OSKERN_Debug("*** IDE(%d): primary channel base io range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[0]].Def.Io.Range.mSizeBytes);
             return K2STAT_ERROR_UNSUPPORTED;
         }
         apController->Channel[IDE_CHANNEL_PRIMARY].ChanRegs.mBase = apController->ResIo[barToIx[0]].Def.Io.Range.mBasePort;
 
         if (apController->ResIo[barToIx[1]].Def.Io.Range.mSizeBytes != 4)
         {
-            K2OSKERN_Debug("*** Ide(%d): primary channel control io range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[1]].Def.Io.Range.mSizeBytes);
+            K2OSKERN_Debug("*** IDE(%d): primary channel control io range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[1]].Def.Io.Range.mSizeBytes);
             return K2STAT_ERROR_UNSUPPORTED;
         }
         apController->Channel[IDE_CHANNEL_PRIMARY].ChanRegs.mControl = apController->ResIo[barToIx[1]].Def.Io.Range.mBasePort;
@@ -141,20 +141,20 @@ IDE_InitAndDiscover(
     {
         if (!barIsPhys[barToIx[3]])
         {
-            K2OSKERN_Debug("*** Ide(%d): secondary channel interface split between io and phys\n", K2OS_Process_GetId());
+            K2OSKERN_Debug("*** IDE(%d): secondary channel interface split between io and phys\n", K2OS_Process_GetId());
             return K2STAT_ERROR_UNSUPPORTED;
         }
 
         if (apController->ResPhys[barToIx[2]].Def.Phys.Range.mSizeBytes != 8)
         {
-            K2OSKERN_Debug("*** Ide(%d): secondary channel base phys range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResPhys[barToIx[2]].Def.Phys.Range.mSizeBytes);
+            K2OSKERN_Debug("*** IDE(%d): secondary channel base phys range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResPhys[barToIx[2]].Def.Phys.Range.mSizeBytes);
             return K2STAT_ERROR_UNSUPPORTED;
         }
         apController->Channel[IDE_CHANNEL_SECONDARY].ChanRegs.mBase = apController->ResPhys[barToIx[2]].Def.Phys.Range.mBaseAddr;
 
         if (apController->ResPhys[barToIx[3]].Def.Phys.Range.mSizeBytes != 4)
         {
-            K2OSKERN_Debug("*** Ide(%d): secondary channel control phys range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResPhys[barToIx[3]].Def.Phys.Range.mSizeBytes);
+            K2OSKERN_Debug("*** IDE(%d): secondary channel control phys range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResPhys[barToIx[3]].Def.Phys.Range.mSizeBytes);
             return K2STAT_ERROR_UNSUPPORTED;
         }
         apController->Channel[IDE_CHANNEL_SECONDARY].ChanRegs.mControl = apController->ResPhys[barToIx[3]].Def.Phys.Range.mBaseAddr;
@@ -165,20 +165,20 @@ IDE_InitAndDiscover(
     {
         if (barIsPhys[barToIx[3]])
         {
-            K2OSKERN_Debug("*** Ide(%d): secondary channel interface split between phys and io\n", K2OS_Process_GetId());
+            K2OSKERN_Debug("*** IDE(%d): secondary channel interface split between phys and io\n", K2OS_Process_GetId());
             return K2STAT_ERROR_UNSUPPORTED;
         }
 
         if (apController->ResIo[barToIx[2]].Def.Io.Range.mSizeBytes != 8)
         {
-            K2OSKERN_Debug("*** Ide(%d): secondary channel base io range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[2]].Def.Io.Range.mSizeBytes);
+            K2OSKERN_Debug("*** IDE(%d): secondary channel base io range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[2]].Def.Io.Range.mSizeBytes);
             return K2STAT_ERROR_UNSUPPORTED;
         }
         apController->Channel[IDE_CHANNEL_SECONDARY].ChanRegs.mBase = apController->ResIo[barToIx[2]].Def.Io.Range.mBasePort;
 
         if (apController->ResIo[barToIx[3]].Def.Io.Range.mSizeBytes != 4)
         {
-            K2OSKERN_Debug("*** Ide(%d): secondary channel control io range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[3]].Def.Io.Range.mSizeBytes);
+            K2OSKERN_Debug("*** IDE(%d): secondary channel control io range is wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[3]].Def.Io.Range.mSizeBytes);
             return K2STAT_ERROR_UNSUPPORTED;
         }
         apController->Channel[IDE_CHANNEL_SECONDARY].ChanRegs.mControl = apController->ResIo[barToIx[3]].Def.Io.Range.mBasePort;
@@ -200,7 +200,7 @@ IDE_InitAndDiscover(
         {
             if (apController->ResPhys[barToIx[4]].Def.Phys.Range.mSizeBytes != 16)
             {
-                K2OSKERN_Debug("*** Ide(%d): bus master phys range is the wrong size (%d)\n", K2OS_Process_GetId(), apController->ResPhys[barToIx[4]].Def.Phys.Range.mSizeBytes);
+                K2OSKERN_Debug("*** IDE(%d): bus master phys range is the wrong size (%d)\n", K2OS_Process_GetId(), apController->ResPhys[barToIx[4]].Def.Phys.Range.mSizeBytes);
                 return K2STAT_ERROR_UNSUPPORTED;
             }
             apController->mBusMasterAddr = apController->ResPhys[barToIx[4]].Def.Phys.Range.mBaseAddr;
@@ -210,7 +210,7 @@ IDE_InitAndDiscover(
         {
             if (apController->ResIo[barToIx[4]].Def.Io.Range.mSizeBytes != 16)
             {
-                K2OSKERN_Debug("*** Ide(%d): bus master io range is the wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[4]].Def.Io.Range.mSizeBytes);
+                K2OSKERN_Debug("*** IDE(%d): bus master io range is the wrong size (%d)\n", K2OS_Process_GetId(), apController->ResIo[barToIx[4]].Def.Io.Range.mSizeBytes);
                 return K2STAT_ERROR_UNSUPPORTED;
             }
             apController->mBusMasterAddr = apController->ResIo[barToIx[4]].Def.Io.Range.mBasePort;
@@ -376,7 +376,8 @@ IDE_InitAndDiscover(
             if (ATA_IDENTIFY_SIG_CORRECT != (pDevice->AtaIdent.SigCheck & ATA_IDENTIFY_SIGCHECK_SIG_MASK))
             {
                 K2OSKERN_Debug(
-                    "IDE device %d/%d initial IDENTIFY signature incorrect (0x%02X)\n",
+                    "*** IDE(%08X) device %d/%d initial IDENTIFY signature incorrect (0x%02X)\n", 
+                    apController,
                     ixIo, ixDev,
                     pDevice->AtaIdent.SigCheck & ATA_IDENTIFY_SIGCHECK_SIG_MASK);
                 continue;
@@ -394,7 +395,8 @@ IDE_InitAndDiscover(
             if (cl != ((pDevice->AtaIdent.SigCheck & ATA_IDENTIFY_SIGCHECK_CHKSUM_MASK) >> ATA_IDENTIFY_SIGCHECK_CHKSUM_SHL))
             {
                 K2OSKERN_Debug(
-                    "IDE device %d/%d IDENTIFY checksum incorrect (0x%02X)\n",
+                    "*** IDE(%08X) device %d/%d IDENTIFY checksum incorrect (0x%02X)\n",
+                    apController,
                     ixIo, ixDev,
                     (pDevice->AtaIdent.SigCheck & ATA_IDENTIFY_SIGCHECK_CHKSUM_MASK) >> ATA_IDENTIFY_SIGCHECK_CHKSUM_SHL);
                 continue;
@@ -403,7 +405,7 @@ IDE_InitAndDiscover(
             // major revision is mandatory fixed; must be ata6+ compatible
             if (0 == (pDevice->AtaIdent.MajorRevision & ATA_IDENTIFY_VERSION_SUPP_ATA6))
             {
-                K2OSKERN_Debug("IDE device %d/%d does not support ATA6, device ignored.\n", ixIo, ixDev);
+                K2OSKERN_Debug("*** IDE(%08X) device %d/%d does not support ATA6, device ignored.\n", apController, ixIo, ixDev);
                 continue;
             }
 
@@ -486,14 +488,9 @@ IDE_InitAndDiscover(
 
             pDevice->mState = IdeState_EvalIdent;
             pDevice->mIsATAPI = isATAPI;
-            pDevice->mRpcObjHandle = K2OS_Rpc_CreateObj(0, &gIdeBlockIoDevice_ObjectClassDef.ClassId, (UINT32)pDevice);
-            if (NULL != pDevice->mRpcObj)
+            if (K2OS_CritSec_Init(&pDevice->Sec))
             {
-                K2_ASSERT(NULL != pDevice->mRpcObj);
-                if (K2OS_CritSec_Init(&pDevice->Sec))
-                {
-                    apController->mPopMask |= (1 << pDevice->mLocation);
-                }
+                apController->mPopMask |= (1 << pDevice->mLocation);
             }
         }
     }

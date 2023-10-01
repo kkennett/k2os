@@ -112,8 +112,8 @@ K2OS_System_CreateProcess(
     pThisThread->Kern.ResultRef.AsAny = NULL;
     pThisThread->Hdr.ObjDpc.Func = KernSystem_CreateProc_Dpc;
     KernCpu_QueueDpc(&pThisThread->Hdr.ObjDpc.Dpc, &pThisThread->Hdr.ObjDpc.Func, KernDpcPrio_Med);
-    pThisCore->mIsInMonitor = TRUE;
-    KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, &pThisThread->Kern.mStackPtr);
+
+    KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
     //
     // this is return point from entering the monitor to do the process create
     // interrupts will be on

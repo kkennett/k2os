@@ -29,10 +29,10 @@
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#ifndef __K2OSDEV_H
-#define __K2OSDEV_H
+#ifndef __K2OSDEV_BLOCKIO_H
+#define __K2OSDEV_BLOCKIO_H
 
-#include <k2osddk.h>
+#include <k2osdev.h>
 
 #if __cplusplus
 extern "C" {
@@ -42,7 +42,10 @@ extern "C" {
 //------------------------------------------------------------------------
 //
 
+// {5D2DAF34-2B80-48DC-8ED5-DB4E1DDA4055}
+#define K2OS_IFACE_BLOCKIO_DEVICE_CLASSID   { 0x5d2daf34, 0x2b80, 0x48dc, { 0x8e, 0xd5, 0xdb, 0x4e, 0x1d, 0xda, 0x40, 0x55 } }
 
+#define K2OS_SYSTEM_MSG_BLOCKIO_SHORT_MEDIA_CHANGED     1
 
 //
 //------------------------------------------------------------------------
@@ -52,4 +55,4 @@ extern "C" {
 }
 #endif
 
-#endif // __K2OSDEV_H
+#endif // __K2OSDEV_BLOCKIO_H

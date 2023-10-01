@@ -68,9 +68,9 @@
     <lib>@shared/lib/k2ring</lib>
     <lib>@shared/lib/k2xdl</lib>
     <lib>@shared/lib/k2frame</lib>
-    <lib>~kern/lib/k2osrpc</lib>
     
     <lib>~kern/main</lib>
+    <lib>~lib/k2osrpc</lib>
 
 </k2build>
 

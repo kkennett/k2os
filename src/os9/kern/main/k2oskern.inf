@@ -48,7 +48,6 @@ K2OSKERN_SeqInit
 K2OSKERN_SeqLock
 K2OSKERN_SeqUnlock
 K2OSKERN_GetCpuIndex
-K2OSKERN_PageArray_CreateAt
 K2OSKERN_SysProc_Notify
 K2OSKERN_IrqDefine
 K2OSKERN_IrqHook
@@ -107,6 +106,7 @@ K2OS_Heap_Free
 
 K2OS_Token_Clone
 K2OS_Token_Destroy
+K2OS_Token_Share
 
 K2OS_Notify_Create
 K2OS_Notify_Signal
@@ -142,7 +142,6 @@ K2OS_Xdl_GetIdent
 K2OS_Mailbox_Create
 K2OS_Mailbox_Send
 K2OS_Mailbox_Recv
-K2OS_Mailbox_Share
 
 K2OS_IfInst_Create
 K2OS_IfInst_GetId

@@ -141,3 +141,116 @@ K2OS_PageArray_GetLength(
 
     return result;
 }
+
+K2OS_PAGEARRAY_TOKEN
+K2OSKERN_PageArray_CreateIo(
+    UINT32      aFlags,
+    UINT32      aPageCountPow2,
+    UINT32 *    apRetPhysBase
+)
+{
+    K2OSKERN_PHYSTRACK *    pTrack;
+    K2OSKERN_PHYSRES        res;
+    K2STAT                  stat;
+    K2OSKERN_OBJREF         refObj;
+    K2OS_TOKEN              tokResult;
+
+    if (31 > aPageCountPow2)
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
+        return NULL;
+    }
+
+    if (!KernPhys_Reserve_Init(&res, 1 << aPageCountPow2))
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_OUT_OF_MEMORY);
+        return NULL;
+    }
+
+    stat = KernPhys_AllocPow2Bytes(&res, K2_VA_MEMPAGE_BYTES << aPageCountPow2, &pTrack);
+
+    KernPhys_Reserve_Release(&res);
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OS_Thread_SetLastStatus(stat);
+        return NULL;
+    }
+
+    refObj.AsAny = NULL;
+    stat = KernPageArray_CreateTrack(pTrack,
+        K2OS_MEMPAGE_ATTR_READABLE |
+        K2OS_MEMPAGE_ATTR_WRITEABLE |
+        K2OS_MEMPAGE_ATTR_DEVICEIO |
+        K2OS_MEMPAGE_ATTR_WRITE_THRU |
+        K2OS_MEMPAGE_ATTR_UNCACHED,
+        &refObj);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        KernPhys_FreeTrack(pTrack);
+        K2OS_Thread_SetLastStatus(stat);
+        return NULL;
+    }
+
+    if (NULL != apRetPhysBase)
+    {
+        *apRetPhysBase = KernPageArray_PagePhys(refObj.AsPageArray, 0);
+    }
+
+    tokResult = NULL;
+    stat = KernToken_Create(refObj.AsAny, &tokResult);
+    
+    KernObj_ReleaseRef(&refObj);
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2_ASSERT(NULL == tokResult);
+        return NULL;
+    }
+
+    K2_ASSERT(NULL != tokResult);
+
+    return tokResult;
+}
+
+UINT32
+K2OSKERN_PageArray_GetPagePhys(
+    K2OS_PAGEARRAY_TOKEN    aTokPageArray,
+    UINT32                  aPageIndex
+)
+{
+    K2OSKERN_OBJREF objRef;
+    K2STAT          stat;
+    UINT32          result;
+
+    objRef.AsAny = NULL;
+    stat = KernToken_Translate(aTokPageArray, &objRef);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OS_Thread_SetLastStatus(stat);
+        return 0;
+    }
+
+    result = 0;
+
+    if (KernObj_PageArray != objRef.AsAny->mObjType)
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_TOKEN);
+    }
+    else
+    {
+        if (aPageIndex >= objRef.AsPageArray->mPageCount)
+        {
+            K2OS_Thread_SetLastStatus(K2STAT_ERROR_OUT_OF_BOUNDS);
+        }
+        else
+        {
+            result = KernPageArray_PagePhys(objRef.AsPageArray, aPageIndex);
+        }
+    }
+
+    KernObj_ReleaseRef(&objRef);
+
+    return result;
+}
+

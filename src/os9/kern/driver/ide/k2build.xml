@@ -40,12 +40,11 @@
     <include>~inc/kern</include>
 
     <source>xdl_entry.c</source>
-    <source>createInstance.c</source>
-    <source>thread.c</source>
+    <source>kernif.c</source>
     <source>channel.c</source>
     <source>init.c</source>
     <source>regio.c</source>
-    <source>object.c</source>
+    <source>device.c</source>
 
     <lib arch="x32">@shared/lib/k2archx32</lib>
     <lib arch="a32">@shared/lib/k2archa32</lib>

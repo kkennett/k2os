@@ -33,6 +33,31 @@
 #include "pcibus.h"
 
 K2STAT
+CreateInstance(
+    K2OS_DEVCTX aDevCtx,
+    void **     appRetDriverContext
+)
+{
+    PCIBUS *    pPciBus;
+    K2STAT      stat;
+
+    pPciBus = (PCIBUS *)K2OS_Heap_Alloc(sizeof(PCIBUS));
+    if (NULL == pPciBus)
+    {
+        stat = K2OS_Thread_GetLastStatus();
+        K2_ASSERT(K2STAT_IS_ERROR(stat));
+        return stat;
+    }
+
+    K2MEM_Zero(pPciBus, sizeof(PCIBUS));
+
+    pPciBus->mDevCtx = aDevCtx;
+    *appRetDriverContext = pPciBus;
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT
 StartDriver(
     PCIBUS *apPciBus
 )
@@ -156,6 +181,8 @@ StartDriver(
         return K2STAT_ERROR_NO_INTERFACE;
     }
 
+    K2OSDDK_DriverStarted(apPciBus->mDevCtx);
+
     //
     // mount the bus children
     //
@@ -175,57 +202,19 @@ StartDriver(
 }
 
 K2STAT
-OnDdkMessage(
-    PCIBUS *        apPciBus,
-    K2OS_MSG const *apMsg
-)
-{
-    K2STAT stat;
-
-    if (apMsg->mShort == K2OS_SYSTEM_MSG_DDK_SHORT_START)
-    {
-        stat = StartDriver(apPciBus);
-    }
-    else
-    {
-        K2OSKERN_Debug("PCIBus: caught unsupported DDK message %d\n", apMsg->mShort);
-        stat = K2STAT_NO_ERROR;
-    }
-
-    return stat;
-}
-
-UINT32
-PciBus_Instance_Thread(
+StopDriver(
     PCIBUS *    apPciBus
 )
 {
-    K2OS_MSG    msg;
-    K2STAT      stat;
-
-    stat = K2OSDDK_SetMailslot(apPciBus->mDevCtx, (UINT32)apPciBus->mTokMailbox);
-    K2_ASSERT(!K2STAT_IS_ERROR(stat));
-
-    do {
-        if (!K2OS_Mailbox_Recv(apPciBus->mTokMailbox, &msg, K2OS_TIMEOUT_INFINITE))
-        {
-            stat = K2OS_Thread_GetLastStatus();
-            K2OSKERN_Debug("Mailbox Recv returned failure - %08X\n", stat);
-            break;
-        }
-
-        if (msg.mType == K2OS_SYSTEM_MSGTYPE_DDK)
-        {
-            stat = OnDdkMessage(apPciBus, &msg);
-            if (K2STAT_IS_ERROR(stat))
-                break;
-        }
-        else
-        {
-            K2OSKERN_Debug("PCIBus: caught unsupported type message 0x%04X\n", msg.mType);
-        }
-    } while (1);
-
-    return K2OSDDK_DriverStopped(apPciBus->mDevCtx, stat);
+    K2_ASSERT(0);
+    return K2STAT_ERROR_NOT_IMPL;
 }
- 
+
+K2STAT
+DeleteInstance(
+    PCIBUS *    apPciBus
+)
+{
+    K2_ASSERT(0);
+    return K2STAT_ERROR_NOT_IMPL;
+}

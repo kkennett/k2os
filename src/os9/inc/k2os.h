@@ -45,14 +45,17 @@ extern "C" {
 #define K2OS_TIMEOUT_INFINITE   ((UINT32)-1)
 #define K2OS_HFTIMEOUT_INFINITE ((UINT64)-1)
 
-typedef struct _K2OS_TOKEN_OPAQUE K2OS_TOKEN_OPAQUE;
-typedef K2OS_TOKEN_OPAQUE *         K2OS_TOKEN;
+typedef struct _K2OS_TOKEN_OPAQUE           K2OS_TOKEN_OPAQUE;
+typedef K2OS_TOKEN_OPAQUE *                 K2OS_TOKEN;
 
-typedef struct _K2OS_XDL_OPAQUE K2OS_XDL_OPAQUE;
-typedef K2OS_XDL_OPAQUE *           K2OS_XDL;
+typedef struct _K2OS_XDL_OPAQUE             K2OS_XDL_OPAQUE;
+typedef K2OS_XDL_OPAQUE *                   K2OS_XDL;
 
-typedef struct _K2OS_IPCEND_OPAQUE K2OS_IPCEND_OPAQUE;
-typedef K2OS_IPCEND_OPAQUE *        K2OS_IPCEND;
+typedef struct _K2OS_IPCEND_OPAQUE          K2OS_IPCEND_OPAQUE;
+typedef K2OS_IPCEND_OPAQUE *                K2OS_IPCEND;
+
+typedef struct _K2OS_BLOCKIO_RANGE_OPAQUE   K2OS_BLOCKIO_RANGE_OPAQUE;
+typedef K2OS_BLOCKIO_RANGE_OPAQUE *         K2OS_BLOCKIO_RANGE;
 
 typedef UINT32 K2OS_IFINST_ID;
 
@@ -159,6 +162,7 @@ K2_PACKED_POP
 #define K2OS_SYSTEM_MSGTYPE_SYSPROC     (K2OS_MSGTYPE_SYSTEM_FLAG | 4)
 #define K2OS_SYSTEM_MSGTYPE_DDK         (K2OS_MSGTYPE_SYSTEM_FLAG | 5)
 #define K2OS_SYSTEM_MSGTYPE_RPC         (K2OS_MSGTYPE_SYSTEM_FLAG | 6)
+#define K2OS_SYSTEM_MSGTYPE_BLOCKIO     (K2OS_MSGTYPE_SYSTEM_FLAG | 7)
 
 K2_PACKED_PUSH
 typedef struct _K2OS_MSG K2OS_MSG;
@@ -190,6 +194,7 @@ typedef K2OS_TOKEN  K2OS_VIRTMAP_TOKEN;
 typedef K2OS_TOKEN  K2OS_IFINST_TOKEN;
 typedef K2OS_TOKEN  K2OS_IFENUM_TOKEN;
 typedef K2OS_TOKEN  K2OS_IFSUBS_TOKEN;
+typedef K2OS_TOKEN  K2OS_BLOCKIO_TOKEN;
 
 typedef K2OS_WAITABLE_TOKEN K2OS_PROCESS_TOKEN;
 typedef K2OS_WAITABLE_TOKEN K2OS_THREAD_TOKEN;
@@ -245,7 +250,10 @@ struct _K2OS_RPC_OBJECT_CREATE
     UINT32          mCreatorProcessId;
     UINT32          mCreatorContext;
 };
-typedef K2STAT(*K2OS_RPC_pf_Object_Create)(K2OS_RPC_OBJ aObject, K2OS_RPC_OBJECT_CREATE const *apCreate, UINT32 *apRetContext, BOOL *apRetSingleUsage);
+typedef K2STAT (*K2OS_RPC_pf_Object_Create)(K2OS_RPC_OBJ aObject, K2OS_RPC_OBJECT_CREATE const *apCreate, UINT32 *apRetContext, BOOL *apRetSingleUsage);
+
+typedef K2STAT (*K2OS_RPC_pf_Object_OnAttach)(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aProcessId, UINT32 *apRetUseContext);
+typedef K2STAT (*K2OS_RPC_pf_Object_OnDetach)(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aUseContext);
 
 typedef struct _K2OS_RPC_CALLARGS K2OS_RPC_CALLARGS;
 struct _K2OS_RPC_CALLARGS
@@ -260,18 +268,23 @@ struct _K2OS_RPC_CALLARGS
 typedef struct _K2OS_RPC_OBJECT_CALL K2OS_RPC_OBJECT_CALL;
 struct _K2OS_RPC_OBJECT_CALL
 {
+    K2OS_RPC_OBJ        mObj;
+    UINT32              mObjContext;
+    UINT32              mUseContext;
     K2OS_GATE_TOKEN     mRemoteDisconnectedGateToken;
     K2OS_RPC_CALLARGS   Args;
 };
-typedef K2STAT(*K2OS_RPC_pf_Object_Call)(K2OS_RPC_OBJ aObject, UINT32 aObjContext, K2OS_RPC_OBJECT_CALL const *apCall, UINT32 *apRetUsedOutBytes);
+typedef K2STAT (*K2OS_RPC_pf_Object_Call)(K2OS_RPC_OBJECT_CALL const *apCall, UINT32 *apRetUsedOutBytes);
 
-typedef K2STAT(*K2OS_RPC_pf_Object_Delete)(K2OS_RPC_OBJ aObject, UINT32 aObjContext);
+typedef K2STAT (*K2OS_RPC_pf_Object_Delete)(K2OS_RPC_OBJ aObject, UINT32 aObjContext);
 
 struct _K2OS_RPC_OBJECT_CLASSDEF
 {
     K2_GUID128                  ClassId;
 
     K2OS_RPC_pf_Object_Create   Create;
+    K2OS_RPC_pf_Object_OnAttach OnAttach;
+    K2OS_RPC_pf_Object_OnDetach OnDetach;
     K2OS_RPC_pf_Object_Call     Call;
     K2OS_RPC_pf_Object_Delete   Delete;
 };
@@ -380,6 +393,7 @@ BOOL   K2OS_Heap_Free(void *aPtr);
 //
 
 BOOL   K2OS_Token_Clone(K2OS_TOKEN aToken, K2OS_TOKEN *apRetNewToken);
+UINT32 K2OS_Token_Share(K2OS_MAILBOX_TOKEN aTokMailbox, UINT32 aProcessId);
 BOOL   K2OS_Token_Destroy(K2OS_TOKEN aToken);
 
 //
@@ -452,7 +466,6 @@ BOOL        K2OS_Xdl_GetIdent(K2OS_XDL aXdl, char *apNameBuf, UINT32 aNameBufLen
 K2OS_MAILBOX_TOKEN  K2OS_Mailbox_Create(void);
 BOOL                K2OS_Mailbox_Send(K2OS_MAILBOX_TOKEN aTokMailbox, K2OS_MSG const *apMsg);
 BOOL                K2OS_Mailbox_Recv(K2OS_MAILBOX_TOKEN aTokMailbox, K2OS_MSG *apRetMsg, UINT32 aTimeoutMs);
-UINT32              K2OS_Mailbox_Share(K2OS_MAILBOX_TOKEN aTokMailbox, UINT32 aProcessId);
 
 //
 //------------------------------------------------------------------------
@@ -511,7 +524,7 @@ K2OS_RPC_CLASS  K2OS_RpcServer_Register(K2OS_RPC_OBJECT_CLASSDEF const *apClassD
 BOOL            K2OS_RpcServer_Deregister(K2OS_RPC_CLASS aRegisteredClass);
 
 BOOL            K2OS_RpcObj_GetContext(K2OS_RPC_OBJ aObject, UINT32 *apRetContext);
-BOOL            K2OS_RpcObj_SendNotify(K2OS_RPC_OBJ aObject, UINT32 aNotifyCode);
+BOOL            K2OS_RpcObj_SendNotify(K2OS_RPC_OBJ aObject, UINT32 aSpecificUseOrZeroForAll, UINT32 aNotifyCode, UINT32 aNotifyData);
 K2OS_RPC_IFINST K2OS_RpcObj_PublishIfInst(K2OS_RPC_OBJ aObject, UINT32 aClassCode, K2_GUID128 const* apSpecific, K2OS_IFINST_ID *apRetId);
 BOOL            K2OS_RpcObj_RemoveIfInst(K2OS_RPC_OBJ aObject, K2OS_RPC_IFINST aIfInst);
 
@@ -522,6 +535,18 @@ BOOL                K2OS_Rpc_GetObjId(K2OS_RPC_OBJ_HANDLE aObjHandle, UINT32 *ap
 BOOL                K2OS_Rpc_SetNotifyTarget(K2OS_RPC_OBJ_HANDLE aObjHandle, K2OS_MAILBOX_TOKEN aTokMailslot);
 K2STAT              K2OS_Rpc_Call(K2OS_RPC_OBJ_HANDLE aObjHandle, K2OS_RPC_CALLARGS const *apCallArgs, UINT32 *apRetActualOutBytes);
 BOOL                K2OS_Rpc_Release(K2OS_RPC_OBJ_HANDLE aObjHandle);
+
+//
+//------------------------------------------------------------------------
+//
+
+K2OS_BLOCKIO_TOKEN  K2OS_BlockIo_Attach(K2OS_IFINST_ID aIfInstId, UINT32 aAccess, UINT32 aShare, K2OS_MAILBOX_TOKEN aTokNotifyMailbox);
+BOOL                K2OS_BlockIo_GetMedia(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_STORAGE_MEDIA *apRetMedia);
+K2OS_BLOCKIO_RANGE  K2OS_BlockIo_RangeCreate(K2OS_BLOCKIO_TOKEN aTokBlockIo, UINT32 aRangeBase, UINT32 aRangeBlockCount, BOOL aMakePrivate);
+BOOL                K2OS_BlockIo_RangeDelete(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_BLOCKIO_RANGE aRange);
+BOOL                K2OS_BlockIo_Read(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_BLOCKIO_RANGE aRange, UINT32 aBytesOffset, void *apBuffer, UINT32 aByteCount);
+BOOL                K2OS_BlockIo_Write(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_BLOCKIO_RANGE aRange, UINT32 aBytesOffset, void const *apBuffer, UINT32 aByteCount);
+BOOL                K2OS_BlockIo_Erase(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_BLOCKIO_RANGE aRange, UINT32 aBytesOffset, UINT32 aByteCount);
 
 //
 //------------------------------------------------------------------------

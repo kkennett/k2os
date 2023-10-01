@@ -160,22 +160,25 @@ DevMgr_NodeLocked_AddTimer(
             timeHfMs -= pOtherNode->InTimerSec.mTargetHfTick;
             pListLink = pOtherNode->InTimerSec.ListLink.mpNext;
 
-            do {
-                pOtherNode = K2_GET_CONTAINER(DEVNODE, pListLink, InTimerSec.ListLink);
-                if (pOtherNode->InTimerSec.mTargetHfTick >= timeHfMs)
-                {
-                    //
-                    // pOtherNode happens after this one does
-                    //
-                    pOtherNode->InTimerSec.mTargetHfTick -= timeHfMs;
-                    K2LIST_AddBefore(&gTimerQueue, &apNode->InTimerSec.ListLink, pListLink);
-                    break;
-                }
+            if (NULL != pListLink)
+            {
+                do {
+                    pOtherNode = K2_GET_CONTAINER(DEVNODE, pListLink, InTimerSec.ListLink);
+                    if (pOtherNode->InTimerSec.mTargetHfTick >= timeHfMs)
+                    {
+                        //
+                        // pOtherNode happens after this one does
+                        //
+                        pOtherNode->InTimerSec.mTargetHfTick -= timeHfMs;
+                        K2LIST_AddBefore(&gTimerQueue, &apNode->InTimerSec.ListLink, pListLink);
+                        break;
+                    }
 
-                timeHfMs -= pOtherNode->InTimerSec.mTargetHfTick;
-                pListLink = pListLink->mpNext;
+                    timeHfMs -= pOtherNode->InTimerSec.mTargetHfTick;
+                    pListLink = pListLink->mpNext;
 
-            } while (NULL != pListLink);
+                } while (NULL != pListLink);
+            }
 
             if (NULL == pListLink)
             {

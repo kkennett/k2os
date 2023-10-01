@@ -54,6 +54,8 @@ KernArch_ResumeThread(
     if (pCurThread->mIsKernelThread)
     {
         stackPtr = pCurThread->Kern.mStackPtr;
+        K2_ASSERT(0 != stackPtr);
+
         K2_ASSERT(((K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr)->CS == (X32_SEGMENT_SELECTOR_KERNEL_CODE | X32_SELECTOR_RPL_KERNEL));
         K2_ASSERT(((K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr)->DS == (X32_SEGMENT_SELECTOR_KERNEL_DATA | X32_SELECTOR_RPL_KERNEL));
     }
@@ -162,15 +164,18 @@ KernArch_SetCoreToProcess(
 void    
 KernArch_IntsOff_EnterMonitorFromKernelThread(
     K2OSKERN_CPUCORE volatile * apThisCore,
-    UINT32 *                    apSaveThreadStackPtr
+    K2OSKERN_OBJ_THREAD *       apThread
 )
 {
     K2OSKERN_COREMEMORY volatile *  pCoreMem;
     UINT32                          newStackPtr;
 
+    apThisCore->mIsInMonitor = TRUE;
+
     //
     // interrupts are off. reset to base of core stack, then head to save state and switch to new stack
     //
+    X32Kern_StopCoreTimer(apThisCore);
 
     pCoreMem = (K2OSKERN_COREMEMORY volatile *)(K2OS_KVA_COREMEMORY_BASE + ((apThisCore->mCoreIx) * (4 * K2_VA_MEMPAGE_BYTES)));
     newStackPtr = ((UINT32)pCoreMem) + ((K2_VA_MEMPAGE_BYTES * 4) - 4);
@@ -178,14 +183,6 @@ KernArch_IntsOff_EnterMonitorFromKernelThread(
     newStackPtr -= sizeof(UINT32);
     *((UINT32 *)newStackPtr) = 0;
 
-    // return address will be popped before context save
-    // and the return address will be used as the saved EIP in the
-    // thread context that will be left on its stack
-    *apSaveThreadStackPtr = 
-        X32_ReadESP() +     // current stack pointer
-        + sizeof(UINT32)     // popped return address
-        - (sizeof(K2OSKERN_ARCH_EXEC_CONTEXT) - (2 * sizeof(UINT32)));  // kernel mode exception context
-
-    X32KernAsm_EnterMonitorFromKernelThread(newStackPtr, 0);
+    X32KernAsm_EnterMonitorFromKernelThread(newStackPtr, &apThread->Kern.mStackPtr);
 }
 

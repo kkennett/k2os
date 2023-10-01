@@ -109,9 +109,9 @@ KernXdl_FindClosestSymbol(
     K2LIST_LINK *           pXdlListLink;
     XDL *                   pXdl;
     UINT32                  segStart;
-    K2OSKERN_HOST_FILE *        pHostFile;
+    K2OSKERN_HOST_FILE *    pHostFile;
 
-    if (aAddr >= K2OS_KVA_KERN_BASE)
+    if ((aAddr >= K2OS_KVA_KERN_BASE) || (NULL == apCurProc))
     {
         pVirtMap = NULL;
 

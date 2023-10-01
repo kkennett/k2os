@@ -42,8 +42,6 @@ extern "C" {
 //------------------------------------------------------------------------
 //
 
-#define K2OS_SYSTEM_MSG_DDK_SHORT_START     1
-
 typedef struct _K2OS_DEVCTX_OPAQUE K2OS_DEVCTX_OPAQUE;
 typedef K2OS_DEVCTX_OPAQUE *    K2OS_DEVCTX;
 
@@ -81,14 +79,60 @@ struct _K2OSDDK_RES
 
 #define K2OSDDK_MOUNTCHILD_FLAGS_BUSTYPE_MASK   0x0000000F
 
-K2STAT K2OSDDK_SetMailslot(K2OS_DEVCTX aDevCtx, UINT32 aSharedMailbox);
 K2STAT K2OSDDK_GetInstanceInfo(K2OS_DEVCTX aDevCtx, K2_DEVICE_IDENT *apRetIdent, UINT32 *apRetCountIo, UINT32 *apRetCountPhys, UINT32 *apRetCountIrq);
 K2STAT K2OSDDK_GetRes(K2OS_DEVCTX aDevCtx, UINT32 aResType, UINT32 aIndex, K2OSDDK_RES *apRetRes);
 K2STAT K2OSDDK_MountChild(K2OS_DEVCTX aDevCtx, UINT32 aFlagsAndBusType, UINT64 const *apBusSpecificAddress, K2_DEVICE_IDENT const *apIdent, UINT32 *apRetChildInstanceId);
 K2STAT K2OSDDK_SetEnable(K2OS_DEVCTX aDevCtx, BOOL aSetEnable);
 K2STAT K2OSDDK_RunAcpiMethod(K2OS_DEVCTX aDevCtx, UINT32 aMethod, UINT32 aFlags, UINT32 aInput, UINT32 *apRetResult);
 K2STAT K2OSDDK_AddChildRes(K2OS_DEVCTX aDevCtx, UINT32 aChildInstanceId, K2OSDDK_RESDEF const *apResDef);
-K2STAT K2OSDDK_DriverStopped(K2OS_DEVCTX aDevCtx, K2STAT aResult);
+K2STAT K2OSDDK_DriverStarted(K2OS_DEVCTX aDevCtx);
+UINT32 K2OSDDK_DriverStopped(K2OS_DEVCTX aDevCtx, K2STAT aResult);
+
+//
+//------------------------------------------------------------------------
+//
+
+typedef struct _K2OS_BLOCKIO_CONFIG K2OS_BLOCKIO_CONFIG;
+struct _K2OS_BLOCKIO_CONFIG
+{
+    BOOL    mUseHwDma;
+};
+
+typedef enum _K2OS_BlockIoTransferType K2OS_BlockIoTransferType;
+enum _K2OS_BlockIoTransferType
+{
+    K2OS_BlockIoTransfer_Invalid = 0,
+
+    K2OS_BlockIoTransfer_Read = 1,
+    K2OS_BlockIoTransfer_Write = 2,
+    K2OS_BlockIoTransfer_Erase = 3,
+
+    K2OS_BlockIoTransferType_Count
+};
+
+typedef struct _K2OS_BLOCKIO_TRANSFER K2OS_BLOCKIO_TRANSFER;
+struct _K2OS_BLOCKIO_TRANSFER
+{
+    K2OS_BlockIoTransferType    mType;
+    UINT32                      mStartBlock;
+    UINT32                      mBlockCount;
+    UINT32                      mTargetAddr;    // phys addr if using hw dma, otherwise virtual cached addr
+};
+
+typedef K2STAT (*K2OSDDK_pf_BlockIo_GetMedia)(void *apDevice, K2OS_STORAGE_MEDIA *apRetMedia);
+typedef K2STAT (*K2OSDDK_pf_BlockIo_Transfer)(void *apDevice, K2OS_BLOCKIO_TRANSFER const *apTransfer);
+
+typedef struct _K2OSDDK_BLOCKIO_REGISTER K2OSDDK_BLOCKIO_REGISTER;
+struct _K2OSDDK_BLOCKIO_REGISTER
+{
+    K2OS_BLOCKIO_CONFIG             Config;
+    K2OSDDK_pf_BlockIo_GetMedia     GetMedia;
+    K2OSDDK_pf_BlockIo_Transfer     Transfer;
+};
+
+K2STAT K2OSDDK_BlockIoRegister(K2OS_DEVCTX aDevCtx, void *apDevice, K2OSDDK_BLOCKIO_REGISTER const *apRegister);
+K2STAT K2OSDDK_BlockIoDeregister(K2OS_DEVCTX aDevCtx, void *apDevice);
+
 //
 //------------------------------------------------------------------------
 //

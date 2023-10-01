@@ -30,7 +30,7 @@
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#include "k2osexec.h"
+#include "sysproc.h"
 #include <k2osdev_blockio.h>
 
 static K2OS_THREAD_TOKEN    sgStorMgrTokThread;
@@ -62,12 +62,11 @@ struct _STORDEV_ACTION
 struct _STORDEV
 {
     K2OS_IFINST_ID              mIfInstId;
-    UINT32                      mObjId;
-    K2OS_RPC_OBJ_HANDLE         mhBlockIo;
     UINT32                      mThreadId;
     K2LIST_LINK                 ListLink;
     K2OS_STORAGE_MEDIA          Media;
     K2OS_NOTIFY_TOKEN           mTokActionNotify;
+    K2OS_BLOCKIO_TOKEN          mTokBlockIo;
     STORDEV_ACTION * volatile   mpActions;
 };
 
@@ -76,7 +75,42 @@ StorDev_Mount(
     STORDEV *   apDev
 )
 {
-    K2OSKERN_Debug("StorMgr: Thread %d IfInstId %d Mount \"%s\"\n", K2OS_Thread_GetId(), apDev->mIfInstId, apDev->Media.mFriendly);
+    K2OS_BLOCKIO_RANGE  range;
+    UINT8 *             pBlockBuffer;
+    UINT8 *             pBlock;
+
+    Debug_Printf("STORMGR: Thread %d IfInstId %d Mount \"%s\"\n", K2OS_Thread_GetId(), apDev->mIfInstId, apDev->Media.mFriendly);
+
+    range = K2OS_BlockIo_RangeCreate(apDev->mTokBlockIo, 0, apDev->Media.mBlockCount, TRUE);
+    if (NULL == range)
+    {
+        Debug_Printf("STORMGR: Failed to create private range (whole device)\n");
+        return;
+    }
+
+    pBlockBuffer = (UINT8 *)K2OS_Heap_Alloc(apDev->Media.mBlockSizeBytes * 2);
+    if (NULL == pBlockBuffer)
+    {
+        Debug_Printf("STORMGR: memory alloc failed\n");
+    }
+    else
+    {
+        // align to block size
+        pBlock = (UINT8 *)(((((UINT32)pBlockBuffer) + (apDev->Media.mBlockSizeBytes - 1)) / apDev->Media.mBlockSizeBytes) * apDev->Media.mBlockSizeBytes);
+
+        if (!K2OS_BlockIo_Read(apDev->mTokBlockIo, range, 0, pBlock, apDev->Media.mBlockSizeBytes))
+        {
+            Debug_Printf("STORMGR: read failed %08X\n", K2OS_Thread_GetLastStatus());
+        }
+        else
+        {
+            Debug_Printf("STORMGR: read block 0 ok\n", K2OS_Thread_GetLastStatus());
+        }
+
+        K2OS_Heap_Free(pBlockBuffer);
+    }
+
+    K2OS_BlockIo_RangeDelete(apDev->mTokBlockIo, range);
 }
 
 void
@@ -84,7 +118,7 @@ StorDev_Unmount(
     STORDEV *   apDev
 )
 {
-    K2OSKERN_Debug("StorMgr: Thread %d IfInstId %d Unmount \"%s\"\n", K2OS_Thread_GetId(), apDev->mIfInstId, apDev->Media.mFriendly);
+    Debug_Printf("STORMGR: Thread %d IfInstId %d Unmount \"%s\"\n", K2OS_Thread_GetId(), apDev->mIfInstId, apDev->Media.mFriendly);
 }
 
 void
@@ -92,9 +126,7 @@ StorDev_OnMediaChange(
     STORDEV *   apDev
 )
 {
-    K2OS_RPC_CALLARGS   rpcCall;
-    K2STAT              status;
-    UINT32              outBytes;
+    K2STAT  stat;
 
     if (apDev->Media.mBlockSizeBytes > 0)
     {
@@ -104,34 +136,29 @@ StorDev_OnMediaChange(
     // media should be empty here
     K2_ASSERT(0 == apDev->Media.mBlockSizeBytes);
 
-    // try to mount new media
-    K2MEM_Zero(&rpcCall, sizeof(rpcCall));
-    rpcCall.mMethodId = K2OS_BLOCKIO_METHOD_GET_MEDIA;
-    rpcCall.mOutBufByteCount = sizeof(K2OS_STORAGE_MEDIA);
-    rpcCall.mpOutBuf = (UINT8 *)&apDev->Media;
-    status = K2OS_Rpc_Call(apDev->mhBlockIo, &rpcCall, &outBytes);
-
-    if (!K2STAT_IS_ERROR(status))
+    if (K2OS_BlockIo_GetMedia(apDev->mTokBlockIo, &apDev->Media))
     {
-        if (apDev->Media.mBlockSizeBytes > 0)
+        if ((apDev->Media.mBlockSizeBytes > 0) &&
+            (apDev->Media.mBlockCount > 0))
         {
             StorDev_Mount(apDev);
         }
         else
         {
-            K2OSKERN_Debug("StorMgr: Thread %d IfInstId %d -- zero blocks\n", K2OS_Thread_GetId(), apDev->mIfInstId);
-            K2MEM_Zero(&apDev->Media, sizeof(K2OS_STORAGE_MEDIA));
+            Debug_Printf("STORMGR: Thread %d IfInstId %d -- no blocks or 0 byte blocks\n", K2OS_Thread_GetId(), apDev->mIfInstId);
+            apDev->Media.mBlockSizeBytes = 0;
         }
     }
     else
     {
-        if (status == K2STAT_ERROR_NO_MEDIA)
+        stat = K2OS_Thread_GetLastStatus();
+        if (stat == K2STAT_ERROR_NO_MEDIA)
         {
-            K2OSKERN_Debug("StorMgr: Thread %d IfInstId %d -- No media\n", K2OS_Thread_GetId(), apDev->mIfInstId);
+            Debug_Printf("STORMGR: Thread %d IfInstId %d -- No media\n", K2OS_Thread_GetId(), apDev->mIfInstId);
         }
         else
         {
-            K2OSKERN_Debug("StorMgr: Thread %d IfInstId %d returned %08X to GET_MEDIA command\n", K2OS_Thread_GetId(), apDev->mIfInstId, status);
+            Debug_Printf("STORMGR: Thread %d IfInstId %d returned %08X to GetMedia()\n", K2OS_Thread_GetId(), apDev->mIfInstId, stat);
         }
     }
 }
@@ -146,13 +173,10 @@ StorDev_OnDepart(
         StorDev_Unmount(apDev);
     }
 
-    K2OS_Rpc_Release(apDev->mhBlockIo);
-    apDev->mhBlockIo = NULL;
-    apDev->mObjId = 0;
     apDev->mIfInstId = 0;
 
-    // this must be clear on exit from this function
-    K2_ASSERT(NULL == apDev->mhBlockIo);
+    K2OS_Token_Destroy(apDev->mTokBlockIo);
+    apDev->mTokBlockIo = NULL;
 }
 
 UINT32
@@ -168,7 +192,7 @@ StorMgr_DevThread(
 
     pThisDev = (STORDEV *)apArg;
 
-    K2OSKERN_Debug("StorMgr: Thread %d is servicing device with ifinstid %d\n", K2OS_Thread_GetId(), pThisDev->mIfInstId);
+//    Debug_Printf("STORMGR: Thread %d is servicing device with ifinstid %d\n", K2OS_Thread_GetId(), pThisDev->mIfInstId);
 
     StorDev_OnMediaChange(pThisDev);
 
@@ -218,19 +242,15 @@ StorMgr_DevThread(
 
             } while (NULL != pActions);
 
-        } while (NULL != pThisDev->mhBlockIo);
+        } while (NULL != pThisDev->mTokBlockIo);
 
     } while (1);
 
     K2OS_Token_Destroy(pThisDev->mTokActionNotify);
 
-    K2OS_Rpc_SetNotifyTarget(pThisDev->mhBlockIo, NULL);
-
     K2OS_CritSec_Enter(&sgStorDevListSec);
     K2LIST_Remove(&sgStorDevList, &pThisDev->ListLink);
     K2OS_CritSec_Leave(&sgStorDevListSec);
-
-    K2OS_Rpc_Release(pThisDev->mhBlockIo);
 
     K2OS_Heap_Free(pThisDev);
 
@@ -242,41 +262,35 @@ StorMgr_BlockIo_Arrived(
     K2OS_IFINST_ID aIfInstId
 )
 {
-    K2OS_RPC_OBJ_HANDLE hBlockIo;
-    UINT32              objId;
+    K2OS_BLOCKIO_TOKEN  tokBlockIo;
     STORDEV *           pStorDev;
-    BOOL                ok;
     K2OS_THREAD_TOKEN   tokThread;
     char                threadName[K2OS_THREAD_NAME_BUFFER_CHARS];
 
-    K2OSKERN_Debug("StorMgr: BlockIo ifInstId %d arrived\n", aIfInstId);
+    Debug_Printf("STORMGR: BlockIo ifInstId %d arrived\n", aIfInstId);
 
-    hBlockIo = K2OS_Rpc_AttachByIfInstId(aIfInstId, &objId);
-    if (NULL == hBlockIo)
+    tokBlockIo = K2OS_BlockIo_Attach(aIfInstId, K2OS_ACCESS_RW, K2OS_ACCESS_RW, sgStorMgrTokMailbox);
+    if (NULL == tokBlockIo)
     {
-        K2OSKERN_Debug("StorMgr: Could not attach to blockio device by interface instance id (%08X)\n", K2OS_Thread_GetLastStatus());
+        Debug_Printf("STORMGR: Could not attach to blockio device by interface instance id (%08X)\n", K2OS_Thread_GetLastStatus());
         return;
     }
 
     pStorDev = (STORDEV *)K2OS_Heap_Alloc(sizeof(STORDEV));
     if (NULL == pStorDev)
     {
-        K2OSKERN_Debug("StorMgr: Failed to allocate memory for storage device with blockio ifinstid %d\n", aIfInstId);
-        K2OS_Rpc_Release(hBlockIo);
+        Debug_Printf("STORMGR: Failed to allocate memory for storage device with blockio ifinstid %d\n", aIfInstId);
+        K2OS_Token_Destroy(tokBlockIo);
         return;
     }
 
     K2MEM_Zero(pStorDev, sizeof(STORDEV));
-    pStorDev->mhBlockIo = hBlockIo;
-    pStorDev->mObjId = objId;
+    pStorDev->mTokBlockIo = tokBlockIo;
     pStorDev->mIfInstId = aIfInstId;
 
     K2OS_CritSec_Enter(&sgStorDevListSec);
     K2LIST_AddAtTail(&sgStorDevList, &pStorDev->ListLink);
     K2OS_CritSec_Leave(&sgStorDevListSec);
-
-    ok = K2OS_Rpc_SetNotifyTarget(hBlockIo, sgStorMgrTokMailbox);
-    K2_ASSERT(ok);
 
     pStorDev->mTokActionNotify = K2OS_Notify_Create(FALSE);
 
@@ -294,15 +308,13 @@ StorMgr_BlockIo_Arrived(
         K2OS_Token_Destroy(pStorDev->mTokActionNotify);
     }
 
-    K2OSKERN_Debug("StorMgr: failed to start thread for blockio device with ifinstid %d\n", aIfInstId);
-
-    K2OS_Rpc_SetNotifyTarget(hBlockIo, NULL);
+    Debug_Printf("STORMGR: failed to start thread for blockio device with ifinstid %d\n", aIfInstId);
 
     K2OS_CritSec_Enter(&sgStorDevListSec);
     K2LIST_Remove(&sgStorDevList, &pStorDev->ListLink);
     K2OS_CritSec_Leave(&sgStorDevListSec);
 
-    K2OS_Rpc_Release(hBlockIo);
+    K2OS_Token_Destroy(tokBlockIo);
 
     K2OS_Heap_Free(pStorDev);
 }
@@ -383,7 +395,7 @@ StorMgr_BlockIo_Departed(
         K2_CpuWriteBarrier();
     } while (v != K2ATOMIC_CompareExchange((UINT32 volatile *)&pStorDev->mpActions, (UINT32)pAct, v));
 
-    // pStorDev may be GONE as soon as action is latched.  we don't care if this following gate open fails.
+    // pStorDev may be GONE as soon as action is latched.  we don't care if the following fails.
     K2OS_Notify_Signal(tokNotify);
 }
 
@@ -403,13 +415,15 @@ StorMgr_Thread(
     tokMailbox = K2OS_Mailbox_Create();
     if (NULL == tokMailbox)
     {
-        K2OSKERN_Panic("***StorMgr thread coult not create a mailbox\n");
+        Debug_Printf("***StorMgr thread coult not create a mailbox\n");
+        K2OS_Process_Exit(K2OS_Thread_GetLastStatus());
     }
 
     tokSubs = K2OS_IfSubs_Create(tokMailbox, K2OS_IFACE_CLASSCODE_STORAGE_DEVICE, &sBlockIoIfaceId, 12, FALSE, NULL);
     if (NULL == tokSubs)
     {
-        K2OSKERN_Panic("***StorMgr thread coult not subscribe to blockio device interface pop changes\n");
+        Debug_Printf("***StorMgr thread coult not subscribe to blockio device interface pop changes\n");
+        K2OS_Process_Exit(K2OS_Thread_GetLastStatus());
     }
 
     do {
@@ -433,12 +447,12 @@ StorMgr_Thread(
                 }
                 else
                 {
-                    K2OSKERN_Debug("*** SysProc StorMgr received unexpected IFINST message (%04X)\n", msg.mShort);
+                    Debug_Printf("*** SysProc StorMgr received unexpected IFINST message (%04X)\n", msg.mShort);
                 }
             }
-            else if (msg.mType == K2OS_SYSTEM_MSGTYPE_RPC)
+            else if (msg.mType == K2OS_SYSTEM_MSGTYPE_BLOCKIO)
             {
-                if (msg.mShort == K2OS_SYSTEM_MSG_RPC_SHORT_NOTIFY)
+                if (msg.mShort == K2OS_SYSTEM_MSG_BLOCKIO_SHORT_MEDIA_CHANGED)
                 {
                     K2OS_CritSec_Enter(&sgStorDevListSec);
 
@@ -448,7 +462,7 @@ StorMgr_Thread(
                         do {
                             pStorDev = K2_GET_CONTAINER(STORDEV, pListLink, ListLink);
                             pListLink = pListLink->mpNext;
-                            if (((UINT32)pStorDev->mhBlockIo) == msg.mPayload[0])
+                            if (((UINT32)pStorDev->mIfInstId) == msg.mPayload[0])
                             {
                                 StorMgr_BlockIo_ListLocked_Notify(pStorDev, msg.mPayload[1]);
                                 break;
@@ -460,12 +474,12 @@ StorMgr_Thread(
                 }
                 else
                 {
-                    K2OSKERN_Debug("*** SysProc StorMgr received unexpected RPC message (%04X)\n", msg.mShort);
+                    Debug_Printf("*** SysProc StorMgr received unexpected RPC message (%04X)\n", msg.mShort);
                 }
             }
             else
             {
-                K2OSKERN_Debug("*** SysProc StorMgr received unexpected message type (%04X)\n", msg.mType);
+                Debug_Printf("*** SysProc StorMgr received unexpected message type (%04X)\n", msg.mType);
             }
         }
 
@@ -481,8 +495,8 @@ StorMgr_Init(
 {
     if (!K2OS_CritSec_Init(&sgStorDevListSec))
     {
-        K2OSKERN_Panic("StorMgr: Could not create cs for storage device list\n");
-        return;
+        Debug_Printf("STORMGR: Could not create cs for storage device list\n");
+        K2OS_Process_Exit(K2OS_Thread_GetLastStatus());
     }
 
     K2LIST_Init(&sgStorDevList);
@@ -490,7 +504,8 @@ StorMgr_Init(
     sgStorMgrTokThread = K2OS_Thread_Create("Storage Manager", StorMgr_Thread, NULL, NULL, &sgStorMgrThreadId);
     if (NULL == sgStorMgrTokThread)
     {
-        K2OSKERN_Panic("***StorMgr thread coult not be started\n");
+        Debug_Printf("***StorMgr thread coult not be started\n");
+        K2OS_Process_Exit(K2OS_Thread_GetLastStatus());
     }
 }
 

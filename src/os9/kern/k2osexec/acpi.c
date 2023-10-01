@@ -110,7 +110,7 @@ ACPI_Enable(
     acpiStatus = AcpiEnableSubsystem(ACPI_NO_HANDLER_INIT);
     K2_ASSERT(!ACPI_FAILURE(acpiStatus));
 
-    K2OSKERN_Debug("Loading and parsing ACPI...\n");
+//    K2OSKERN_Debug("Loading and parsing ACPI...\n");
     acpiStatus = AcpiLoadTables();
     K2_ASSERT(!ACPI_FAILURE(acpiStatus));
 
@@ -970,6 +970,124 @@ ACPI_DiscoveredSystemBusChild(
 }
 
 void
+ACPI_AddRamDisk(
+    void
+)
+{
+    DEVNODE *           pChild;
+    char *              pIoBuf;
+    char *              pOut;
+    UINT32              ioBytes;
+    BOOL                ok;
+    UINT64              addr;
+    K2_DEVICE_IDENT     ident;
+    UINT32              name;
+
+    K2MEM_Zero(&ident, sizeof(ident));
+    addr = 0;
+    ident.mClassCode = 0xFE;
+    ident.mSubClassCode = 1;
+    ident.mVendorId = 0xFEED;
+    ident.mDeviceId = 0xF00D;
+
+    pChild = Dev_NodeLocked_CreateChildNode(gpDevTree, &addr, K2OS_BUSTYPE_CPU, &ident);
+    if (NULL == pChild)
+        return;
+
+    K2OS_CritSec_Enter(&pChild->Sec);
+
+    do {
+        pIoBuf = (char *)K2OS_Heap_Alloc(K2OSPLAT_MOUNT_MAX_BYTES);
+        if (NULL == pIoBuf)
+        {
+            K2OSKERN_Debug("*** Could not allocate Io buffer for device mount to kernel\n");
+            break;
+        }
+        do {
+            pOut = pIoBuf;
+            pOut += K2ASC_PrintfLen(pOut, K2OSPLAT_MOUNT_MAX_BYTES, "RAMDISK;");
+            ioBytes = ((UINT32)(pOut - pIoBuf)) + 1;
+
+            pChild->InSec.mpMountedInfo = (char *)K2OS_Heap_Alloc((ioBytes + 4) & ~3);
+            if (NULL == pChild->InSec.mpMountedInfo)
+            {
+                K2OSKERN_Debug("*** Failed to allocate memory for mount info\n");
+                break;
+            }
+
+            do {
+                K2MEM_Copy(pChild->InSec.mpMountedInfo, pIoBuf, ioBytes);
+                pChild->InSec.mMountedInfoBytes = ioBytes + 1;
+                pChild->InSec.mpMountedInfo[ioBytes] = 0;
+                K2MEM_Copy(&name, "RAMD", 4);
+
+                pChild->InSec.mPlatDev = gPlat.DeviceCreate(
+                    gpDevTree->InSec.mPlatDev,
+                    name,
+                    (UINT32)pChild,
+                    &pChild->DeviceIdent,
+                    (UINT8 *)pIoBuf,
+                    K2OSPLAT_MOUNT_MAX_BYTES,
+                    &ioBytes);
+
+                if (0 == pChild->InSec.mPlatDev)
+                {
+                    K2OSKERN_Debug("*** Mount of plat node failed (last status 0x%08X)\n", K2OS_Thread_GetLastStatus());
+                    break;
+                }
+
+                if (ioBytes > 0)
+                {
+                    K2_ASSERT(ioBytes <= K2OSPLAT_MOUNT_MAX_BYTES);
+
+                    pChild->InSec.mpPlatInfo = (UINT8 *)K2OS_Heap_Alloc((ioBytes + 4) & ~3);
+                    if (NULL == pChild->InSec.mpPlatInfo)
+                    {
+                        K2OSKERN_Debug("*** Could not allocate memory to hold node plat output\n");
+                    }
+                    else
+                    {
+                        K2MEM_Copy(pChild->InSec.mpPlatInfo, pIoBuf, ioBytes);
+                        pChild->InSec.mpPlatInfo[ioBytes] = 0;
+                        pChild->InSec.mPlatInfoBytes = ioBytes;
+                        ok = TRUE;
+                    }
+                }
+                else
+                {
+                    ok = TRUE;
+                }
+
+                if (!ok)
+                {
+                    gPlat.DeviceRemove(pChild->InSec.mPlatDev);
+                }
+
+            } while (0);
+
+            if (!ok)
+            {
+                K2OS_Heap_Free(pChild->InSec.mpMountedInfo);
+                pChild->InSec.mpMountedInfo = NULL;
+            }
+
+        } while (0);
+
+        K2OS_Heap_Free(pIoBuf);
+
+    } while (0);
+
+    if (!ok)
+    {
+        K2OS_CritSec_Leave(&pChild->Sec);
+        Dev_NodeLocked_DeleteChildNode(gpDevTree, pChild);
+        return;
+    }
+
+    K2OS_CritSec_Leave(&pChild->Sec);
+}
+
+void
 ACPI_StartSystemBusDriver(
     void
 )
@@ -1036,7 +1154,6 @@ ACPI_StartSystemBusDriver(
         AcpiWalkResourceBuffer(&pAcpiNode->CurrentAcpiRes, ACPI_SystemBus_AcquireResources, (void *)pAcpiNode);
     }
 
-
     K2OS_CritSec_Enter(&gpDevTree->Sec);
 
     //
@@ -1072,6 +1189,11 @@ ACPI_StartSystemBusDriver(
         }
         pListLink = pListLink->mpNext;
     } while (NULL != pListLink);
+
+    //
+    // add ramdisk node
+    //
+    ACPI_AddRamDisk();
 
     //
     // everything is enumerated/added.  enable the node now

@@ -103,13 +103,6 @@ void K2_CALLCONV_REGS K2OSKERN_MicroStall(UINT32 aMicroseconds);
 //------------------------------------------------------------------------
 //
 
-typedef K2OS_PAGEARRAY_TOKEN (*K2OSKERN_pf_PageArrary_CreateAt)(UINT32 aPhysBase, UINT32 aPageCount);
-K2OS_PAGEARRAY_TOKEN K2OSKERN_PageArray_CreateAt(UINT32 aPhysBase, UINT32 aPageCount);
-
-//
-//------------------------------------------------------------------------
-//
-
 typedef K2STAT (*K2OSKERN_pf_Sysproc_Notify)(K2OS_MSG const *apMsg);
 K2STAT K2OSKERN_SysProc_Notify(K2OS_MSG const *apMsg);
 
@@ -179,19 +172,6 @@ BOOL K2OSKERN_IntrVoteIrqEnable(K2OS_INTERRUPT_TOKEN aTokIntr, BOOL aSetEnable);
 
 typedef BOOL (*K2OSKERN_pf_IntrDone)(K2OS_INTERRUPT_TOKEN aTokIntr);
 BOOL K2OSKERN_IntrDone(K2OS_INTERRUPT_TOKEN aTokIntr);
-
-//
-//------------------------------------------------------------------------
-//
-
-typedef struct _K2OSACPI_INIT K2OSACPI_INIT;
-struct _K2OSACPI_INIT
-{
-    K2OS_FWINFO FwInfo;
-    UINT32      mFwBaseVirt;
-    UINT32      mFacsVirt;
-    UINT32      mXFacsVirt;
-};
 
 //
 //------------------------------------------------------------------------

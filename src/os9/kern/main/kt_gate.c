@@ -86,6 +86,7 @@ KernGate_Threaded_KernelChange(
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
+    gateRef.AsAny = NULL;
     stat = KernToken_Translate(aTokGate, &gateRef);
     if (!K2STAT_IS_ERROR(stat))
     {

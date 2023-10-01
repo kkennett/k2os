@@ -35,5 +35,8 @@ ID {86E3A9EE-2776-466D-910C-36BEDF1D519B}
 
 [Code]
 CreateInstance
+StartDriver
+StopDriver
+DeleteInstance
 
 [Data]

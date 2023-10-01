@@ -32,6 +32,10 @@
 
 #include "ik2osacpi.h"
 
+#define ENABLE_ACPI_DEBUG_OUTPUT 0
+
+#if ENABLE_ACPI_DEBUG_OUTPUT
+
 #define LOCBUFFER_CHARS 80
 
 void ACPI_INTERNAL_VAR_XFACE
@@ -68,4 +72,20 @@ AcpiOsVprintf(
     K2OS_Debug_OutputString(locBuffer);
 }
 
+#else
 
+void ACPI_INTERNAL_VAR_XFACE
+AcpiOsPrintf(
+    const char              *Format,
+    ...)
+{
+}
+
+void
+AcpiOsVprintf(
+    const char              *Format,
+    va_list                 Args)
+{
+}
+
+#endif

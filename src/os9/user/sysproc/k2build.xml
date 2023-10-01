@@ -38,5 +38,6 @@
 
     <source>mainThread.c</source>
     <source>debug.c</source>
+    <source>stormgr.c</source>
     
 </k2build>

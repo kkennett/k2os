@@ -93,8 +93,8 @@ K2OSPLAT_DeviceCreate(
     bytesIn = *apMountInfoBytesIo;
     *apMountInfoBytesIo = 0;
 
-//    K2OSKERN_Debug("K2OSPLAT_DeviceCreate(%d, %.4s, %08X, %d)\n", aParent, (char const *)&aName, aDeviceContext, aBytesIn);
-//    K2OSKERN_Debug("  MountInfo: \"%.*s\"\n", aBytesIn, (char *)apMountInfoIo);
+    //    K2OSKERN_Debug("K2OSPLAT_DeviceCreate(%d, %.4s, %08X, %d)\n", aParent, (char const *)&aName, aDeviceContext, aBytesIn);
+    //    K2OSKERN_Debug("  MountInfo: \"%.*s\"\n", aBytesIn, (char *)apMountInfoIo);
 
     if (0 != bytesIn)
     {
@@ -117,11 +117,11 @@ K2OSPLAT_DeviceCreate(
             pScan++;
         } while ((*pScan) != 0);
 
-        //
-        // second forced driver is for the built-in IDE controller so we can load stuff
-        //
     }
 
+    //
+    // second forced driver is for the built-in IDE controller so we can load stuff
+    //
     if ((apDeviceIdent->mVendorId == 0x8086) &&
         (apDeviceIdent->mDeviceId == 0x7111))
     {
@@ -129,6 +129,15 @@ K2OSPLAT_DeviceCreate(
         // this is the ide controller. force the driver to the built in ide driver
         //
         *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, ":ide.xdl");
+        return (K2OSPLAT_DEV)++gCount;
+    }
+
+    //
+    // third forced driver is the ramdisk
+    //
+    if (0 == K2ASC_CompInsLen((char const *)apMountInfoIo, "RAMDISK;", 8))
+    {
+        *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, ":ramdisk.xdl");
         return (K2OSPLAT_DEV)++gCount;
     }
 

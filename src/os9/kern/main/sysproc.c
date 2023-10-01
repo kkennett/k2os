@@ -170,7 +170,7 @@ KernSysProc_Notify(
         // not set up yet
         if (!aFromKernelThread)
         {
-            K2OSKERN_Debug("!!! SysProc notify before it is ready (%d.%d ignored)\n", apMsg->mType, apMsg->mShort);
+//            K2OSKERN_Debug("!!! SysProc notify before it is ready (%d.%d ignored)\n", apMsg->mType, apMsg->mShort);
             return K2STAT_ERROR_API_ORDER;
         }
         do {

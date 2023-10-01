@@ -264,7 +264,7 @@ KernIpcEnd_Create(
 
                     pSchedItem = &apCurThread->SchedItem;
 
-                    pSchedItem->mType = KernSchedItem_KernThread_MailboxOneShotRecv;
+                    pSchedItem->mType = KernSchedItem_KernThread_MailboxSentFirst;
                     KernObj_CreateRef(&pSchedItem->ObjRef, apMailboxOwner->RefMailbox.AsAny);
 
                     KernThread_CallScheduler(apThisCore);
@@ -314,6 +314,8 @@ KernIpcEnd_Accept(
     K2OSKERN_OBJREF         refRemoteMapOfLocalBuffer;
     K2OSKERN_PROCHEAP_NODE *pUserVirtHeapNode;
     K2OSKERN_SCHED_ITEM *   pSchedItem;
+    K2OS_TOKEN              tokLocalForRemote;
+    K2OS_TOKEN              tokRemoteForLocal;
 
     disp = K2OSKERN_SeqLock(&gData.Iface.SeqLock);
 
@@ -352,6 +354,7 @@ KernIpcEnd_Accept(
     //
     // create local map of remote buffer
     //
+    tokLocalForRemote = NULL;
     refLocalMapOfRemoteBuffer.AsAny = NULL;
     if (NULL != pLocalProc)
     {
@@ -374,6 +377,15 @@ KernIpcEnd_Accept(
             if (K2STAT_IS_ERROR(stat))
             {
                 KernProc_UserVirtHeapFree(pLocalProc, localVirtAddrOfRemoteBuffer);
+            }
+            else
+            {
+                stat = KernProc_TokenCreate(pLocalProc, refLocalMapOfRemoteBuffer.AsAny, &tokLocalForRemote);
+                if (K2STAT_IS_ERROR(stat))
+                {
+                    KernObj_ReleaseRef(&refLocalMapOfRemoteBuffer);
+                    KernProc_UserVirtHeapFree(pLocalProc, localVirtAddrOfRemoteBuffer);
+                }
             }
         }
     }
@@ -401,6 +413,15 @@ KernIpcEnd_Accept(
             {
                 KernVirt_Release(localVirtAddrOfRemoteBuffer);
             }
+            else
+            {
+                stat = KernToken_Create(refLocalMapOfRemoteBuffer.AsAny, &tokLocalForRemote);
+                if (K2STAT_IS_ERROR(stat))
+                {
+                    KernObj_ReleaseRef(&refLocalMapOfRemoteBuffer);
+                    KernVirt_Release(localVirtAddrOfRemoteBuffer);
+                }
+            }
         }
     }
 
@@ -408,6 +429,8 @@ KernIpcEnd_Accept(
     {
         return stat;
     }
+
+    K2_ASSERT(NULL != tokLocalForRemote);
 
     // 
     // create remote map of local buffer
@@ -435,6 +458,15 @@ KernIpcEnd_Accept(
             {
                 KernProc_UserVirtHeapFree(pRemoteProc, remoteVirtAddrOfLocalBuffer);
             }
+            else
+            {
+                stat = KernProc_TokenCreate(pRemoteProc, refRemoteMapOfLocalBuffer.AsAny, &tokRemoteForLocal);
+                if (K2STAT_IS_ERROR(stat))
+                {
+                    KernObj_ReleaseRef(&refRemoteMapOfLocalBuffer);
+                    KernProc_UserVirtHeapFree(pRemoteProc, remoteVirtAddrOfLocalBuffer);
+                }
+            }
         }
     }
     else
@@ -459,27 +491,45 @@ KernIpcEnd_Accept(
             );
             if (K2STAT_IS_ERROR(stat))
             {
-
-
-
                 KernVirt_Release(localVirtAddrOfRemoteBuffer);
+            }
+            else
+            {
+                stat = KernToken_Create(refRemoteMapOfLocalBuffer.AsAny, &tokRemoteForLocal);
+                if (K2STAT_IS_ERROR(stat))
+                {
+                    KernObj_ReleaseRef(&refRemoteMapOfLocalBuffer);
+                    KernVirt_Release(remoteVirtAddrOfLocalBuffer);
+                }
             }
         }
     }
 
     if (K2STAT_IS_ERROR(stat))
     {
+        if (NULL != pLocalProc)
+        {
+            KernProc_TokenDestroyInSysCall(apThisCore, apCurThread, tokLocalForRemote);
+        }
+        else
+        {
+            K2OS_Token_Destroy(tokLocalForRemote);
+        }
         KernObj_ReleaseRef(&refLocalMapOfRemoteBuffer);
         return stat;
     }
+
+    K2_ASSERT(NULL != tokRemoteForLocal);
 
     pSchedItem = &apCurThread->SchedItem;
 
     KernObj_CreateRef(&pSchedItem->Args.Ipc_Accept.LocalMapOfRemoteBufferRef, refLocalMapOfRemoteBuffer.AsAny);
     KernObj_ReleaseRef(&refLocalMapOfRemoteBuffer);
+    pSchedItem->Args.Ipc_Accept.mTokLocalMapOfRemote = tokLocalForRemote;
 
     KernObj_CreateRef(&pSchedItem->Args.Ipc_Accept.RemoteMapOfLocalBufferRef, refRemoteMapOfLocalBuffer.AsAny);
     KernObj_ReleaseRef(&refRemoteMapOfLocalBuffer);
+    pSchedItem->Args.Ipc_Accept.mTokRemoteMapOfLocal = tokRemoteForLocal;
 
     KernObj_CreateRef(&pSchedItem->Args.Ipc_Accept.RemoteEndRef, ipcRemoteEndRef.AsAny);
     KernObj_ReleaseRef(&ipcRemoteEndRef);
@@ -679,7 +729,7 @@ KernIpcEnd_Sent(
                 // sending 0 bytes on a loaded endpoint means abandon the send
                 //
                 stat = K2STAT_ERROR_ABANDONED;
-                K2OSKERN_Debug("undo reserve for load (intentional abandon)\n");
+//                K2OSKERN_Debug("undo reserve for load (intentional abandon)\n");
                 KernMailbox_UndoReserve(pPartnerMailbox, 1);
             }
             else
@@ -739,7 +789,7 @@ KernIpcEnd_Sent(
         apThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
         K2_ASSERT(apCurThread == apThisCore->mpActiveThread);
 
-        pSchedItem->mType = KernSchedItem_KernThread_MailboxOneShotRecv;
+        pSchedItem->mType = KernSchedItem_KernThread_MailboxSentFirst;
 
         KernThread_CallScheduler(apThisCore);
 
@@ -885,7 +935,6 @@ KernIpcEnd_SendRequest(
     BOOL                    firstReq;
     BOOL                    doSignal;
     K2OSKERN_SCHED_ITEM *   pSchedItem;
-    BOOL                    doSchedCall;
 
     pReq = (K2OSKERN_IPC_REQUEST *)KernHeap_Alloc(sizeof(K2OSKERN_IPC_REQUEST));
     if (NULL == pReq)
@@ -993,7 +1042,6 @@ KernIpcEnd_SendRequest(
             // 
             // deliver request message to target mailbox
             //
-            doSchedCall = FALSE;
             doSignal = FALSE;
             stat = KernMailbox_Deliver(
                 refTargetMailbox.AsMailbox,
@@ -1041,30 +1089,23 @@ KernIpcEnd_SendRequest(
                 else
                 {
                     // in kernel thread. call scheduler right here
-                    doSchedCall = TRUE;
+                    K2_ASSERT(NULL == apThisCore);
+
+                    disp = K2OSKERN_SetIntr(FALSE);
+                    K2_ASSERT(disp);
+
+                    apThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
+                    K2_ASSERT(apCurThread == apThisCore->mpActiveThread);
+
+                    pSchedItem = &apCurThread->SchedItem;
+                    pSchedItem->mType = KernSchedItem_KernThread_MailboxSentFirst;
+                    KernObj_CreateRef(&pSchedItem->ObjRef, refTargetMailbox.AsAny);
+
+                    KernThread_CallScheduler(apThisCore);
+
+                    // interrupts will be back on again here
+                    KernObj_ReleaseRef(&pSchedItem->ObjRef);
                 }
-            }
-
-            K2OSKERN_SeqUnlock(&gData.Iface.SeqLock, disp);
-
-            if (doSchedCall)
-            {
-                K2_ASSERT(NULL == apThisCore);
-
-                disp = K2OSKERN_SetIntr(FALSE);
-                K2_ASSERT(disp);
-
-                apThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
-                K2_ASSERT(apCurThread == apThisCore->mpActiveThread);
-
-                pSchedItem = &apCurThread->SchedItem;
-                pSchedItem->mType = KernSchedItem_KernThread_MailboxOneShotRecv;
-                KernObj_CreateRef(&pSchedItem->ObjRef, refTargetMailbox.AsAny);
-
-                KernThread_CallScheduler(apThisCore);
-
-                // interrupts will be back on again here
-                KernObj_ReleaseRef(&pSchedItem->ObjRef);
             }
         }
 
@@ -1109,7 +1150,7 @@ KernIpcEnd_RecvRes(
     else if (apIpcEnd->Connection.Locked.mState == KernIpcEndState_Connected)
     {
         // this reserve is the load the sender took before they completed their send
-        K2OSKERN_Debug("undo reserve for load (received)\n");
+//        K2OSKERN_Debug("undo reserve for load (received)\n");
         KernMailbox_UndoReserve(apIpcEnd->MailboxOwnerRef.AsMailboxOwner->RefMailbox.AsMailbox, 1);
     }
 
@@ -1136,7 +1177,7 @@ KernIpcEnd_SysCall_Create(
     // arg2 user map token
     // arg3 ipcend properties (max msg size and count)
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (KernThread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refMailboxOwner.AsAny = NULL;
     stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)pThreadPage->mSysCall_Arg1, &refMailboxOwner);
@@ -1148,10 +1189,15 @@ KernIpcEnd_SysCall_Create(
         }
         else
         {
+            refVirtMap.AsAny = NULL;
             stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)pThreadPage->mSysCall_Arg2, &refVirtMap);
             if (!K2STAT_IS_ERROR(stat))
             {
                 if (KernObj_VirtMap != refVirtMap.AsAny->mObjType)
+                {
+                    stat = K2STAT_ERROR_BAD_TOKEN;
+                }
+                else
                 {
                     stat = KernIpcEnd_Create(
                         apThisCore,
@@ -1193,7 +1239,6 @@ KernIpcEnd_SysCall_Send(
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refIpcEnd.AsAny = NULL;
-
     stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
     if (!K2STAT_IS_ERROR(stat))
     {

@@ -27,24 +27,30 @@
 //   SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 //   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-//   OF THIS SOFTWARE, EVEN IFK ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
+#ifndef __RAMDISK_H
+#define __RAMDISK_H
 
-#ifndef __KERNACPI_H
-#define __KERNACPI_H
+#include <k2osddk.h>
+#include <k2osdev_blockio.h>
 
-/* --------------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------------- */
 
-typedef struct _K2OSACPI_KERN_IFACE K2OSACPI_KERN_IFACE;
-struct _K2OSACPI_KERN_IFACE
+typedef struct _RAMDISK_DEVICE RAMDISK_DEVICE;
+struct _RAMDISK_DEVICE
 {
-    UINT32    mFwBasePhys;
-    UINT32    mFwBaseVirt;
-    UINT32    mFwSizeBytes;
-    UINT32    mFacsPhys;
-    UINT32    mXFacsPhys;
+    K2OS_DEVCTX         mDevCtx;
+    K2_DEVICE_IDENT     Ident;
+
+    UINT32              mVirtBase;
+    UINT32              mPageCount;
+    K2OS_VIRTMAP_TOKEN  mTokVirtMap;
 };
 
-/* --------------------------------------------------------------------------------- */
+K2STAT RAMDISK_GetMedia(RAMDISK_DEVICE *apDevice, K2OS_STORAGE_MEDIA *apRetMedia);
+K2STAT RAMDISK_Transfer(RAMDISK_DEVICE *apDevice, K2OS_BLOCKIO_TRANSFER const *apTransfer);
 
-#endif // __KERNACPI_H
+/* ------------------------------------------------------------------------- */
+
+#endif // __RAMDISK_H

@@ -31,6 +31,8 @@
 //
 #include "crtuser.h"
 
+K2STAT K2OSRPC_Init(void);
+
 UINT32  gProcessId;
 void *  __dso_handle;
 UINT32  gTimerAddr;
@@ -99,6 +101,8 @@ __k2oscrt_user_entry(
     //
     CrtMail_Init();
     CrtIpcEnd_Init();
+
+    K2OSRPC_Init();
 
     //
     // launch this process

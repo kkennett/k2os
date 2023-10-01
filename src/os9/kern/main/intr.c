@@ -182,9 +182,9 @@ KernIntr_OnSystemCall(
         *apRetFastResult = KernProc_SysCall_Fast_TlsFree(apThisCore, apCallingThread);
         return;
 
-    case K2OS_SYSCALL_ID_MAILBOX_RECVFIRST:
+    case K2OS_SYSCALL_ID_MAILBOX_SENTFIRST:
         // return or break depending on whether consumerix == arg
-        if (KernMailbox_InIntr_Fast_Check_RecvFirst(apThisCore, apCallingThread))
+        if (KernMailbox_InIntr_Fast_Check_SentFirst(apThisCore, apCallingThread))
         {
             *apRetFastResult = apCallingThread->User.mSysCall_Result;
             return;

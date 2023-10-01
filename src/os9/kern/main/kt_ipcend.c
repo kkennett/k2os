@@ -340,22 +340,21 @@ KernIpcEnd_Threaded_Recv(
     switch (apMsg->mShort)
     {
     case K2OS_SYSTEM_MSG_IPCEND_SHORT_CREATED:
-        K2OSKERN_Debug("IpcEnd_Created\n");
-        pKernIpcEnd->mIpcEndToken = (K2OS_TOKEN)apMsg->mPayload[0];
+        pKernIpcEnd->mIpcEndToken = (K2OS_TOKEN)apMsg->mPayload[1];
         break;
     case K2OS_SYSTEM_MSG_IPCEND_SHORT_CONNECTED:
         pKernIpcEnd->mRequesting = FALSE;
         pKernIpcEnd->mRequestIfInstId = 0;
-        KernIpcEnd_Threaded_Connected(pKernIpcEnd, apMsg->mPayload[0], (K2OS_VIRTMAP_TOKEN)apMsg->mPayload[1]);
+        KernIpcEnd_Threaded_Connected(pKernIpcEnd, apMsg->mPayload[1], (K2OS_VIRTMAP_TOKEN)apMsg->mPayload[2]);
         break;
     case K2OS_SYSTEM_MSG_IPCEND_SHORT_RECV:
-        KernIpcEnd_Threaded_RecvData(pKernIpcEnd, apMsg->mPayload[0]);
+        KernIpcEnd_Threaded_RecvData(pKernIpcEnd, apMsg->mPayload[1]);
         break;
     case K2OS_SYSTEM_MSG_IPCEND_SHORT_DISCONNECTED:
         KernIpcEnd_Threaded_Disconnected(pKernIpcEnd);
         break;
     case K2OS_SYSTEM_MSG_IPCEND_SHORT_REJECTED:
-        KernIpcEnd_Threaded_Rejected(pKernIpcEnd, apMsg->mPayload[0]);
+        KernIpcEnd_Threaded_Rejected(pKernIpcEnd, apMsg->mPayload[1]);
         break;
     default:
         K2_ASSERT(0);   // if this fires in debug we want to know about it

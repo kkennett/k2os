@@ -145,7 +145,7 @@ void K2_CALLCONV_REGS X32KernAsm_SysEnter_Entry(void);
 void X32Kern_StartTime(void);
 void X32Kern_TimerInterrupt(K2OSKERN_CPUCORE volatile * apThisCore);
 
-void K2_CALLCONV_REGS X32KernAsm_EnterMonitorFromKernelThread(UINT32 aNewStackPtr, UINT32 aDummy);
+void K2_CALLCONV_REGS X32KernAsm_EnterMonitorFromKernelThread(UINT32 aNewStackPtr, UINT32 *apStoreThreadStackPtr);
 void K2_CALLCONV_REGS X32KernAsm_EnterMonitor(UINT32 aESP);
 
 void X32Kern_DumpStackTrace(K2OSKERN_OBJ_PROCESS *apProc, UINT32 aEIP, UINT32 aEBP, UINT32 aESP, char *  apBuffer);

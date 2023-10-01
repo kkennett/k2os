@@ -60,6 +60,11 @@ KernIfInst_Cleanup(
         KernObj_ReleaseRef(&apIfInst->RefMailboxOwner);
     }
 
+    if (NULL != apIfInst->RefChild.AsAny)
+    {
+        KernObj_ReleaseRef(&apIfInst->RefChild);
+    }
+
     K2_ASSERT(0 == apIfInst->Hdr.RefObjList.mNodeCount);
 
     K2MEM_Zero(apIfInst, sizeof(K2OSKERN_OBJ_IFINST));
@@ -142,7 +147,6 @@ KernIfInst_SysCall_Fast_GetId(
     UINT32              result;
 
     refObj.AsAny = NULL;
-
     stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
 
     if (K2STAT_IS_ERROR(stat))

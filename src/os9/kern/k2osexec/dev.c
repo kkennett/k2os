@@ -129,19 +129,28 @@ Dev_NodeLocked_OnEvent_TimerExpired(
 )
 {
 
-    if (apNode->InSec.mState == DevNodeState_GoingOnline_WaitMailbox)
+    if (apNode->InSec.mState == DevNodeState_GoingOnline_PreInstantiate)
     {
-        K2OSKERN_Debug("Driver \"%s\" is taking a long time to start\n", apNode->InSec.mpDriverCandidate);
+        K2OSKERN_Debug("Driver \"%s\" is taking a long time to instantiate\n", apNode->InSec.mpDriverCandidate);
+        DevMgr_NodeLocked_AddTimer(apNode, DRIVER_INSTANTIATE_TIMEOUT_MS);
+        return;
+    }
+
+    if (apNode->InSec.mState == DevNodeState_GoingOnline_WaitStarted)
+    {
+        K2OSKERN_Debug("Driver \"%s\" (instance %08X) is taking a long time to start\n", apNode->InSec.mpDriverCandidate, apNode->Driver.mpContext);
         DevMgr_NodeLocked_AddTimer(apNode, DRIVER_START_TIMEOUT_MS);
         return;
     }
 
     K2OSKERN_Debug("%d: Timer expired\n", K2OS_System_GetMsTick32());
+    K2OSKERN_Debug("Driver \"%s\" (instance %08X) timer expired\n", apNode->InSec.mpDriverCandidate, apNode->Driver.mpContext);
+
     K2_ASSERT(0);
 }
 
 void
-Dev_CreateInstance_Work(
+Dev_Start_Work(
     void *apArg
 )
 {
@@ -151,27 +160,55 @@ Dev_CreateInstance_Work(
 
     pDevNode = (DEVNODE *)apArg;
 
-    //
-    // mailbox may be created in instantiate, or before we can enter the sec
-    // so we can't assume it's state after the beginning of the createInstance call
-    //
-    K2_ASSERT(pDevNode->InSec.mState == DevNodeState_GoingOnline_WaitMailbox);
+    K2_ASSERT(pDevNode->InSec.mState == DevNodeState_GoingOnline_PreInstantiate);
 
-    stat = K2_EXTRAP(&exTrap, pDevNode->InSec.Driver.mfCreateInstance((K2OS_DEVCTX)pDevNode, &pDevNode->InSec.Driver.mpContext));
+    stat = K2_EXTRAP(&exTrap, pDevNode->Driver.mfCreateInstance((K2OS_DEVCTX)pDevNode, &pDevNode->Driver.mpContext));
 
     K2OS_CritSec_Enter(&pDevNode->Sec);
 
+    DevMgr_NodeLocked_DelTimer(pDevNode);
+
     if (K2STAT_IS_ERROR(stat))
     {
-        DevMgr_NodeLocked_DelTimer(pDevNode);
-        K2OSKERN_Debug("Dev_CreateInstance failed with error code %08X\n", stat);
+        K2OSKERN_Debug("****Driver::CreateInstance failed with error code %08X\n", stat);
         pDevNode->InSec.Driver.mLastStatus = stat;
         pDevNode->InSec.mState = DevNodeState_Offline_ErrorStopped;
         DevMgr_QueueEvent(pDevNode->RefToParent.mpDevNode, DevNodeEvent_ChildStopped, (UINT32)pDevNode);
     }
     else
     {
-        K2OSKERN_Debug("Dev_CreateInstance ok with context %08X\n", pDevNode->InSec.Driver.mpContext);
+//        K2OSKERN_Debug("Driver(\"%s\") Created instance %08X\n", pDevNode->InSec.mpDriverCandidate, pDevNode->Driver.mpContext);
+        pDevNode->InSec.mState = DevNodeState_GoingOnline_WaitStarted;
+        DevMgr_NodeLocked_AddTimer(pDevNode, DRIVER_START_TIMEOUT_MS);
+    }
+
+    K2OS_CritSec_Leave(&pDevNode->Sec);
+
+    if (K2STAT_IS_ERROR(stat))
+        return;
+
+    //
+    // give driver a chance to do something outside Sec before we start it
+    //
+    K2OS_Thread_Sleep(100);
+
+    K2OSKERN_Debug("Staring Driver(\"%s\") instance %08X\n", pDevNode->InSec.mpDriverCandidate, pDevNode->Driver.mpContext);
+    stat = K2_EXTRAP(&exTrap, pDevNode->Driver.mfStartDriver(pDevNode->Driver.mpContext));
+
+    K2OS_CritSec_Enter(&pDevNode->Sec);
+
+    DevMgr_NodeLocked_DelTimer(pDevNode);
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OSKERN_Debug("****Driver::Start failed with error code %08X\n", stat);
+        pDevNode->InSec.Driver.mLastStatus = stat;
+        pDevNode->InSec.mState = DevNodeState_Offline_ErrorStopped;
+        DevMgr_QueueEvent(pDevNode->RefToParent.mpDevNode, DevNodeEvent_ChildStopped, (UINT32)pDevNode);
+    }
+    else
+    {
+//        K2OSKERN_Debug("Driver(\"%s\") instance %08X start executed\n", pDevNode->InSec.mpDriverCandidate, pDevNode->Driver.mpContext);
     }
 
     K2OS_CritSec_Leave(&pDevNode->Sec);
@@ -208,6 +245,8 @@ Dev_NodeLocked_OnEvent_ChildDriverSpecChanged(
 
     K2OS_CritSec_Enter(&apChild->Sec);
 
+    stat = K2STAT_ERROR_UNKNOWN;
+
     do {
         if (DevNodeState_Offline_CheckForDriver != apChild->InSec.mState)
         {
@@ -224,84 +263,106 @@ Dev_NodeLocked_OnEvent_ChildDriverSpecChanged(
         apChild->InSec.Driver.mXdl = K2OS_Xdl_Acquire(apChild->InSec.mpDriverCandidate);
         if (NULL == apChild->InSec.Driver.mXdl)
         {
-            K2OSKERN_Debug("Could not acquire driver \"%s\"; error code %08X\n", apChild->InSec.mpDriverCandidate, K2OS_Thread_GetLastStatus());
-            apChild->InSec.Driver.mLastStatus = K2OS_Thread_GetLastStatus();
-            apChild->InSec.mState = DevNodeState_Offline_ErrorStopped;
-            DevMgr_QueueEvent(apChild->RefToParent.mpDevNode, DevNodeEvent_ChildStopped, (UINT32)apChild);
-            break;
+            stat = K2OS_Thread_GetLastStatus();
+            K2_ASSERT(K2STAT_IS_ERROR(stat));
         }
-//        K2OSKERN_Debug("-Acquire driver \"%s\"\n", apChild->InSec.mpDriverCandidate);
-
-        apChild->InSec.Driver.mfCreateInstance = (K2OS_pf_Driver_CreateInstance)K2OS_Xdl_FindExport(apChild->InSec.Driver.mXdl, TRUE, "CreateInstance");
-        if (NULL == apChild->InSec.Driver.mfCreateInstance)
+        else
         {
-            K2OSKERN_Debug("Driver \"%s\" did not export \"CreateInstance\"\n", apChild->InSec.mpDriverCandidate);
-            K2OS_Xdl_Release(apChild->InSec.Driver.mXdl);
-            apChild->InSec.Driver.mXdl = NULL;
-            apChild->InSec.Driver.mLastStatus = K2OS_Thread_GetLastStatus();
-            apChild->InSec.mState = DevNodeState_Offline_ErrorStopped;
-            DevMgr_QueueEvent(apChild->RefToParent.mpDevNode, DevNodeEvent_ChildStopped, (UINT32)apChild);
-            break;
+            do {
+                apChild->Driver.mfCreateInstance = (K2OS_pf_Driver_CreateInstance)K2OS_Xdl_FindExport(
+                    apChild->InSec.Driver.mXdl, TRUE, "CreateInstance");
+                if (NULL == apChild->Driver.mfCreateInstance)
+                {
+                    K2OSKERN_Debug("Driver \"%s\" did not export \"CreateInstance\"\n", apChild->InSec.mpDriverCandidate);
+                    stat = K2STAT_ERROR_OBJECT_NOT_FOUND;
+                    break;
+                }
+
+                do {
+                    apChild->Driver.mfStartDriver = (K2OS_pf_Driver_Call)K2OS_Xdl_FindExport(
+                        apChild->InSec.Driver.mXdl, TRUE, "StartDriver");
+                    if (NULL == apChild->Driver.mfStartDriver)
+                    {
+                        K2OSKERN_Debug("Driver \"%s\" did not export \"StartDriver\"\n", apChild->InSec.mpDriverCandidate);
+                        stat = K2STAT_ERROR_OBJECT_NOT_FOUND;
+                        break;
+                    }
+
+                    do {
+                        apChild->Driver.mfStopDriver = (K2OS_pf_Driver_Call)K2OS_Xdl_FindExport(
+                            apChild->InSec.Driver.mXdl, TRUE, "StopDriver");
+                        if (NULL == apChild->Driver.mfStopDriver)
+                        {
+                            K2OSKERN_Debug("Driver \"%s\" did not export \"StopDriver\"\n", apChild->InSec.mpDriverCandidate);
+                            stat = K2STAT_ERROR_OBJECT_NOT_FOUND;
+                            break;
+                        }
+
+                        apChild->Driver.mfDeleteInstance = (K2OS_pf_Driver_Call)K2OS_Xdl_FindExport(
+                            apChild->InSec.Driver.mXdl, TRUE, "DeleteInstance");
+                        if (NULL == apChild->Driver.mfDeleteInstance)
+                        {
+                            K2OSKERN_Debug("Driver \"%s\" did not export \"DeleteInstance\"\n", apChild->InSec.mpDriverCandidate);
+                            stat = K2STAT_ERROR_OBJECT_NOT_FOUND;
+
+                            apChild->Driver.mfStopDriver = NULL;
+                        }
+                        else
+                        {
+                            stat = K2STAT_NO_ERROR;
+                        }
+
+                    } while (0);
+
+                    if (K2STAT_IS_ERROR(stat))
+                    {
+                        apChild->Driver.mfStartDriver = NULL;
+                    }
+
+                } while (0);
+
+                if (K2STAT_IS_ERROR(stat))
+                {
+                    apChild->Driver.mfCreateInstance = NULL;
+                }
+
+            } while (0);
+
+            if (K2STAT_IS_ERROR(stat))
+            {
+                K2OS_Xdl_Release(apChild->InSec.Driver.mXdl);
+                apChild->InSec.Driver.mXdl = NULL;
+            }
         }
 
-        apChild->InSec.mState = DevNodeState_GoingOnline_WaitMailbox;
-
-        stat = WorkerThread_Exec(Dev_CreateInstance_Work, apChild);
         if (K2STAT_IS_ERROR(stat))
         {
-            K2OSKERN_Debug("Driver \"%s\" CreateInstance() WorkerThread Exec failed with error code %08X\n", apChild->InSec.mpDriverCandidate, stat);
+            K2OSKERN_Debug("Failed to load driver \"%s\"; error code %08X\n", apChild->InSec.mpDriverCandidate, stat);
+            apChild->InSec.Driver.mLastStatus = stat;
+            apChild->InSec.mState = DevNodeState_Offline_ErrorStopped;
+            DevMgr_QueueEvent(apChild->RefToParent.mpDevNode, DevNodeEvent_ChildStopped, (UINT32)apChild);
+            break;
+        }
+
+        apChild->InSec.mState = DevNodeState_GoingOnline_PreInstantiate;
+
+        stat = WorkerThread_Exec(Dev_Start_Work, apChild);
+        if (K2STAT_IS_ERROR(stat))
+        {
+            K2OSKERN_Debug("Driver \"%s\" worker thread start failed with error code %08X\n", apChild->InSec.mpDriverCandidate, stat);
             K2OS_Xdl_Release(apChild->InSec.Driver.mXdl);
             apChild->InSec.Driver.mXdl = NULL;
-            apChild->InSec.Driver.mLastStatus = K2STAT_ERROR_OUT_OF_MEMORY;
+            apChild->InSec.Driver.mLastStatus = stat;
             apChild->InSec.mState = DevNodeState_Offline_ErrorStopped;
             DevMgr_QueueEvent(apNode, DevNodeEvent_ChildStopped, (UINT32)apChild);
             break;
         }
 
-        DevMgr_NodeLocked_AddTimer(apChild, DRIVER_START_TIMEOUT_MS);
+        DevMgr_NodeLocked_AddTimer(apChild, DRIVER_INSTANTIATE_TIMEOUT_MS);
 
     } while (0);
 
     K2OS_CritSec_Leave(&apChild->Sec);
-}
-
-K2STAT      
-Dev_NodeLocked_OnSetMailbox(
-    DEVNODE *           apDevNode,
-    K2OS_MAILBOX_TOKEN  aTokMailbox
-)
-{
-    if (apDevNode->InSec.mState == DevNodeState_GoingOnline_WaitMailbox)
-    {
-        DevMgr_NodeLocked_DelTimer(apDevNode);
-        apDevNode->InSec.Driver.mTokMailbox = aTokMailbox;
-        apDevNode->InSec.mState = DevNodeState_Online;
-        DevMgr_QueueEvent(apDevNode->RefToParent.mpDevNode, DevNodeEvent_ChildCameOnline, (UINT32)apDevNode);
-        return K2STAT_NO_ERROR;
-    }
-
-    return K2STAT_ERROR_API_ORDER;
-}
-
-void
-Dev_NodeLocked_OnEvent_ChildCameOnline(
-    DEVNODE *   apNode,
-    DEVNODE *   apChild
-)
-{
-    K2OS_MSG msg;
-
-    K2OSKERN_Debug("%s came online\n", apChild->InSec.mpDriverCandidate);
-
-    // tell child driver to start
-    msg.mType = K2OS_SYSTEM_MSGTYPE_DDK;
-    msg.mShort = K2OS_SYSTEM_MSG_DDK_SHORT_START;
-    if (!K2OS_Mailbox_Send(apChild->InSec.Driver.mTokMailbox, &msg))
-    {
-        K2OSKERN_Debug("*** Could not tell driver \"%s\" instace %08x to start!\n", apChild->InSec.mpDriverCandidate, apChild);
-        apChild->InSec.mState = DevNodeState_Online_Unresponsive;
-        apChild->InSec.Driver.mLastStatus = K2OS_Thread_GetLastStatus();
-    }
 }
 
 void
@@ -318,23 +379,19 @@ Dev_NodeLocked_OnEvent(
         break;
 
     case DevNodeEvent_ChildStopped:
-        K2OSKERN_Debug("Node(%08X): ChildStopped (%08X)\n", apNode, aArg);
+        K2OSKERN_Debug("EXEC: Node(%08X): ChildStopped (%08X)\n", apNode, aArg);
         break;
 
     case DevNodeEvent_ChildRefsHitZero:
-        K2OSKERN_Debug("Node(%08X): ChildRefsHitZero (%08X)\n", apNode, aArg);
+        K2OSKERN_Debug("EXEC: Node(%08X): ChildRefsHitZero (%08X)\n", apNode, aArg);
         break;
 
     case DevNodeEvent_NewChildMounted:
-        K2OSKERN_Debug("%s %08X: NewChildMounted (%08X)\n", apNode->InSec.mpDriverCandidate, apNode, aArg);
+//        K2OSKERN_Debug("EXEC: %s %08X: NewChildMounted (%08X)\n", apNode->InSec.mpDriverCandidate, apNode, aArg);
         break;
 
     case DevNodeEvent_ChildDriverSpecChanged:
         Dev_NodeLocked_OnEvent_ChildDriverSpecChanged(apNode, (DEVNODE *)aArg);
-        break;
-
-    case DevNodeEvent_ChildCameOnline:
-        Dev_NodeLocked_OnEvent_ChildCameOnline(apNode, (DEVNODE *)aArg);
         break;
 
     default:
@@ -430,9 +487,9 @@ Dev_NodeLocked_Enable(
     K2LIST_LINK *   pListLink;
     DEVNODE *       pChild;
 
-    if (DevNodeState_Online != apNode->InSec.mState)
+    if (apNode->InSec.mState != DevNodeState_Online)
     {
-        K2OSKERN_Debug("*** RunAcpiMethod for node that is not online\n");
+        K2OSKERN_Debug("*** Enable for node that is not online\n");
         return K2STAT_ERROR_NOT_RUNNING;
     }
 
@@ -441,9 +498,7 @@ Dev_NodeLocked_Enable(
         return K2STAT_NO_ERROR;
     }
 
-    K2OSKERN_Debug("Node(%08X): Enabling\n", apNode);
-
-    K2_ASSERT(DevNodeState_Online == apNode->InSec.mState);
+//    K2OSKERN_Debug("EXEC: Node(%08X): Enabling\n", apNode);
 
     apNode->InSec.Driver.mEnabled = TRUE;
 
@@ -469,7 +524,6 @@ Dev_NodeLocked_Enable(
                     K2MEM_Copy(pChild->InSec.mpDriverCandidate, pChild->InSec.mpPlatInfo, pChild->InSec.mPlatInfoBytes);
                     pChild->InSec.mpDriverCandidate[pChild->InSec.mPlatInfoBytes] = 0;
                     pChild->InSec.mState = DevNodeState_Offline_CheckForDriver;
-//                    K2OSKERN_Debug("Sending ChildDriverSpecChanged event\n");
                     DevMgr_QueueEvent(apNode, DevNodeEvent_ChildDriverSpecChanged, (UINT32)pChild);
                 }
             }
@@ -781,7 +835,7 @@ Dev_NodeLocked_AddRes(
                 pListLink = pListLink->mpNext;
             } while (NULL != pListLink);
         }
-        pDevRes->DdkRes.Phys.mTokPageArray = K2OSKERN_PageArray_CreateAt(
+        pDevRes->DdkRes.Phys.mTokPageArray = gKernDdk.PageArray_CreateAt(
             pDevRes->DdkRes.Def.Phys.Range.mBaseAddr,
             pDevRes->DdkRes.Def.Phys.Range.mSizeBytes / K2_VA_MEMPAGE_BYTES
         );
@@ -834,7 +888,7 @@ Dev_NodeLocked_AddRes(
         }
         pDevRes->DdkRes.Irq.mTokInterrupt = K2OSKERN_IrqHook(
             pDevRes->DdkRes.Def.Irq.Config.mSourceIrq, 
-            &apNode->InSec.Driver.mfIntrHookKey
+            &apNode->Driver.mfIntrHookKey
         );
         if (NULL == pDevRes->DdkRes.Irq.mTokInterrupt)
         {
