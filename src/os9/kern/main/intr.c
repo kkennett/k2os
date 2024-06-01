@@ -140,7 +140,6 @@ KernIntr_OnIrq(
     //
     // called straight from arch interrupt handler 
     // 
-
     KernArch_GetHfTimerTick(&tick);
     
     disp = K2OSKERN_SeqLock(&gData.Intr.SeqLock);

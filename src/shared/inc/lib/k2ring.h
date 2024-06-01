@@ -46,7 +46,7 @@ typedef struct _K2RING_STATE_FIELDS K2RING_STATE_FIELDS;
 struct _K2RING_STATE_FIELDS
 {
     UINT32  mReadIx     : 15;
-    UINT32  mSpare      : 1;
+    UINT32  mEmpty      : 1;
     UINT32  mWriteIx    : 15;
     UINT32  mHasGap     : 1;
 };
@@ -62,16 +62,17 @@ typedef struct _K2RING K2RING;
 struct _K2RING
 {
     K2RING_STATE    State;
-    UINT32          mWriterGap;
+    UINT32          mGapSize;
     UINT32          mSize;
+    UINT32          mWritePos;
+    UINT32          mWriteCount;
 };
 
 void   K2RING_Init(K2RING *apRing, UINT32 aSize);
-UINT32 K2RING_Reader_GetAvail(K2RING *apRing, UINT32 *apRetOffset, BOOL aSetSpareOnEmpty);
+UINT32 K2RING_Reader_GetAvail(K2RING *apRing, UINT32 *apRetOffset);
 K2STAT K2RING_Reader_Consumed(K2RING *apRing, UINT32 aCount);
 BOOL   K2RING_Writer_GetOffset(K2RING *apRing, UINT32 aCount, UINT32 *apRetOffset);
-K2STAT K2RING_Writer_Wrote(K2RING *apRing, UINT32 aWroteAtOffset, UINT32 aCount);
-void   K2RING_ClearSpareBit(K2RING *apRing);
+K2STAT K2RING_Writer_Wrote(K2RING *apRing);
 
 #ifdef __cplusplus
 };  // extern "C"

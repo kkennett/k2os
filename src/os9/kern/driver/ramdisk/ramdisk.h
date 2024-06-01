@@ -40,12 +40,14 @@
 typedef struct _RAMDISK_DEVICE RAMDISK_DEVICE;
 struct _RAMDISK_DEVICE
 {
-    K2OS_DEVCTX         mDevCtx;
-    K2_DEVICE_IDENT     Ident;
+    K2OS_DEVCTX                     mDevCtx;
+    K2_DEVICE_IDENT                 Ident;
 
-    UINT32              mVirtBase;
-    UINT32              mPageCount;
-    K2OS_VIRTMAP_TOKEN  mTokVirtMap;
+    UINT32                          mVirtBase;
+    UINT32                          mPageCount;
+    K2OS_VIRTMAP_TOKEN              mTokVirtMap;
+
+    K2OSDDK_pf_BlockIo_NotifyKey *  mpNotifyKey;
 };
 
 K2STAT RAMDISK_GetMedia(RAMDISK_DEVICE *apDevice, K2OS_STORAGE_MEDIA *apRetMedia);

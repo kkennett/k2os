@@ -74,7 +74,7 @@ Plat_Init(
 
 void
 SysProc_Start(
-    void
+    K2OSEXEC_INIT *apInit
 )
 {
     UINT32              id;
@@ -88,6 +88,8 @@ SysProc_Start(
     }
     K2_ASSERT(K2OS_SYSPROC_ID == id);
     K2OS_Token_Destroy(tokProc);
+
+    apInit->WaitSysProcReady();
 }
 
 UINT32
@@ -99,7 +101,7 @@ MainThread(
 
     K2MEM_Copy(&gKernDdk, &apInit->DdkInit, sizeof(K2OSKERN_DDK));
 
-    SysProc_Start();
+    SysProc_Start(apInit);
 
     Plat_Init();
 
@@ -108,6 +110,12 @@ MainThread(
     ACPI_Init(&apInit->AcpiInit);
 
     DevMgr_Init();
+
+    VolMgr_Init();
+
+    FsMgr_Init();
+
+    Rofs_Init();
 
     ACPI_Enable();
 

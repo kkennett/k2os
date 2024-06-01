@@ -39,7 +39,7 @@ struct _WORKER_THREAD
     UINT32                	    mThreadId;
 
     BOOL                        mIsDoingWork;
-    K2OS_NOTIFY_TOKEN           mTokWorkNotify;
+    K2OS_SIGNAL_TOKEN           mTokWorkNotify;
 
     UINT32                      mUserContext;
 

@@ -86,6 +86,7 @@
 
 #define K2OSKERN_PTE_ACTIVE_COW             K2OSKERN_PTE_NP_1
 #define K2OSKERN_PTE_MAP_CREATE             K2OSKERN_PTE_NP_2
+#define K2OSKERN_PTE_HEAPMAP_PENDING        K2OSKERN_PTE_NP_3
 
 /* --------------------------------------------------------------------------------- */
 

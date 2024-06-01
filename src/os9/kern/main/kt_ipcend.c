@@ -315,7 +315,7 @@ KernIpcEnd_Threaded_RecvData(
     recvCount = (aRecvBytes + (apKernIpcEnd->mLocalChunkBytes - 1)) / apKernIpcEnd->mLocalChunkBytes;
 
     offsetCount = (UINT32)-1;
-    availCount = K2RING_Reader_GetAvail(apKernIpcEnd->mpRecvRing, &offsetCount, FALSE);
+    availCount = K2RING_Reader_GetAvail(apKernIpcEnd->mpRecvRing, &offsetCount);
     K2_ASSERT(availCount >= recvCount);
     K2_ASSERT(offsetCount < apKernIpcEnd->mpRecvRing->mSize);
 
@@ -810,7 +810,7 @@ K2OS_IpcEnd_SendVector(
                             K2_ASSERT(!K2STAT_IS_ERROR(stat));
                             K2_ASSERT(byteCount == bytesToSend);
 
-                            stat = K2RING_Writer_Wrote(pKernIpcEnd->mpSendRing, offset, count);
+                            stat = K2RING_Writer_Wrote(pKernIpcEnd->mpSendRing);
                             if (K2STAT_IS_ERROR(stat))
                             {
                                 K2OSKERN_Debug("*** Writer_Wrote error 0x%08X\n", stat);

@@ -102,3 +102,44 @@ KernToken_Translate(
     return K2STAT_NO_ERROR;
 }
 
+K2OS_TOKEN  
+KernToken_Threaded_CloneFromUser(
+    UINT32      aProcessId,
+    K2OS_TOKEN  aUserToken
+)
+{
+    K2OSKERN_OBJREF procRef;
+    K2OSKERN_OBJREF refObj;
+    K2STAT          stat;
+    K2OS_TOKEN      tokValue;
+
+    procRef.AsAny = NULL;
+    if (!KernProc_FindAddRefById(aProcessId, &procRef))
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_NOT_FOUND);
+        return NULL;
+    }
+
+    refObj.AsAny = NULL;
+    stat = KernProc_TokenTranslate(procRef.AsProc, aUserToken, &refObj);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OS_Thread_SetLastStatus(stat);
+        KernObj_ReleaseRef(&procRef);
+        return NULL;
+    }
+
+    stat = KernObj_Share(procRef.AsProc, refObj.AsAny, NULL, (UINT32 *)&tokValue);
+
+    KernObj_ReleaseRef(&refObj);
+    KernObj_ReleaseRef(&procRef);
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        return NULL;
+    }
+
+    K2_ASSERT(NULL != tokValue);
+
+    return tokValue;
+}

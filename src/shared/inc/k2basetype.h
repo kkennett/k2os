@@ -198,6 +198,8 @@ typedef UINT64              UINT_PTR;
 typedef INT64               INT_PTR;
 #endif
 
+typedef void(*__vfpv)(void *);
+
 //
 // derived
 //
@@ -211,6 +213,14 @@ typedef INT8 *      VALIST;
 typedef UINT64      K2_TIME;
 
 typedef void        (*K2_pf_VOID)(void);
+
+struct _K2_CHUNK_HDR
+{
+    UINT32  mName;          // use K2_MAKEID4
+    UINT32  mLen;           // includes K2_CHUNK header
+    UINT32  mSubOffset;     // offset to K2_CHUNKs within this chunk
+};
+typedef struct _K2_CHUNK_HDR K2_CHUNK_HDR;
 
 K2_PACKED_PUSH
 struct _K2_GUID128
@@ -258,21 +268,6 @@ enum _K2_NUMTYPE
     K2_NUMTYPE_Mega,  /* M megabytes -  ##m or ##M ex.  16M   */
 };
 typedef enum _K2_NUMTYPE K2_NUMTYPE;
-
-K2_PACKED_PUSH
-struct _K2_EARTHTIME
-{
-    UINT16  mTimeZoneId;
-    UINT16  mYear;
-    UINT16  mMonth;
-    UINT16  mDay;
-    UINT16  mHour;
-    UINT16  mMinute;
-    UINT16  mSecond;
-    UINT16  mMillisecond;
-} K2_PACKED_ATTRIB;
-K2_PACKED_POP
-typedef struct _K2_EARTHTIME K2_EARTHTIME;
 
 K2_PACKED_PUSH
 struct _K2POINT
@@ -509,6 +504,11 @@ typedef enum _K2Rot K2Rot;
 #define K2STAT_ERROR_DUPLICATE_TOKEN            K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00057)
 #define K2STAT_ERROR_NOT_NEEDED                 K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00058)
 #define K2STAT_ERROR_NOT_SHAREABLE              K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00059)
+#define K2STAT_ERROR_DEVICE_REMOVED             K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x0005A)
+#define K2STAT_ERROR_NOT_CONFIGURED             K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x0005B)
+#define K2STAT_ERROR_CONFIGURED                 K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x0005C)
+#define K2STAT_ERROR_NOT_SHARED                 K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x0005D)
+#define K2STAT_ERROR_NOT_ENABLED                K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x0005E)
 
 //
 //------------------------------------------------------------------------
@@ -1429,6 +1429,51 @@ K2MMIO_ClrBits8(UINT_PTR aAddr, UINT8 val)
 #define MMREG_READ8(base, offset)             K2MMIO_Read8((base)+(offset))
 #define MMREG_SETBITS8(base, offset, value)   K2MMIO_SetBits8((base)+(offset), value)
 #define MMREG_CLRBITS8(base, offset, value)   K2MMIO_ClrBits8((base)+(offset), value)
+
+//
+//------------------------------------------------------------------------
+//
+
+#define K2_NET_ADAPTER_ADDR_MAX_LEN     16
+#define K2_NET_ADAPTER_NAME_MAX_LEN     31
+
+enum _K2_NetAdapterType
+{
+    K2_NetAdapter_Invalid = 0,
+    K2_NetAdapter_Ethernet = 1,
+    K2_NetAdapter_PPP = 20,
+
+    K2_NetAdapterType_Count
+};
+typedef enum _K2_NetAdapterType K2_NetAdapterType;
+
+typedef struct _K2_NET_ADAPTER_ADDR K2_NET_ADAPTER_ADDR;
+struct _K2_NET_ADAPTER_ADDR
+{
+    UINT32  mLen;
+    UINT8   mValue[K2_NET_ADAPTER_ADDR_MAX_LEN];
+};
+
+typedef struct _K2_NET_ADAPTER_DESC K2_NET_ADAPTER_DESC;
+struct _K2_NET_ADAPTER_DESC
+{
+    K2_NetAdapterType   mType;
+    K2_NET_ADAPTER_ADDR Addr;
+    UINT32              mPhysicalMTU; // full frame including headers/trailers
+    char                mName[K2_NET_ADAPTER_NAME_MAX_LEN + 1];
+};
+
+enum _K2_PPP_LinkPhaseType
+{
+    K2PPP_LinkPhase_Dead = 0,
+    K2PPP_LinkPhase_Establish,      // only LCP
+    K2PPP_LinkPhase_Authenticate,   // LCP, AUTH, QUAL
+    K2PPP_LinkPhase_Network,        // all
+    K2PPP_LinkPhase_Terminate,      // only LCP
+
+    K2PPP_LinkPhaseType_Count
+};
+typedef enum _K2_PPP_LinkPhaseType K2_PPP_LinkPhaseType;
 
 #ifdef __cplusplus
 };  // extern "C"

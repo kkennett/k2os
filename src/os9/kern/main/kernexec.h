@@ -35,6 +35,9 @@
 
 /* --------------------------------------------------------------------------------- */
 
+#include <k2osstor.h>
+#include <lib/k2rofshelp.h>
+
 typedef struct _K2OSACPI_INIT K2OSACPI_INIT;
 struct _K2OSACPI_INIT
 {
@@ -47,77 +50,9 @@ struct _K2OSACPI_INIT
 typedef K2OS_PAGEARRAY_TOKEN (*K2OSKERN_pf_PageArray_CreateAt)(UINT32 aPhysBase, UINT32 aPageCount);
 typedef K2OS_PAGEARRAY_TOKEN (*K2OSKERN_pf_PageArray_CreateIo)(UINT32 aFlags, UINT32 aPageCountPow2, UINT32 *apRetPhysBase);
 typedef UINT32               (*K2OSKERN_pf_PageArray_GetPagePhys)(K2OS_PAGEARRAY_TOKEN aTokPageArray, UINT32 aPageIndex);
-
-typedef enum _K2OSExecIop_Type K2OSExecIop_Type;
-enum _K2OSExecIop_Type
-{
-    K2OSExecIop_Invalid = 0,
-
-    K2OSExecIop_BlockIo,
-
-    K2OSExecIop_TypeCount 
-};
-
-typedef enum _K2OSExecIop_BlockIoOp_Type K2OSExecIop_BlockIoOp_Type;
-enum _K2OSExecIop_BlockIoOp_Type
-{
-    K2OSExecIop_BlockIoOp_Invalid = 0,
-
-    K2OSExecIop_BlockIoOp_Read = 1,     // same as K2OS_BlockIoTransfer_Read
-    K2OSExecIop_BlockIoOp_Write = 2,    // same as K2OS_BlockIoTransfer_Write
-    K2OSExecIop_BlockIoOp_Erase = 3,    // same as K2OS_BlockIoTransfer_Erase
-
-    K2OSExecIop_BlockIoOp_GetMedia,
-    K2OSExecIop_BlockIoOp_RangeCreate,
-    K2OSExecIop_BlockIoOp_RangeDelete,
-
-    K2OSExecIop_BlockIoOp_OwnerDied,
-
-    K2OSExecIop_BlokcIoOp_TypeCount
-};
-
-typedef struct _K2OSEXEC_IOP K2OSEXEC_IOP;
-struct _K2OSEXEC_IOP
-{
-    K2OSExecIop_Type    mType;
-
-    UINT32              mOwner;
-
-    union {
-        struct {
-            UINT32  mOp;
-            UINT32  mMemAddr;
-            UINT32  mRange;
-            UINT32  mOffset;
-            UINT32  mCount;
-        } BlockIo;
-
-        struct {
-            UINT32  mMemAddr;
-            UINT32  mCount;
-            UINT32  mResultCount;
-        } StreamIo;
-    } Op;
-
-    K2LIST_LINK         ListLink;
-};
-
-typedef struct _K2OSEXEC_IOTHREAD K2OSEXEC_IOTHREAD;
-
-typedef BOOL   (*K2OSEXEC_pf_Io_ValidateRange)(K2OSEXEC_IOTHREAD *apIoThread, K2OS_BLOCKIO_RANGE aRange, UINT32 aBytesOffset, UINT32 aByteCount, UINT32 aMemPageOffset);
-typedef void   (*K2OSEXEC_pf_Io_Submit)(K2OSEXEC_IOTHREAD *apIoThread, K2OSEXEC_IOP *apIop);
-typedef K2STAT (*K2OSEXEC_pf_Io_Cancel)(K2OSEXEC_IOTHREAD *apIoThread, K2OSEXEC_IOP *apIop);
-
-struct _K2OSEXEC_IOTHREAD
-{
-    BOOL                            mUsePhysAddr;
-    K2OSEXEC_pf_Io_ValidateRange    ValidateRange;
-    K2OSEXEC_pf_Io_Submit           Submit;
-    K2OSEXEC_pf_Io_Cancel           Cancel;
-};
-
-typedef K2STAT (*K2OSKERN_pf_Io_SetThread)(K2OS_IFINST_ID aIfInstId, K2OSEXEC_IOTHREAD *apThread);
-typedef void   (*K2OSKERN_pf_Io_Complete)(K2OSEXEC_IOTHREAD *apThread, K2OSEXEC_IOP *apIop, UINT32 aResult, BOOL aSetStat, K2STAT aStat);
+typedef K2OS_TOKEN           (*K2OSKERN_pf_UserToken_Clone)(UINT32 aProcessId, K2OS_TOKEN aUserToken);
+typedef K2OS_VIRTMAP_TOKEN   (*K2OSKERN_pf_UserVirtMap_Create)(UINT32 aProcessId, UINT32 aVirtResBase, UINT32 aVirtResPageCount, K2OS_PAGEARRAY_TOKEN aTokPageArray);
+typedef K2STAT               (*K2OSKERN_pf_UserMap)(UINT32 aProcessId, K2OS_PAGEARRAY_TOKEN aKernTokPageArray, UINT32 aPageCount, UINT32 *apRetUserVirtAddr, K2OS_VIRTMAP_TOKEN *apRetTokUserVirtMap);
 
 typedef struct _K2OSKERN_DDK K2OSKERN_DDK;
 struct _K2OSKERN_DDK
@@ -125,16 +60,20 @@ struct _K2OSKERN_DDK
     K2OSKERN_pf_PageArray_CreateAt      PageArray_CreateAt;
     K2OSKERN_pf_PageArray_CreateIo      PageArray_CreateIo;
     K2OSKERN_pf_PageArray_GetPagePhys   PageArray_GetPagePhys;
-
-    K2OSKERN_pf_Io_SetThread            Io_SetThread;
-    K2OSKERN_pf_Io_Complete             Io_Complete;
+    K2OSKERN_pf_UserToken_Clone         UserToken_Clone;
+    K2OSKERN_pf_UserVirtMap_Create      UserVirtMap_Create;
+    K2OSKERN_pf_UserMap                 UserMap;
 };
+
+typedef void (*K2OSKERN_pf_WaitSysProcReady)(void);
 
 typedef struct _K2OSEXEC_INIT K2OSEXEC_INIT;
 struct _K2OSEXEC_INIT
 {
-    K2OSACPI_INIT   AcpiInit;
-    K2OSKERN_DDK    DdkInit;
+    K2OSACPI_INIT                   AcpiInit;
+    K2OSKERN_DDK                    DdkInit;
+    K2OSKERN_pf_WaitSysProcReady    WaitSysProcReady;
+    K2ROFS const *                  mpRofs;
 };
 
 /* --------------------------------------------------------------------------------- */

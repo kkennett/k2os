@@ -31,19 +31,11 @@
 //
 #include "crtuser.h"
 
-K2OS_NOTIFY_TOKEN
+K2OS_SIGNAL_TOKEN
 K2OS_Notify_Create(
     BOOL aInitSignalled
 )
 {
-    return (K2OS_NOTIFY_TOKEN)CrtKern_SysCall1(K2OS_SYSCALL_ID_NOTIFY_CREATE, aInitSignalled);
-}
-
-BOOL
-K2OS_Notify_Signal(
-    K2OS_NOTIFY_TOKEN aTokNotify
-)
-{
-    return CrtKern_SysCall1(K2OS_SYSCALL_ID_NOTIFY_SIGNAL, (UINT32)aTokNotify);
+    return (K2OS_SIGNAL_TOKEN)CrtKern_SysCall1(K2OS_SYSCALL_ID_NOTIFY_CREATE, aInitSignalled);
 }
 

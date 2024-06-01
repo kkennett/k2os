@@ -289,7 +289,6 @@ static const K2OSKERN_pf_Cleanup sgCleanupFunc[] =// KernObj_Count
     (K2OSKERN_pf_Cleanup)KernIfSubs_Cleanup,        // KernObj_IfSubs,         // 16
     (K2OSKERN_pf_Cleanup)KernIpcEnd_Cleanup,        // KernObj_IpcEnd,         // 17
     (K2OSKERN_pf_Cleanup)KernNotifyProxy_Cleanup,   // KernObj_NotifyProxy     // 18
-    (K2OSKERN_pf_Cleanup)KernBlockIo_Cleanup,       // KernObj_BlockIo         // 19
 };
 K2_STATIC_ASSERT(sizeof(sgCleanupFunc) == (KernObj_Count * sizeof(K2OSKERN_pf_Cleanup)));
 
@@ -333,7 +332,6 @@ char const * const sgNames[] =
     "IfSubs",
     "IpcEnd",
     "NotifyProxy",
-    "BlockIo",
 };
 
 char const * const  
@@ -381,11 +379,11 @@ KernObj_Share(
         break;
 
     case KernObj_SemUser:
-        stat = KernSem_Share((K2OSKERN_OBJ_SEM *)apObjHdr, apTargetProc, apRetTokenValue);
+        stat = KernSem_Share(((K2OSKERN_OBJ_SEMUSER *)apObjHdr)->SemRef.AsSem, apTargetProc, apRetTokenValue);
         break;
 
     case KernObj_MailboxOwner:
-        stat = KernMailbox_Share(((K2OSKERN_OBJ_MAILBOX *)apObjHdr), apTargetProc, apRetTokenValue);
+        stat = KernMailbox_Share(((K2OSKERN_OBJ_MAILBOXOWNER *)apObjHdr)->RefMailbox.AsMailbox, apTargetProc, apRetTokenValue);
         break;
 
     case KernObj_Mailslot:

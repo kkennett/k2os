@@ -42,8 +42,8 @@ struct _K2OSRPC_CLIENT_CONN
     K2OS_IPCEND         mIpcEnd;
     K2OS_THREAD_TOKEN   mTokThread;
     UINT32              mThreadId;
-    K2OS_NOTIFY_TOKEN   mTokStopNotify;
-    K2OS_GATE_TOKEN     mTokConnectStatusGate;
+    K2OS_SIGNAL_TOKEN   mTokStopNotify;
+    K2OS_SIGNAL_TOKEN   mTokConnectStatusGate;
     BOOL                mIsConnected;
     BOOL                mIsRejected;
     K2OS_CRITSEC        IoListSec;
@@ -55,15 +55,15 @@ struct _K2OSRPC_CLIENT_OBJ_HANDLE
 {
     K2OSRPC_OBJ_HANDLE_HDR  Hdr;
     K2OS_MAILBOX_TOKEN      mTokNotifyMailbox;
-    UINT32                  mServerHandle;
     UINT32                  mServerObjId;
-    K2OSRPC_CLIENT_CONN *   mpConn;
+    K2OSRPC_CLIENT_CONN *   mpConnToServer;
+    K2TREE_NODE             ServerHandleTreeNode;   // mUserVal is server handle 
 };
 
 typedef struct _K2OSRPC_IOMSG K2OSRPC_IOMSG;
 struct _K2OSRPC_IOMSG
 {
-    K2OS_NOTIFY_TOKEN       mTokDoneNotify;
+    K2OS_SIGNAL_TOKEN       mTokDoneNotify;
     K2LIST_LINK             ConnListLink;
     K2OSRPC_MSG_REQUEST_HDR RequestHdr;
     K2STAT                  mResultStatus;
@@ -73,7 +73,8 @@ struct _K2OSRPC_IOMSG
 
 static K2OS_CRITSEC     sgConnSec;
 static K2TREE_ANCHOR    sgConnTree;
- 
+static K2TREE_ANCHOR    sgServerHandleTree;
+
 void
 K2OSRPC_ClientConn_SendRequest(
     K2OSRPC_CLIENT_CONN *   apConn,
@@ -196,8 +197,9 @@ K2OSRPC_ClientConn_OnRecv(
     K2LIST_LINK *                       pListLink;
     K2OSRPC_IOMSG *                     pIoMsg;
     K2OSRPC_CLIENT_CONN *               pConn;
-    K2OSRPC_OBJECT_NOTIFY               notify;
-//    K2OS_MSG                            msg;
+    K2TREE_NODE *                       pTreeNode;
+    K2OS_MSG                            msg;
+    K2OSRPC_CLIENT_OBJ_HANDLE *         pObjHandle;
 
     FUNC_ENTER;
 
@@ -212,19 +214,42 @@ K2OSRPC_ClientConn_OnRecv(
         return;
     }
 
-    if (*((UINT32 *)apData) == K2OSRPC_OBJECT_NOTIFY_MARKER)
+    if (*((UINT32 *)apData) == K2OSRPC_OBJ_NOTIFY_MARKER)
     {
-        if (aByteCount == sizeof(K2OSRPC_OBJECT_NOTIFY))
+        if (aByteCount == sizeof(K2OSRPC_OBJ_NOTIFY))
         {
-            K2MEM_Copy(&notify, apData, sizeof(notify));
+            msg.mType = 0;
 
-            // find the server handle
-            // send the message to the mailslot if it is not null
-//            msg.mControl = K2OS_SYSTEM_MSG_RPC_NOTIFY;
-//            msg.mPayload[0] = handle;
-//            msg.mPayload[1] = notify code;
-//            msg.mPayload[2] = notify data;
-            K2_ASSERT(0);
+            K2OS_CritSec_Enter(&gRpcGraphSec);
+
+            pTreeNode = K2TREE_Find(&sgServerHandleTree, ((K2OSRPC_OBJ_NOTIFY *)apData)->mServerHandle);
+            if (NULL != pTreeNode)
+            {
+                pObjHandle = K2_GET_CONTAINER(K2OSRPC_CLIENT_OBJ_HANDLE, pTreeNode, ServerHandleTreeNode);
+
+                msg.mType = K2OS_SYSTEM_MSGTYPE_RPC;
+                msg.mShort = K2OS_SYSTEM_MSG_RPC_SHORT_NOTIFY;
+                msg.mPayload[0] = (UINT32)pObjHandle;
+                msg.mPayload[1] = ((K2OSRPC_OBJ_NOTIFY const *)apData)->mCode;
+                msg.mPayload[2] = ((K2OSRPC_OBJ_NOTIFY const *)apData)->mData;
+            }
+
+            K2OS_CritSec_Leave(&gRpcGraphSec);
+
+            if (0 != msg.mType)
+            {
+                if (NULL != pObjHandle->mTokNotifyMailbox)
+                {
+                    if (!K2OS_Mailbox_Send(pObjHandle->mTokNotifyMailbox, &msg))
+                    {
+                        K2OSRPC_Debug("***failed to send msg - %08X\n", K2OS_Thread_GetLastStatus());
+                    }
+                }
+                else
+                {
+                    K2OSRPC_Debug("Object %08X received notify but no mailbox set\n", pObjHandle);
+                }
+            }
 
             FUNC_EXIT;
             return;
@@ -863,14 +888,15 @@ K2OSRPC_Client_CreateObj(
         pHandle->Hdr.mRefs = 1;
         pHandle->Hdr.mIsServer = FALSE;
         pHandle->Hdr.GlobalHandleTreeNode.mUserVal = (UINT32)pHandle;
-        pHandle->mpConn = pConn;
+        pHandle->mpConnToServer = pConn;
         // addref to conn not done because we would release the one we got from FindOrCreate() above
-        pHandle->mServerHandle = response.mServerHandle;
+        pHandle->ServerHandleTreeNode.mUserVal = response.mServerHandle;
         pHandle->mServerObjId = response.mServerObjId;
 
         K2OS_CritSec_Enter(&gRpcGraphSec);
 
         K2TREE_Insert(&gRpcHandleTree, pHandle->Hdr.GlobalHandleTreeNode.mUserVal, &pHandle->Hdr.GlobalHandleTreeNode);
+        K2TREE_Insert(&sgServerHandleTree, pHandle->ServerHandleTreeNode.mUserVal, &pHandle->ServerHandleTreeNode);
 
         K2OS_CritSec_Leave(&gRpcGraphSec);
 
@@ -940,10 +966,10 @@ K2OSRPC_Client_Attach(
         pHandle->Hdr.mRefs = 1;
         pHandle->Hdr.mIsServer = FALSE;
         pHandle->Hdr.GlobalHandleTreeNode.mUserVal = (UINT32)pHandle;
-        pHandle->mpConn = pConn;
+        pHandle->mpConnToServer = pConn;
         // addref to conn not done because we would release the one we got from FindOrCreate() above
         pHandle->mServerObjId = response.mServerObjId;
-        pHandle->mServerHandle = response.mServerHandle;
+        pHandle->ServerHandleTreeNode.mUserVal = response.mServerHandle;
 
         if (NULL != apRetObjId)
         {
@@ -953,6 +979,7 @@ K2OSRPC_Client_Attach(
         K2OS_CritSec_Enter(&gRpcGraphSec);
 
         K2TREE_Insert(&gRpcHandleTree, pHandle->Hdr.GlobalHandleTreeNode.mUserVal, &pHandle->Hdr.GlobalHandleTreeNode);
+        K2TREE_Insert(&sgServerHandleTree, pHandle->ServerHandleTreeNode.mUserVal, &pHandle->ServerHandleTreeNode);
 
         K2OS_CritSec_Leave(&gRpcGraphSec);
 
@@ -1055,9 +1082,9 @@ K2OSRPC_Client_Call(
 
     FUNC_ENTER;
 
-    K2_ASSERT(NULL != apObjHandle->mpConn);
+    K2_ASSERT(NULL != apObjHandle->mpConnToServer);
 
-    if (!apObjHandle->mpConn->mIsConnected)
+    if (!apObjHandle->mpConnToServer->mIsConnected)
     {
         FUNC_EXIT;
         return K2STAT_ERROR_DISCONNECTED;
@@ -1066,14 +1093,14 @@ K2OSRPC_Client_Call(
     K2MEM_Zero(&ioMsg, sizeof(K2OSRPC_IOMSG));
 
     ioMsg.RequestHdr.mRequestType = K2OSRPC_ServerClientRequest_Call;
-    ioMsg.RequestHdr.mTargetId = (UINT32)apObjHandle->mServerHandle;
+    ioMsg.RequestHdr.mTargetId = (UINT32)apObjHandle->ServerHandleTreeNode.mUserVal;
     ioMsg.RequestHdr.mTargetMethodId = apCallArgs->mMethodId;
 
     ioMsg.RequestHdr.mOutBufSizeProvided = apCallArgs->mOutBufByteCount;
     ioMsg.mpOutBuffer = apCallArgs->mpOutBuf;
 
     K2OSRPC_ClientConn_SendRequest(
-        apObjHandle->mpConn,
+        apObjHandle->mpConnToServer,
         &ioMsg,
         apCallArgs->mpInBuf,
         apCallArgs->mInBufByteCount
@@ -1101,23 +1128,23 @@ K2OSRPC_Client_PurgeHandle(
     //
     // handle has already been removed from global handle tree
     //
-    K2_ASSERT(NULL != apObjHandle->mpConn);
+    K2_ASSERT(NULL != apObjHandle->mpConnToServer);
 
-    if (apObjHandle->mpConn->mIsConnected)
+    if (apObjHandle->mpConnToServer->mIsConnected)
     {
         K2MEM_Zero(&ioMsg, sizeof(ioMsg));
 
         ioMsg.RequestHdr.mRequestType = K2OSRPC_ServerClientRequest_Release;
-        ioMsg.RequestHdr.mTargetId = apObjHandle->mServerHandle;
+        ioMsg.RequestHdr.mTargetId = apObjHandle->ServerHandleTreeNode.mUserVal;
 
         // response to this is ignored
-        K2OSRPC_ClientConn_SendRequest(apObjHandle->mpConn, &ioMsg, NULL, 0);
+        K2OSRPC_ClientConn_SendRequest(apObjHandle->mpConnToServer, &ioMsg, NULL, 0);
     }
 
-    K2OSRPC_ClientConn_Release(apObjHandle->mpConn);
-    apObjHandle->mpConn = NULL;
+    K2OSRPC_ClientConn_Release(apObjHandle->mpConnToServer);
+    apObjHandle->mpConnToServer = NULL;
 
-    apObjHandle->mServerHandle = 0;
+    apObjHandle->ServerHandleTreeNode.mUserVal = 0;
     apObjHandle->mServerObjId = 0;
 
     if (NULL != apObjHandle->mTokNotifyMailbox)
@@ -1176,5 +1203,15 @@ K2OSRPC_Client_Init(
 
     K2TREE_Init(&sgConnTree, NULL);
 
+    K2TREE_Init(&sgServerHandleTree, NULL);
+
     FUNC_EXIT;
+}
+
+void 
+K2OSRPC_HandleLocked_AtClientServerHandleDestroy(
+    K2OSRPC_CLIENT_OBJ_HANDLE *apHandle
+)
+{
+    K2TREE_Remove(&sgServerHandleTree, &apHandle->ServerHandleTreeNode);
 }

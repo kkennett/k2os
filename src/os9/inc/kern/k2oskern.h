@@ -132,10 +132,11 @@ enum _KernIntrActionType
 typedef enum _KernIntrDispType KernIntrDispType;
 enum _KernIntrDispType
 {
-    KernIntrDisp_None = 0,      // this isn't for me (i am not interrupting)
-    KernIntrDisp_Handled,       // handled in the hook during irq. do not pulse the interrupt gate
-    KernIntrDisp_Fire,          // pulse the interrupt gate, but do not need interrupt to be disabled
-    KernIntrDisp_Fire_Disable,  // pulse the interrupt gate and leave the irq disabled
+    KernIntrDisp_None = 0,          // this isn't for me (i am not interrupting)
+    KernIntrDisp_Handled,           // handled in the hook during irq. do not pulse the interrupt gate
+    KernIntrDisp_Handled_Disable,   // handled in the hook during irq. do not pulse the interrupt gate. leave the irq disabled
+    KernIntrDisp_Fire,              // pulse the interrupt gate, but do not need interrupt to be disabled
+    KernIntrDisp_Fire_Disable,      // pulse the interrupt gate and leave the irq disabled
 
     KernIntrDispType_Count
 };
@@ -155,8 +156,8 @@ BOOL K2OSKERN_IrqDefine(K2OS_IRQ_CONFIG const *apConfig);
 // create K2OSKERN_OBJ_INTERRUPT and add it to the IRQ interrupt list
 // setting the hook key in the object
 //
-typedef K2OS_INTERRUPT_TOKEN (*K2OSKERN_pf_IrqHook)(UINT32 aSourceIrq, K2OSKERN_pf_Hook_Key *apKey);
-K2OS_INTERRUPT_TOKEN K2OSKERN_IrqHook(UINT32 aSourceIrq, K2OSKERN_pf_Hook_Key *apKey);
+typedef K2OS_INTERRUPT_TOKEN (*K2OSKERN_pf_IrqHook)(UINT32 aSourceIrq, K2OSKERN_pf_Hook_Key **appKey);
+K2OS_INTERRUPT_TOKEN K2OSKERN_IrqHook(UINT32 aSourceIrq, K2OSKERN_pf_Hook_Key *appKey);
 
 //
 // raw enable or disable the specified irq using the arch API
@@ -172,6 +173,13 @@ BOOL K2OSKERN_IntrVoteIrqEnable(K2OS_INTERRUPT_TOKEN aTokIntr, BOOL aSetEnable);
 
 typedef BOOL (*K2OSKERN_pf_IntrDone)(K2OS_INTERRUPT_TOKEN aTokIntr);
 BOOL K2OSKERN_IntrDone(K2OS_INTERRUPT_TOKEN aTokIntr);
+
+//
+//------------------------------------------------------------------------
+//
+
+typedef K2STAT (*K2OSKERN_pf_PrepIo)(BOOL aUseHwDma, BOOL aIsWrite, UINT32 aProcId, UINT32 *apAddr, UINT32 *apSizeBytes, K2OS_TOKEN *apRetToken);
+K2STAT K2OSKERN_PrepIo(BOOL aUseHwDma, BOOL aIsWrite, UINT32 aProcId, UINT32 *apAddr, UINT32 *apSizeBytes, K2OS_TOKEN *apRetToken);
 
 //
 //------------------------------------------------------------------------

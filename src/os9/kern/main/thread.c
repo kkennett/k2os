@@ -60,8 +60,22 @@ KernThread_FirstThreadEntryPoint(
 )
 {
     K2OSEXEC_INIT   execInit;
+    K2STAT          stat;
 
     K2OSKERN_Debug("%d: Kernel Start\n\n", K2OS_System_GetMsTick32());
+
+    KernVirt_Threaded_Init();
+
+    stat = KernGate_Create(FALSE, &gData.SysProc.RefReady1);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OSKERN_Panic("*** Could not create sysproc-ready1 gate\n");
+    }
+    stat = KernToken_Create(gData.SysProc.RefReady1.AsAny, &gData.SysProc.mTokReady1);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OSKERN_Panic("*** Could not create sysproc-ready1 gate\n");
+    }
 
     KernCritSec_Threaded_InitDeferred();
 
@@ -72,8 +86,6 @@ KernThread_FirstThreadEntryPoint(
     KernExec_Threaded_Init();
 
     K2OSRPC_Init();
-
-    KernIoMgr_Threaded_Init();
 
     execInit.AcpiInit.FwInfo.mFwBasePhys = gData.mpShared->LoadInfo.mFwTabPagesPhys;
     execInit.AcpiInit.FwInfo.mFwSizeBytes = gData.mpShared->LoadInfo.mFwTabPageCount * K2_VA_MEMPAGE_BYTES;
@@ -86,8 +98,13 @@ KernThread_FirstThreadEntryPoint(
     execInit.DdkInit.PageArray_CreateAt = K2OSKERN_PageArray_CreateAt;
     execInit.DdkInit.PageArray_CreateIo = K2OSKERN_PageArray_CreateIo;
     execInit.DdkInit.PageArray_GetPagePhys = K2OSKERN_PageArray_GetPagePhys;
-    execInit.DdkInit.Io_SetThread = K2OSKERN_IoMgr_SetThread;
-    execInit.DdkInit.Io_Complete = K2OSKERN_IoMgr_Complete;
+    execInit.DdkInit.UserToken_Clone = KernToken_Threaded_CloneFromUser;
+    execInit.DdkInit.UserVirtMap_Create = KernProc_Threaded_UserVirtMapCreate;
+    execInit.DdkInit.UserMap = KernProc_Threaded_UserMap;
+
+    execInit.WaitSysProcReady = K2OSKERN_WaitSysProcReady;
+
+    execInit.mpRofs = gData.FileSys.mpRofs;
 
     KernThread_Exit(((K2OS_pf_THREAD_ENTRY)gData.Exec.mfMainThreadEntryPoint)(&execInit));
 
@@ -218,7 +235,6 @@ KernThread_Init(
     sgSysCall[K2OS_SYSCALL_ID_TOKEN_SHARE               ] = KernProc_SysCall_TokenShare;
     sgSysCall[K2OS_SYSCALL_ID_TOKEN_DESTROY             ] = KernProc_SysCall_TokenDestroy;
     sgSysCall[K2OS_SYSCALL_ID_NOTIFY_CREATE             ] = KernNotify_SysCall_Create;
-    sgSysCall[K2OS_SYSCALL_ID_NOTIFY_SIGNAL             ] = KernNotify_SysCall_Signal;
     sgSysCall[K2OS_SYSCALL_ID_THREAD_WAIT               ] = KernWait_SysCall;
     sgSysCall[K2OS_SYSCALL_ID_THREAD_EXIT               ] = KernThread_SysCall_Exit;
     sgSysCall[K2OS_SYSCALL_ID_THREAD_CREATE             ] = KernThread_SysCall_Create;
@@ -240,7 +256,6 @@ KernThread_Init(
     sgSysCall[K2OS_SYSCALL_ID_TRAP_MOUNT                ] = KernProc_SysCall_TrapMount;
     sgSysCall[K2OS_SYSCALL_ID_TRAP_DISMOUNT             ] = KernProc_SysCall_TrapDismount;
     sgSysCall[K2OS_SYSCALL_ID_GATE_CREATE               ] = KernGate_SysCall_Create;
-    sgSysCall[K2OS_SYSCALL_ID_GATE_CHANGE               ] = KernGate_SysCall_Change;
     sgSysCall[K2OS_SYSCALL_ID_ALARM_CREATE              ] = KernAlarm_SysCall_Create;
     sgSysCall[K2OS_SYSCALL_ID_SEM_CREATE                ] = KernSemUser_SysCall_Create;
     sgSysCall[K2OS_SYSCALL_ID_SEM_INC                   ] = KernSemUser_SysCall_Inc;
@@ -264,12 +279,7 @@ KernThread_Init(
     sgSysCall[K2OS_SYSCALL_ID_IPCEND_REQUEST            ] = KernIpcEnd_SysCall_Request;
     sgSysCall[K2OS_SYSCALL_ID_IPCREQ_REJECT             ] = KernIpcEnd_SysCall_RejectRequest;
     sgSysCall[K2OS_SYSCALL_ID_SYSPROC_REGISTER          ] = KernSysProc_SysCall_Register;
-    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_ATTACH            ] = KernBlockIo_SysCall_Attach;
-    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_GETMEDIA          ] = KernBlockIo_SysCall_To_IoMgr;
-    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_RANGE_CREATE      ] = KernBlockIo_SysCall_To_IoMgr;
-    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_RANGE_DELETE      ] = KernBlockIo_SysCall_To_IoMgr;
-    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_TRANSFER          ] = KernBlockIo_SysCall_To_IoMgr;
-    sgSysCall[K2OS_SYSCALL_ID_BLOCKIO_ERASE             ] = KernBlockIo_SysCall_To_IoMgr;
+    sgSysCall[K2OS_SYSCALL_ID_SIGNAL_CHANGE             ] = KernSignal_SysCall_Change;
 
     sgDpc_OneTimeInitInMonitor.Func = KernThread_OneTimeInitInMonitor;
     KernCpu_QueueDpc(&sgDpc_OneTimeInitInMonitor.Dpc, &sgDpc_OneTimeInitInMonitor.Func, KernDpcPrio_Med);

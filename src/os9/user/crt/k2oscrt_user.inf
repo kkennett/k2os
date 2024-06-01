@@ -207,11 +207,10 @@ K2OS_Token_Destroy
 K2OS_Token_Share
 
 K2OS_Notify_Create
-K2OS_Notify_Signal
-
 K2OS_Gate_Create
-K2OS_Gate_Open
-K2OS_Gate_Close
+K2OS_Signal_Set
+K2OS_Signal_Reset
+K2OS_Signal_Pulse
 
 K2OS_Semaphore_Create
 K2OS_Semaphore_Inc
@@ -269,7 +268,7 @@ K2OS_RpcServer_Register
 K2OS_RpcServer_Deregister
 K2OS_RpcObj_GetContext
 K2OS_RpcObj_SendNotify
-K2OS_RpcObj_PublishIfInst
+K2OS_RpcObj_AddIfInst
 K2OS_RpcObj_RemoveIfInst
 K2OS_Rpc_CreateObj
 K2OS_Rpc_AttachByObjId
@@ -278,14 +277,6 @@ K2OS_Rpc_GetObjId
 K2OS_Rpc_SetNotifyTarget
 K2OS_Rpc_Call
 K2OS_Rpc_Release
-
-K2OS_BlockIo_Attach
-K2OS_BlockIo_GetMedia
-K2OS_BlockIo_RangeCreate
-K2OS_BlockIo_RangeDelete
-K2OS_BlockIo_Read
-K2OS_BlockIo_Write
-K2OS_BlockIo_Erase
 
 #########################################################
 [Data]

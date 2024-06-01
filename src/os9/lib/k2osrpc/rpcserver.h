@@ -52,7 +52,7 @@ struct _K2OSRPC_THREAD
 {
     INT32 volatile        	    mRefCount;
     UINT32                	    mThreadId;
-    K2OS_NOTIFY_TOKEN           mTokWorkNotify;
+    K2OS_SIGNAL_TOKEN           mTokWorkNotify;
     K2OSRPC_pf_Thread_AtExit    mfAtExit;
     K2OSRPC_pf_Thread_DoWork    mfDoWork;
 };
@@ -99,8 +99,9 @@ struct _K2OSRPC_SERVER_OBJ_HANDLE
     RPC_OBJ *               mpObj;
     K2LIST_LINK             ObjHandleListLink;
 
-    RPC_CONN *              mpConn;
+    RPC_CONN *              mpConnToClient;
     K2LIST_LINK             ConnHandleListListLink;
+    BOOL                    mOnConnHandleList;
 
     UINT32                  mUseContext;
 
@@ -109,19 +110,19 @@ struct _K2OSRPC_SERVER_OBJ_HANDLE
 
 struct _RPC_CLASS
 {
-    INT32 volatile              mRefCount;
+    INT32 volatile          mRefCount;
 
-    K2OS_RPC_OBJECT_CLASSDEF    Def;
+    K2OS_RPC_OBJ_CLASSDEF   Def;
 
-    K2TREE_NODE                 ServerClassByIdTreeNode;
-    K2TREE_NODE                 ServerClassByPtrTreeNode;
+    K2TREE_NODE             ServerClassByIdTreeNode;
+    K2TREE_NODE             ServerClassByPtrTreeNode;
 
-    K2LIST_ANCHOR               ObjList;
+    K2LIST_ANCHOR           ObjList;
 
-    BOOL                        mIsRegistered;
-    UINT32                      mUserContext;
+    BOOL                    mIsRegistered;
+    UINT32                  mUserContext;
 
-    K2OS_XDL                    mXdlHandle[3];
+    K2OS_XDL                mXdlHandle[3];
 };
 
 struct _RPC_SERVER
@@ -144,11 +145,11 @@ struct _RPC_SERVER
 
     K2OS_IFINST_TOKEN   mTokIfInst;
 
-    K2OS_NOTIFY_TOKEN   mTokStartupNotify;
+    K2OS_SIGNAL_TOKEN   mTokStartupNotify;
     K2STAT              mStartupStatus;
 
     BOOL volatile       mShutdownStarted;
-    K2OS_GATE_TOKEN     mTokShutdownGate;
+    K2OS_SIGNAL_TOKEN   mTokShutdownGate;
 
     K2LIST_ANCHOR       IdleThreadList;
     K2LIST_ANCHOR       ActiveThreadList;
@@ -169,12 +170,11 @@ struct _RPC_OBJ
     K2TREE_NODE         ServerObjPtrTreeNode;
 
     UINT32              mUserContext;
-    BOOL                mBlockAcquire;
 
     K2LIST_ANCHOR       IfInstList;
 
     RPC_WORKITEM *      mpDeleteWorkItem;
-    K2OS_GATE_TOKEN     mTokDeleteGate;
+    K2OS_SIGNAL_TOKEN   mTokDeleteGate;
 };
 
 struct _RPC_IFINST
@@ -213,7 +213,7 @@ struct _RPC_CONN
     UINT32              mRequestId;
     K2OS_MAILBOX_TOKEN  mTokMailbox;
     K2OS_IPCEND         mIpcEnd;
-    K2OS_GATE_TOKEN     mDisconnectedGateToken;
+    K2OS_SIGNAL_TOKEN   mDisconnectedGateToken;
 
     K2OS_CRITSEC        WorkItemListSec;
     K2LIST_ANCHOR       WorkItemList;
@@ -228,9 +228,9 @@ struct _RPC_WORKITEM
     UINT8 const *               mpInBuf;
     UINT8 *                     mpOutBuf;
 
-    K2OS_NOTIFY_TOKEN           mDoneGateToken;
+    K2OS_SIGNAL_TOKEN           mDoneGateToken;
 
-    RPC_CONN *                  mpConn;
+    RPC_CONN *                  mpConnToClient;
 
     BOOL volatile               mIsCancelled;
 

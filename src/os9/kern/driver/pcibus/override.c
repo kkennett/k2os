@@ -215,7 +215,7 @@ PciBus_CheckOverrideIDE(
         resDef.mId = 0;
         resDef.Io.Range.mBasePort = barVal[0] & PCI_BAR_BASEMASK_IO;
         resDef.Io.Range.mSizeBytes = 8;
-        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
     }
     else
     {
@@ -224,7 +224,7 @@ PciBus_CheckOverrideIDE(
         resDef.mId = 0;
         resDef.Phys.Range.mBaseAddr = (UINT32)(barVal[0] & PCI_BAR_BASEMASK_MEMORY);
         resDef.Phys.Range.mSizeBytes = 8;
-        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
     }
     if (K2STAT_IS_ERROR(stat))
     {
@@ -239,7 +239,7 @@ PciBus_CheckOverrideIDE(
             resDef.mId = 1;
             resDef.Io.Range.mBasePort = barVal[1] & PCI_BAR_BASEMASK_IO;
             resDef.Io.Range.mSizeBytes = 4;
-            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
         }
         else
         {
@@ -248,7 +248,7 @@ PciBus_CheckOverrideIDE(
             resDef.mId = 1;
             resDef.Phys.Range.mBaseAddr = (UINT32)(barVal[1] & PCI_BAR_BASEMASK_MEMORY);
             resDef.Phys.Range.mSizeBytes = 4;
-            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
         }
         if (K2STAT_IS_ERROR(stat))
         {
@@ -262,7 +262,7 @@ PciBus_CheckOverrideIDE(
         resDef.mId = 0;
         resDef.Irq.Config.mSourceIrq = irqVal[0];
         resDef.Irq.Config.Line.mIsActiveLow = TRUE;
-        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
         if (K2STAT_IS_ERROR(stat))
         {
             K2OSKERN_Debug("*** PciBus(%d,%d): Failed to add IDE primary channel irq (%08X)\n", pPciBus->mSegNum, pPciBus->mBusNum, stat);
@@ -279,7 +279,7 @@ PciBus_CheckOverrideIDE(
         resDef.mId = 2;
         resDef.Io.Range.mBasePort = barVal[2] & PCI_BAR_BASEMASK_IO;
         resDef.Io.Range.mSizeBytes = 8;
-        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
     }
     else
     {
@@ -288,7 +288,7 @@ PciBus_CheckOverrideIDE(
         resDef.mId = 2;
         resDef.Phys.Range.mBaseAddr = (UINT32)(barVal[2] & PCI_BAR_BASEMASK_MEMORY);
         resDef.Phys.Range.mSizeBytes = 8;
-        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
     }
     if (K2STAT_IS_ERROR(stat))
     {
@@ -303,7 +303,7 @@ PciBus_CheckOverrideIDE(
             resDef.mId = 3;
             resDef.Io.Range.mBasePort = barVal[3] & PCI_BAR_BASEMASK_IO;
             resDef.Io.Range.mSizeBytes = 4;
-            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
         }
         else
         {
@@ -312,7 +312,7 @@ PciBus_CheckOverrideIDE(
             resDef.mId = 3;
             resDef.Phys.Range.mBaseAddr = (UINT32)(barVal[3] & PCI_BAR_BASEMASK_MEMORY);
             resDef.Phys.Range.mSizeBytes = 4;
-            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
         }
         if (K2STAT_IS_ERROR(stat))
         {
@@ -326,7 +326,7 @@ PciBus_CheckOverrideIDE(
         resDef.mId = 1;
         resDef.Irq.Config.mSourceIrq = irqVal[1];
         resDef.Irq.Config.Line.mIsActiveLow = TRUE;
-        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+        stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
         if (K2STAT_IS_ERROR(stat))
         {
             K2OSKERN_Debug("*** PciBus(%d,%d): Failed to add IDE secondary channel irq (%08X)\n", pPciBus->mSegNum, pPciBus->mBusNum, stat);
@@ -348,7 +348,7 @@ PciBus_CheckOverrideIDE(
             resDef.mId = 4;
             resDef.Io.Range.mBasePort = barVal[4] & PCI_BAR_BASEMASK_IO;
             resDef.Io.Range.mSizeBytes = 16;
-            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
         }
         else
         {
@@ -357,7 +357,7 @@ PciBus_CheckOverrideIDE(
             resDef.mId = 4;
             resDef.Phys.Range.mBaseAddr = (UINT32)(barVal[4] & PCI_BAR_BASEMASK_MEMORY);
             resDef.Phys.Range.mSizeBytes = 16;
-            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
         }
         if (K2STAT_IS_ERROR(stat))
         {

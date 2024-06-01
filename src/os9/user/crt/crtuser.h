@@ -33,6 +33,9 @@
 #define __CRTUSER_H
 
 #include <k2os.h>
+#include <k2osdev.h>
+#include <k2osdev_blockio.h>
+#include <k2osstor.h>
 
 #include "..\..\kern\main\kerniface.h"
 
@@ -83,6 +86,7 @@ void K2_CALLCONV_REGS CrtThread_EntryPoint(K2OS_pf_THREAD_ENTRY aUserEntry, void
 
 void    CrtMail_Init(void);
 BOOL    CrtMail_TokenDestroy(K2OS_TOKEN aToken);
+BOOL    CrtMail_Cloned(K2OS_TOKEN aTokOriginal, K2OS_TOKEN aTokClone);
 
 //
 //------------------------------------------------------------------------

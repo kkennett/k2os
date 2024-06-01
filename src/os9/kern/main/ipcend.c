@@ -873,6 +873,7 @@ KernIpcEnd_ManualDisconnect(
         {
             K2_ASSERT(NULL != apThisCore);
             K2_ASSERT(apCurThread->User.mIsInSysCall);
+            pSchedItem->mType = KernSchedItem_Thread_SysCall;
             KernArch_GetHfTimerTick(&apCurThread->SchedItem.mHfTick);
             KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
             KernSched_QueueItem(&apCurThread->SchedItem);

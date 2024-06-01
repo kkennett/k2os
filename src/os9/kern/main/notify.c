@@ -77,9 +77,9 @@ KernNotify_SysCall_Create(
     K2OSKERN_OBJ_THREAD *       apCurThread
 )
 {
-    K2STAT                  stat;
-    K2OSKERN_OBJREF         notifyRef;
-    K2OS_THREAD_PAGE * pThreadPage;
+    K2STAT              stat;
+    K2OSKERN_OBJREF     notifyRef;
+    K2OS_THREAD_PAGE *  pThreadPage;
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
@@ -103,50 +103,3 @@ KernNotify_SysCall_Create(
     }
 }
 
-void    
-KernNotify_SysCall_Signal(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    K2OSKERN_OBJ_THREAD *       apCurThread
-)
-{
-    K2STAT                  stat;
-    K2OSKERN_OBJREF         notifyRef;
-    K2OSKERN_SCHED_ITEM *   pSchedItem;
-
-    notifyRef.AsAny = NULL;
-    stat = KernProc_TokenTranslate(
-        apCurThread->User.ProcRef.AsProc,
-        (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, 
-        &notifyRef
-    );
-    if (!K2STAT_IS_ERROR(stat))
-    {
-        if (KernObj_Notify == notifyRef.AsAny->mObjType)
-        {
-            //
-            // this is done through scheduler call because
-            // unblocking a thread may cause this thread to
-            // never execute another instruction.  so this
-            // thread has to not exec again until after the notify is processed
-            //
-            apCurThread->User.mSysCall_Result = TRUE;
-            pSchedItem = &apCurThread->SchedItem;
-            pSchedItem->mType = KernSchedItem_Thread_SysCall;
-            KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
-            KernObj_CreateRef(&pSchedItem->ObjRef, notifyRef.AsAny);
-            KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
-            KernSched_QueueItem(pSchedItem);
-        }
-        else
-        {
-            stat = K2STAT_ERROR_BAD_TOKEN;
-        }
-        KernObj_ReleaseRef(&notifyRef);
-    }
-
-    if (K2STAT_IS_ERROR(stat))
-    {
-        apCurThread->User.mSysCall_Result = 0;
-        apCurThread->mpKernRwViewOfThreadPage->mLastStatus = stat;
-    }
-}

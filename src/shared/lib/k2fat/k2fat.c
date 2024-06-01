@@ -62,6 +62,11 @@ K2FAT_DetermineFromBootSector(
 
     apRetPart->mNumFATs = apBootSector->BPB_NumFATs;
 
+    if (0 == apRetPart->mNumFATs)
+    {
+        return K2STAT_ERROR_BAD_FORMAT;
+    }
+
     apRetPart->mMediaType = apBootSector->BPB_Media;
     apRetPart->mNumHeads = apBootSector->BPB_NumHeads;
     apRetPart->mSectorsPerTrack = apBootSector->BPB_SecPerTrk;

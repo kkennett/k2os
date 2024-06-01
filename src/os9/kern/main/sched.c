@@ -53,6 +53,8 @@ KernSched_QueueItem(
     K2OSKERN_SCHED_ITEM * pHead;
     K2OSKERN_SCHED_ITEM * pOld;
 
+    K2_ASSERT(0 != apItem->mType);
+
     //
     // lockless add to sched item list
     //
@@ -140,13 +142,22 @@ KernSched_Loop(
 
         if ((!ranDpc) && (0 == workList.mNodeCount))
         {
+            // no high dpcs to run, and nothing on work list
             KernArch_GetHfTimerTick(&timeNow);
             disp = K2OSKERN_SeqLock(&gData.Sched.SeqLock);
+            gData.Sched.mpSchedulingCore->mNoDpcQueue = TRUE;
             KernSched_Locked_TimePassedUntil(&timeNow);
+            gData.Sched.mpSchedulingCore->mNoDpcQueue = FALSE;
             K2OSKERN_SeqUnlock(&gData.Sched.SeqLock, disp);
+            // time passed, check again now
             KernSched_CheckAndDequeue(&workList);
             if (0 == workList.mNodeCount)
+            {
+                // this is the only way out of the scheduler loop
+                // nothing in the "time passed" should have queued a high priority dpc
+                K2_ASSERT(0 == gData.Sched.mpSchedulingCore->DpcHi.mNodeCount);
                 break;
+            }
         }
 
         if (0 != workList.mNodeCount)

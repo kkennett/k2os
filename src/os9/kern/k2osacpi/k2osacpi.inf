@@ -164,6 +164,7 @@ AcpiOsReadPciConfiguration
 AcpiOsWritePciConfiguration
 K2OSACPI_EnumChildren
 K2OSACPI_RunSTA
+AcpiNsGetNormalizedPathname
 
 [Data]
 AcpiGbl_EnableInterpreterSlack

@@ -35,19 +35,19 @@
 K2STAT 
 K2OSDDK_GetInstanceInfo(
     K2OS_DEVCTX         aDevCtx,
-    K2_DEVICE_IDENT *   apRetIdent,
-    UINT32 *            apRetCountIo,
-    UINT32 *            apRetCountPhys,
-    UINT32 *            apRetCountIrq
+    K2OSDDK_INSTINFO *  apRetInstInfo
 )
 {
     DEVNODE *   pDevNode;
     K2STAT      stat;
 
-    if (NULL == aDevCtx)
+    if ((NULL == aDevCtx) ||
+        (NULL == apRetInstInfo))
     {
         return K2STAT_ERROR_BAD_ARGUMENT;
     }
+
+    K2MEM_Zero(apRetInstInfo, sizeof(K2OSDDK_INSTINFO));
 
     pDevNode = (DEVNODE *)aDevCtx;
 
@@ -61,25 +61,13 @@ K2OSDDK_GetInstanceInfo(
     {
         stat = K2STAT_NO_ERROR;
 
-        if (NULL != apRetIdent)
-        {
-            K2MEM_Copy(apRetIdent, &pDevNode->DeviceIdent, sizeof(K2_DEVICE_IDENT));
-        }
-
-        if (NULL != apRetCountIo)
-        {
-            *apRetCountIo = pDevNode->InSec.IoResList.mNodeCount;
-        }
-
-        if (NULL != apRetCountPhys)
-        {
-            *apRetCountPhys = pDevNode->InSec.PhysResList.mNodeCount;
-        }
-
-        if (NULL != apRetCountIrq)
-        {
-            *apRetCountIrq = pDevNode->InSec.IrqResList.mNodeCount;
-        }
+        K2MEM_Copy(&apRetInstInfo->Ident, &pDevNode->DeviceIdent, sizeof(K2_DEVICE_IDENT));
+        apRetInstInfo->mCountIo = pDevNode->InSec.IoResList.mNodeCount;
+        apRetInstInfo->mCountPhys = pDevNode->InSec.PhysResList.mNodeCount;
+        apRetInstInfo->mCountIrq = pDevNode->InSec.IrqResList.mNodeCount;
+        apRetInstInfo->mBusType = pDevNode->mBusType;
+        apRetInstInfo->mBusIfInstId = pDevNode->mBusIfInstId;
+        apRetInstInfo->mBusChildId = pDevNode->mParentsChildInstanceId;
     }
 
     K2OS_CritSec_Leave(&pDevNode->Sec);
@@ -163,6 +151,7 @@ K2OSDDK_MountChild(
     UINT32                  aFlags,
     UINT64 const *          apBusSpecificAddress,
     K2_DEVICE_IDENT const * apIdent,
+    K2OS_IFINST_ID          aBusIfInstId,
     UINT32 *                apRetChildInstanceId
 )
 {
@@ -195,7 +184,7 @@ K2OSDDK_MountChild(
     }
     else
     {
-        stat = Dev_NodeLocked_MountChild(pDevNode, aFlags, apBusSpecificAddress, apIdent, apRetChildInstanceId);
+        stat = Dev_NodeLocked_MountChild(pDevNode, aFlags, apBusSpecificAddress, apIdent, aBusIfInstId, apRetChildInstanceId);
     }
 
     K2OS_CritSec_Leave(&pDevNode->Sec);
@@ -243,7 +232,7 @@ K2OSDDK_SetEnable(
 }
 
 K2STAT 
-K2OSDDK_RunAcpiMethod(
+ACPI_RunMethod(
     K2OS_DEVCTX aDevCtx,
     UINT32      aMethod,
     UINT32      aFlags,
@@ -406,97 +395,75 @@ K2OSDDK_DriverStopped(
     return K2STAT_ERROR_NOT_IMPL;
 }
 
-K2STAT 
-K2OSDDK_BlockIoRegister(
-    K2OS_DEVCTX                     aDevCtx,
-    void *                          apDevice,
-    K2OSDDK_BLOCKIO_REGISTER const *apRegister
+K2OS_PAGEARRAY_TOKEN 
+K2OSDDK_PageArray_CreateIo(
+    UINT32  aFlags,
+    UINT32  aPageCountPow2,
+    UINT32 *apRetPhysBase
 )
 {
-    DEVNODE *   pDevNode;
-    K2STAT      stat;
-    BLOCKIO *   pBlockIo;
+    return gKernDdk.PageArray_CreateIo(aFlags, aPageCountPow2, apRetPhysBase);
+}
+
+K2STAT 
+K2OSDDK_GetPciIrqRoutingTable(
+    K2OS_DEVCTX aDevCtx,
+    void **     appRetTable
+)
+{
+    DEVNODE *           pDevNode;
+    K2STAT              stat;
+    ACPI_STATUS         acpiStatus;
+    ACPI_BUFFER         acpiBuffer;
+    ACPI_DEVICE_INFO *  pDevInfo;
 
     if (NULL == aDevCtx)
     {
+        K2_ASSERT(0);
         return K2STAT_ERROR_BAD_ARGUMENT;
-    }
-
-    pBlockIo = (BLOCKIO *)K2OS_Heap_Alloc(sizeof(BLOCKIO));
-    if (NULL == pBlockIo)
-    {
-        return K2STAT_ERROR_OUT_OF_MEMORY;
     }
 
     pDevNode = (DEVNODE *)aDevCtx;
 
-    K2MEM_Zero(pBlockIo, sizeof(BLOCKIO));
-    pBlockIo->mpDevNode = pDevNode;
-    pBlockIo->mpDriverContext = apDevice;
-    K2MEM_Copy(&pBlockIo->Register, apRegister, sizeof(K2OSDDK_BLOCKIO_REGISTER));
-    K2LIST_Init(&pBlockIo->IopList);
-
     K2OS_CritSec_Enter(&pDevNode->Sec);
 
-    if (pDevNode->InSec.mState != DevNodeState_Online)
+    if (NULL != pDevNode->InSec.mpAcpiNode)
     {
-        K2_ASSERT(0);
-        stat = K2STAT_ERROR_API_ORDER;
+        pDevInfo = pDevNode->InSec.mpAcpiNode->mpDeviceInfo;
+        if (NULL != pDevInfo)
+        {
+            if (0 != (pDevInfo->Flags & ACPI_PCI_ROOT_BRIDGE))
+            {
+                acpiBuffer.Length = ACPI_ALLOCATE_BUFFER;
+                acpiBuffer.Pointer = NULL;
+                acpiStatus = AcpiGetIrqRoutingTable(pDevNode->InSec.mpAcpiNode->mhObject, &acpiBuffer);
+                if ((!ACPI_FAILURE(acpiStatus)) && (NULL != acpiBuffer.Pointer) && (0 != acpiBuffer.Length))
+                {
+                    *appRetTable = (void *)acpiBuffer.Pointer;
+                    stat = K2STAT_NO_ERROR;
+                }
+                else
+                {
+                    stat = K2STAT_ERROR_NOT_FOUND;
+                }
+            }
+            else
+            {
+                stat = K2STAT_ERROR_BAD_ARGUMENT;
+            }
+        }
+        else
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
     }
     else
     {
-        K2LIST_AddAtTail(&pDevNode->InSec.BlockIo.List, &pBlockIo->DevNodeBlockIoListLink);
-        stat = K2STAT_NO_ERROR;
+        stat = K2STAT_ERROR_BAD_ARGUMENT;
     }
 
     K2OS_CritSec_Leave(&pDevNode->Sec);
 
-    if (!K2STAT_IS_ERROR(stat))
-    {
-        pBlockIo->mTokIfInst = K2OS_IfInst_Create((UINT32)pBlockIo, &pBlockIo->mIfInstId);
-        if (NULL == pBlockIo->mTokIfInst)
-        {
-            stat = K2OS_Thread_GetLastStatus();
-            K2_ASSERT(K2STAT_IS_ERROR(stat));
-        }
-        else
-        {
-            //
-            // start the device service thread
-            //
-            pBlockIo->mTokThread = K2OS_Thread_Create("BlockIo", BlockIo_DeviceThread, pBlockIo, NULL, &pBlockIo->mThreadId);
-            if (NULL == pBlockIo->mTokThread)
-            {
-                stat = K2OS_Thread_GetLastStatus();
-                K2_ASSERT(K2STAT_IS_ERROR(stat));
-
-                K2OS_Token_Destroy(pBlockIo->mTokIfInst);
-            }
-        }
-
-        if (K2STAT_IS_ERROR(stat))
-        {
-            K2OS_CritSec_Enter(&pDevNode->Sec);
-            K2LIST_Remove(&pDevNode->InSec.BlockIo.List, &pBlockIo->DevNodeBlockIoListLink);
-            K2OS_CritSec_Leave(&pDevNode->Sec);
-        }
-    }
-
-    if (K2STAT_IS_ERROR(stat))
-    {
-        K2OS_Heap_Free(pBlockIo);
-    }
-
     return stat;
-}
-
-K2STAT 
-K2OSDDK_BlockIoDeregister(
-    K2OS_DEVCTX aDevCtx,
-    void *      apDevice
-)
-{
-    K2_ASSERT(0);
-    return K2STAT_ERROR_NOT_IMPL;
 }
 

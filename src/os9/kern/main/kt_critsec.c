@@ -41,7 +41,7 @@ struct _KernIntCritSec
     UINT32 volatile     mLockOwner;
     UINT32              mRecursionCount;
     UINT32              mSentinel1;
-    K2OS_NOTIFY_TOKEN   mNotifyToken;
+    K2OS_SIGNAL_TOKEN   mNotifyToken;
     K2LIST_LINK         OwnerThreadOwnedCsListLink;
     UINT32              mSentinel2;
 };

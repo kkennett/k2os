@@ -285,7 +285,7 @@ KernVirtMap_Cleanup(
     }
     else
     {
-//        K2OSKERN_Debug("Kern   : Virtmap %08X(%08X) cleanup\n", apMap->OwnerMapTreeNode.mUserVal, apMap->mPageCount * K2_VA_MEMPAGE_BYTES);
+        //        K2OSKERN_Debug("Kern   : Virtmap %08X(%08X) cleanup\n", apMap->OwnerMapTreeNode.mUserVal, apMap->mPageCount * K2_VA_MEMPAGE_BYTES);
         disp = K2OSKERN_SeqLock(&gData.VirtMap.SeqLock);
 
         virtAddr = apMap->OwnerMapTreeNode.mUserVal;

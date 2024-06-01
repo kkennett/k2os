@@ -115,7 +115,6 @@ struct _IDE_DEVICE_USER
 #define ATA_STATUS_SLAVE_ACTIVE     0x02
 #define ATA_STATUS_WRITING          0x40
 
-#define ATA_MODE_CHS                0
 #define ATA_MODE_LBA28              1
 #define ATA_MODE_LBA48              2
 
@@ -408,50 +407,55 @@ enum _IdeStateType
 
 struct _IDE_DEVICE
 {
-    IDE_CHANNEL *       mpChannel;
-    UINT32              mDeviceIndex;
+    IDE_CHANNEL *                   mpChannel;
+    UINT32                          mDeviceIndex;
 
-    UINT32              mLocation;
-    BOOL                mIsATAPI;
-    BOOL                mIsRemovable;
-    BOOL                mMediaPresent;
-    BOOL                mMediaIsReadOnly;
-    BOOL                mHasMSN;
-    IdeStateType        mState;
-    UINT32              mWaitMs;
-    UINT32              mAtaMode;
-    ATA_IDENT_DATA      AtaIdent;
-    K2OS_STORAGE_MEDIA  Media;
-    K2OS_CRITSEC        Sec;
+    UINT32                          mLocation;
+    BOOL                            mIsATAPI;
+    BOOL                            mIsRemovable;
+    BOOL                            mMediaPresent;
+    BOOL                            mMediaIsReadOnly;
+    BOOL                            mHasMSN;
+    IdeStateType                    mState;
+    UINT32                          mWaitMs;
+    UINT32                          mAtaMode;
+    ATA_IDENT_DATA                  AtaIdent;
+    K2OS_STORAGE_MEDIA              Media;
+    K2OS_CRITSEC                    Sec;
+
+    K2OS_SIGNAL_TOKEN               mTokTransferWaitNotify;
+    K2OS_BLOCKIO_TRANSFER const *   mpTransfer;
+    K2STAT                          mTransferStatus;
 };
 
 struct _IDE_CHANNEL
 {
-    IDE_CONTROLLER *        mpController;
-    UINT32                  mChannelIndex;
+    IDE_CONTROLLER *                mpController;
+    UINT32                          mChannelIndex;
 
-    UINT32                  mThreadId;
+    UINT32                          mThreadId;
 
-    K2OS_CRITSEC            Sec;
+    K2OS_CRITSEC                    Sec;
 
-    UINT8                   mIrqMaskFlag;   // bit 1
+    UINT8                           mIrqMaskFlag;   // bit 1
 
-    IDE_DEVICE              Device[2];
-    IDE_CHANNEL_REGS        ChanRegs;
+    IDE_DEVICE                      Device[2];
+    IDE_CHANNEL_REGS                ChanRegs;
 
-    K2OSDDK_RES *           mpIrqRes;
+    K2OSKERN_SEQLOCK                IrqSeqLock;
+    K2OSDDK_RES *                   mpIrqRes;
+    K2OSKERN_pf_Hook_Key            mIrqHook;
 
-    K2OS_NOTIFY_TOKEN       mTokNotify;
+    K2OS_SIGNAL_TOKEN               mTokNotify;
+
+    K2OSDDK_pf_BlockIo_NotifyKey *  mpNotifyKey;
 };
 
 struct _IDE_CONTROLLER
 {
     K2OS_DEVCTX         mDevCtx;
 
-    K2_DEVICE_IDENT     Ident;
-    UINT32              mCountIo;
-    UINT32              mCountPhys;
-    UINT32              mCountIrq;
+    K2OSDDK_INSTINFO    InstInfo;
 
     K2OS_THREAD_TOKEN   mTokThread;
     UINT32              mThreadId;

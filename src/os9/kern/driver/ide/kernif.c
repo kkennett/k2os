@@ -62,6 +62,7 @@ CreateInstance(
     pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mDeviceIndex = IDE_CHANNEL_DEVICE_MASTER;
     pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mpChannel = pChannel;
     pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mDeviceIndex = IDE_CHANNEL_DEVICE_SLAVE;
+    K2OSKERN_SeqInit(&pChannel->IrqSeqLock);
 
     pChannel = &pIdeController->Channel[IDE_CHANNEL_SECONDARY];
     pChannel->mpController = pIdeController;
@@ -70,6 +71,7 @@ CreateInstance(
     pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mDeviceIndex = IDE_CHANNEL_DEVICE_MASTER;
     pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mpChannel = pChannel;
     pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mDeviceIndex = IDE_CHANNEL_DEVICE_SLAVE;
+    K2OSKERN_SeqInit(&pChannel->IrqSeqLock);
 
     return K2STAT_NO_ERROR;
 }
@@ -84,22 +86,22 @@ StartDriver(
     K2OS_THREAD_TOKEN   tokThread;
     IDE_CHANNEL *       pChannel;
 
-    stat = K2OSDDK_GetInstanceInfo(apController->mDevCtx, &apController->Ident, &apController->mCountIo, &apController->mCountPhys, &apController->mCountIrq);
+    stat = K2OSDDK_GetInstanceInfo(apController->mDevCtx, &apController->InstInfo);
     if (K2STAT_IS_ERROR(stat))
     {
         K2OSKERN_Debug("*** IDE(%08X): Enum resources failed (0x%08X)\n", apController, stat);
         return stat;
     }
 
-    if ((apController->mCountIo + apController->mCountPhys) < 4)
+    if ((apController->InstInfo.mCountIo + apController->InstInfo.mCountPhys) < 4)
     {
-        K2OSKERN_Debug("*** IDE(%08X): insufficient ios (io+phys) for IDE bus (%d specified)\n", K2OS_Process_GetId(), apController, apController->mCountIo + apController->mCountPhys);
+        K2OSKERN_Debug("*** IDE(%08X): insufficient ios (io+phys) for IDE bus (%d specified)\n", K2OS_Process_GetId(), apController, apController->InstInfo.mCountIo + apController->InstInfo.mCountPhys);
         return K2STAT_ERROR_NOT_EXIST;
     }
 
-    if (apController->mCountIo > 5)
-        apController->mCountIo = 5;
-    for (resIx = 0; resIx < apController->mCountIo; resIx++)
+    if (apController->InstInfo.mCountIo > 5)
+        apController->InstInfo.mCountIo = 5;
+    for (resIx = 0; resIx < apController->InstInfo.mCountIo; resIx++)
     {
         stat = K2OSDDK_GetRes(apController->mDevCtx, K2OS_RESTYPE_IO, resIx, &apController->ResIo[resIx]);
         if (K2STAT_IS_ERROR(stat))
@@ -109,9 +111,9 @@ StartDriver(
         }
     }
 
-    if (apController->mCountPhys > 5)
-        apController->mCountPhys = 5;
-    for (resIx = 0; resIx < apController->mCountPhys; resIx++)
+    if (apController->InstInfo.mCountPhys > 5)
+        apController->InstInfo.mCountPhys = 5;
+    for (resIx = 0; resIx < apController->InstInfo.mCountPhys; resIx++)
     {
         stat = K2OSDDK_GetRes(apController->mDevCtx, K2OS_RESTYPE_PHYS, resIx, &apController->ResPhys[resIx]);
         if (K2STAT_IS_ERROR(stat))
@@ -121,9 +123,9 @@ StartDriver(
         }
     }
 
-    if (apController->mCountIrq > 2)
-        apController->mCountIrq = 2;
-    for (resIx = 0; resIx < apController->mCountIrq; resIx++)
+    if (apController->InstInfo.mCountIrq > 2)
+        apController->InstInfo.mCountIrq = 2;
+    for (resIx = 0; resIx < apController->InstInfo.mCountIrq; resIx++)
     {
         stat = K2OSDDK_GetRes(apController->mDevCtx, K2OS_RESTYPE_IRQ, resIx, &apController->ResIrq[resIx]);
         if (K2STAT_IS_ERROR(stat))
@@ -170,12 +172,52 @@ StartDriver(
             }
             else
             {
-                tokThread = K2OS_Thread_Create("IDEPrimary", (K2OS_pf_THREAD_ENTRY)IDE_Channel_Thread, (void *)pChannel, NULL, &pChannel->mThreadId);
+                if (0 != (apController->mPopMask & 1))
+                {
+                    pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mTokTransferWaitNotify = K2OS_Notify_Create(FALSE);
+                    if (NULL == pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mTokTransferWaitNotify)
+                    {
+                        stat = K2OS_Thread_GetLastStatus();
+                        K2OSKERN_Debug("*** IDE(%08X): Failed to init primary master device notify (0x%08X)\n", apController, stat);
+                        apController->mPopMask &= ~1;
+                    }
+                }
+                if (0 != (apController->mPopMask & 2))
+                {
+                    pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mTokTransferWaitNotify = K2OS_Notify_Create(FALSE);
+                    if (NULL == pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mTokTransferWaitNotify)
+                    {
+                        stat = K2OS_Thread_GetLastStatus();
+                        K2OSKERN_Debug("*** IDE(%08X): Failed to init primary slave device notify (0x%08X)\n", apController, stat);
+                        apController->mPopMask &= ~2;
+                    }
+                }
+                if (0 != (apController->mPopMask & 3))
+                {
+                    tokThread = K2OS_Thread_Create("IDEPrimary", (K2OS_pf_THREAD_ENTRY)IDE_Channel_Thread, (void *)pChannel, NULL, &pChannel->mThreadId);
+                    if (NULL == tokThread)
+                    {
+                        stat = K2OS_Thread_GetLastStatus();
+                    }
+                }
+                else
+                {
+                    tokThread = NULL;
+                }
                 if (NULL == tokThread)
                 {
-                    stat = K2OS_Thread_GetLastStatus();
+                    if (0 != (apController->mPopMask & 1))
+                    {
+                        K2OS_Token_Destroy(pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mTokTransferWaitNotify);
+                        pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mTokTransferWaitNotify = NULL;
+                    }
+                    if (0 != (apController->mPopMask & 2))
+                    {
+                        K2OS_Token_Destroy(pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mTokTransferWaitNotify);
+                        pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mTokTransferWaitNotify = NULL;
+                    }
                     apController->mPopMask &= ~3;
-                    K2OSKERN_Debug("*** IDE(%08X): Primary channel thread failed to start (0x%08X)\n", apController, stat);
+                    K2OSKERN_Debug("*** IDE(%08X): Primary channel failed to start (0x%08X)\n", apController, stat);
                     K2OS_Token_Destroy(pChannel->mTokNotify);
                 }
                 else
@@ -211,12 +253,52 @@ StartDriver(
             }
             else
             {
-                tokThread = K2OS_Thread_Create("IDESecondary", (K2OS_pf_THREAD_ENTRY)IDE_Channel_Thread, (void *)pChannel, NULL, &pChannel->mThreadId);
+                if (0 != (apController->mPopMask & 4))
+                {
+                    pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mTokTransferWaitNotify = K2OS_Notify_Create(FALSE);
+                    if (NULL == pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mTokTransferWaitNotify)
+                    {
+                        stat = K2OS_Thread_GetLastStatus();
+                        K2OSKERN_Debug("*** IDE(%08X): Failed to init secondary master device notify (0x%08X)\n", apController, stat);
+                        apController->mPopMask &= ~4;
+                    }
+                }
+                if (0 != (apController->mPopMask & 8))
+                {
+                    pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mTokTransferWaitNotify = K2OS_Notify_Create(FALSE);
+                    if (NULL == pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mTokTransferWaitNotify)
+                    {
+                        stat = K2OS_Thread_GetLastStatus();
+                        K2OSKERN_Debug("*** IDE(%08X): Failed to init secondary slave device notify (0x%08X)\n", apController, stat);
+                        apController->mPopMask &= ~8;
+                    }
+                }
+                if (0 != (apController->mPopMask & 3))
+                {
+                    tokThread = K2OS_Thread_Create("IDESecondary", (K2OS_pf_THREAD_ENTRY)IDE_Channel_Thread, (void *)pChannel, NULL, &pChannel->mThreadId);
+                    if (NULL == tokThread)
+                    {
+                        stat = K2OS_Thread_GetLastStatus();
+                    }
+                }
+                else
+                {
+                    tokThread = NULL;
+                }
                 if (NULL == tokThread)
                 {
-                    stat = K2OS_Thread_GetLastStatus();
-                    apController->mPopMask &= 0x0C;
-                    K2OSKERN_Debug("*** IDE(%08X): Secondary channel thread failed to start (0x%08X)\n", apController, stat);
+                    if (0 != (apController->mPopMask & 4))
+                    {
+                        K2OS_Token_Destroy(pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mTokTransferWaitNotify);
+                        pChannel->Device[IDE_CHANNEL_DEVICE_MASTER].mTokTransferWaitNotify = NULL;
+                    }
+                    if (0 != (apController->mPopMask & 8))
+                    {
+                        K2OS_Token_Destroy(pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mTokTransferWaitNotify);
+                        pChannel->Device[IDE_CHANNEL_DEVICE_SLAVE].mTokTransferWaitNotify = NULL;
+                    }
+                    apController->mPopMask &= ~0xC;
+                    K2OSKERN_Debug("*** IDE(%08X): Secondary channel failed to start (0x%08X)\n", apController, stat);
                     K2OS_Token_Destroy(pChannel->mTokNotify);
                 }
                 else

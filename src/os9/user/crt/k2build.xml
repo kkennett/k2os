@@ -64,6 +64,5 @@
     <source>ifenum.c</source>
     <source>ifsubs.c</source>
     <source>ipcend.c</source>
-    <source>blockio.c</source>
     
 </k2build>

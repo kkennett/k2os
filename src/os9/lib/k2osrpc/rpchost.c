@@ -121,7 +121,7 @@ K2OS_RpcObj_SendNotify(
     K2LIST_LINK *               pListLink;
     K2OSRPC_SERVER_OBJ_HANDLE * pHandle;
     K2OS_MSG                    msg;
-    K2OSRPC_OBJECT_NOTIFY       notify;
+    K2OSRPC_OBJ_NOTIFY          notify;
 
     FUNC_ENTER;
 
@@ -141,7 +141,7 @@ K2OS_RpcObj_SendNotify(
 
     msg.mType = K2OS_SYSTEM_MSGTYPE_RPC;
     msg.mShort = K2OS_SYSTEM_MSG_RPC_SHORT_NOTIFY;
-    notify.mMarker = K2OSRPC_OBJECT_NOTIFY_MARKER;
+    notify.mMarker = K2OSRPC_OBJ_NOTIFY_MARKER;
     notify.mCode = msg.mPayload[1] = aNotifyCode;
     notify.mData = msg.mPayload[2] = aNotifyData;
 
@@ -164,7 +164,7 @@ K2OS_RpcObj_SendNotify(
                 {
                     notify.mServerHandle = msg.mPayload[0] = (UINT32)pHandle;
 
-                    if (NULL == pHandle->mpConn)
+                    if (NULL == pHandle->mpConnToClient)
                     {
                         // no connection means that the handle is for a local user
                         if (NULL != pHandle->mTokNotifyMailbox)
@@ -174,7 +174,7 @@ K2OS_RpcObj_SendNotify(
                     }
                     else
                     {
-                        K2OS_IpcEnd_Send(pHandle->mpConn->mIpcEnd, &notify, sizeof(notify));
+                        K2OS_IpcEnd_Send(pHandle->mpConnToClient->mIpcEnd, &notify, sizeof(notify));
                     }
                 }
                 pListLink = pListLink->mpNext;
@@ -196,11 +196,12 @@ K2OS_RpcObj_SendNotify(
 }
 
 K2OS_RPC_IFINST 
-K2OS_RpcObj_PublishIfInst(
+K2OS_RpcObj_AddIfInst(
     K2OS_RPC_OBJ        aObj,
     UINT32              aClassCode,
     K2_GUID128 const *  apSpecific, 
-    K2OS_IFINST_ID *    apRetId
+    K2OS_IFINST_ID *    apRetId,
+    BOOL                aPublish
 )
 {
     K2TREE_NODE *   pTreeNode;
@@ -260,7 +261,7 @@ K2OS_RpcObj_PublishIfInst(
             }
             else
             {
-                if (!K2OS_IfInst_Publish(pIfInst->mTokSysInst, aClassCode, apSpecific))
+                if ((aPublish) && (!K2OS_IfInst_Publish(pIfInst->mTokSysInst, aClassCode, apSpecific)))
                 {
                     stat = K2OS_Thread_GetLastStatus();
                     K2OS_Token_Destroy(pIfInst->mTokSysInst);
@@ -411,7 +412,7 @@ K2OSRPC_Server_LocalCreateObj(
     K2_GUID128 const *  apClassId,
     UINT32              aCreatorContext,
     UINT32              aCreatorProcessId,
-    K2OS_GATE_TOKEN     aTokRemoteDisconnect,
+    K2OS_SIGNAL_TOKEN   aTokRemoteDisconnect,
     UINT32 *            apRetObjId
 )
 {
@@ -420,11 +421,11 @@ K2OSRPC_Server_LocalCreateObj(
     K2OSRPC_SERVER_OBJ_HANDLE * pHandle;
     K2TREE_NODE *               pTreeNode;
     K2STAT                      stat;
-    K2OS_RPC_OBJECT_CREATE      cret;
+    K2OS_RPC_OBJ_CREATE         cret;
 #if TRAP_EXCEPTIONS
     K2_EXCEPTION_TRAP           trap;
 #endif
-    K2OS_GATE_TOKEN             tokGate;
+    K2OS_SIGNAL_TOKEN           tokGate;
 
     FUNC_ENTER;
 
@@ -531,9 +532,9 @@ K2OSRPC_Server_LocalCreateObj(
                 cret.mRemoteDisconnectedGateToken = tokGate;
 
 #if TRAP_EXCEPTIONS
-                stat = K2_EXTRAP(&trap, pClass->Def.Create((K2OS_RPC_OBJ)pObj, &cret, &pObj->mUserContext, &pObj->mBlockAcquire));
+                stat = K2_EXTRAP(&trap, pClass->Def.Create((K2OS_RPC_OBJ)pObj, &cret, &pObj->mUserContext));
 #else
-                stat = pClass->Def.Create((K2OS_RPC_OBJ)pObj, &cret, &pObj->mUserContext, &pObj->mBlockAcquire);
+                stat = pClass->Def.Create((K2OS_RPC_OBJ)pObj, &cret, &pObj->mUserContext);
 #endif
                 K2OS_CritSec_Enter(&gRpcGraphSec);
 
@@ -761,11 +762,11 @@ K2OSRPC_Server_LocalCall(
     UINT32 *                    apRetActualOut
 )
 {
-    RPC_OBJ *                   pObj;
-    K2STAT                      stat;
-    K2OS_RPC_OBJECT_CALL        objCall;
+    RPC_OBJ *           pObj;
+    K2STAT              stat;
+    K2OS_RPC_OBJ_CALL   objCall;
 #if TRAP_EXCEPTIONS
-    K2_EXCEPTION_TRAP           trap;
+    K2_EXCEPTION_TRAP   trap;
 #endif
 
     FUNC_ENTER;
@@ -783,9 +784,9 @@ K2OSRPC_Server_LocalCall(
     }
 
     pObj = apHandle->mpObj;
-    if (apHandle->mpConn)
+    if (NULL != apHandle->mpConnToClient)
     {
-        stat = K2OS_Token_Clone(apHandle->mpConn->mDisconnectedGateToken, &objCall.mRemoteDisconnectedGateToken);
+        stat = K2OS_Token_Clone(apHandle->mpConnToClient->mDisconnectedGateToken, &objCall.mRemoteDisconnectedGateToken);
         if (K2STAT_IS_ERROR(stat))
         {
             return stat;
@@ -798,7 +799,7 @@ K2OSRPC_Server_LocalCall(
 
     objCall.mObj = (K2OS_RPC_OBJ)pObj;
     objCall.mObjContext = pObj->mUserContext;
-    objCall.mUseContext = (UINT32)apHandle;
+    objCall.mUseContext = apHandle->mUseContext;
 
 #if TRAP_EXCEPTIONS
     stat = K2_EXTRAP(&trap, pObj->mpClass->Def.Call(&objCall, apRetActualOut));
@@ -817,7 +818,7 @@ K2OSRPC_Server_LocalCall(
 
 void
 K2OSRPC_Server_PurgeHandle(
-    K2OSRPC_SERVER_OBJ_HANDLE * apHandle, 
+    K2OSRPC_SERVER_OBJ_HANDLE * apHandle,
     BOOL                        aUndoUse
 )
 {
@@ -838,7 +839,7 @@ K2OSRPC_Server_PurgeHandle(
     // handle is already removed from handle tree
     //
     pObj = apHandle->mpObj;
-    pConn = apHandle->mpConn;
+    pConn = apHandle->mpConnToClient;
 
     if ((aUndoUse) &&
         (NULL != pObj->mpClass->Def.OnDetach))
@@ -860,13 +861,15 @@ K2OSRPC_Server_PurgeHandle(
 
     apHandle->mpObj = NULL;
 
-    apHandle->mpConn = NULL;
+    apHandle->mpConnToClient = NULL;
 
     K2LIST_Remove(&pObj->HandleList, &apHandle->ObjHandleListLink);
 
     if (NULL != pConn)
     {
-        K2LIST_Remove(&pConn->HandleList, &apHandle->ConnHandleListListLink);
+        K2_ASSERT(!apHandle->mOnConnHandleList);
+//        K2LIST_Remove(&pConn->HandleList, &apHandle->ConnHandleListListLink);
+//        apHandle->mOnConnHandleList = FALSE;
     }
 
     if (NULL != apHandle->mTokNotifyMailbox)
@@ -1243,7 +1246,7 @@ RpcServer_Locked_Start(
 
 K2OS_RPC_CLASS  
 K2OS_RpcServer_Register(
-    K2OS_RPC_OBJECT_CLASSDEF const *apClassDef,
+    K2OS_RPC_OBJ_CLASSDEF const *   apClassDef,
     UINT32                          aContext
 )
 {
@@ -1272,7 +1275,7 @@ K2OS_RpcServer_Register(
     do {
         K2MEM_Zero(pClass, sizeof(RPC_CLASS));
 
-        K2MEM_Copy(&pClass->Def, apClassDef, sizeof(K2OS_RPC_OBJECT_CLASSDEF));
+        K2MEM_Copy(&pClass->Def, apClassDef, sizeof(K2OS_RPC_OBJ_CLASSDEF));
 
         if ((K2MEM_VerifyZero(&pClass->Def.ClassId, sizeof(K2_GUID128))) ||
             (NULL == pClass->Def.Create) ||

@@ -134,7 +134,7 @@ K2OSRPC_Thread_Release(
 )
 {
     INT32             result;
-    K2OS_NOTIFY_TOKEN   tokNotify;
+    K2OS_SIGNAL_TOKEN   tokNotify;
 
     FUNC_ENTER;
 

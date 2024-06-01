@@ -37,7 +37,8 @@ K2OS_Token_Clone(
     K2OS_TOKEN *apRetNewToken
 )
 {
-    K2OS_TOKEN result;
+    K2OS_TOKEN          result;
+    K2OS_THREAD_PAGE *  pThreadPage;
 
     if ((NULL == aToken) || (NULL == apRetNewToken))
     {
@@ -51,6 +52,20 @@ K2OS_Token_Clone(
 
     if (NULL != result)
     {
+        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+
+        if (pThreadPage->mSysCall_Arg7_Result0 != 0)
+        {
+            //
+            // token is a mailbox token we need to track it
+            //
+            if (!CrtMail_Cloned(aToken, result))
+            {
+                K2OS_Token_Destroy((K2OS_TOKEN)result);
+                return FALSE;
+            }
+        }
+
         *apRetNewToken = result;
         return TRUE;
     }

@@ -408,4 +408,11 @@
 
 /* --------------------------------------------------------------------------------- */
 
+#define K2OS_DATA_OPERATION_READ    1
+#define K2OS_DATA_OPERATION_WRITE   2
+#define K2OS_DATA_OPERATION_ERASE   3
+
+/* --------------------------------------------------------------------------------- */
+
+
 #endif // __K2OSDEFS_INC

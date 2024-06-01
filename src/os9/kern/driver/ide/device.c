@@ -54,6 +54,14 @@ IDE_Device_GetMedia(
 
     K2OS_CritSec_Leave(&apDevice->Sec);
 
+#if 0
+    (*(apDevice->mpChannel->mpNotifyKey))(
+        apDevice->mpChannel->mpNotifyKey, 
+        apDevice->mpChannel->mpController->mDevCtx, 
+        apDevice, 
+        K2OS_BLOCKIO_NOTIFY_MEDIA_CHANGED);
+#endif
+
     return stat;
 }
 
@@ -63,21 +71,75 @@ IDE_Device_Transfer(
     K2OS_BLOCKIO_TRANSFER const *   apTransfer
 )
 {
-    switch (apTransfer->mType)
+    K2OS_WaitResult waitResult;
+    K2STAT          stat;
+    BOOL            ok;
+
+    stat = K2STAT_NO_ERROR;
+
+    K2OS_CritSec_Enter(&apDevice->Sec);
+
+    K2_ASSERT(NULL == apDevice->mpTransfer);
+
+    if ((!apDevice->mIsRemovable) || (apDevice->mMediaPresent))
     {
-    case K2OS_BlockIoTransfer_Read:
-        K2MEM_Set((void *)apTransfer->mTargetAddr, 0x5A, apTransfer->mBlockCount * apDevice->Media.mBlockSizeBytes);
-        break;
-
-    case K2OS_BlockIoTransfer_Write:
-    case K2OS_BlockIoTransfer_Erase:
-        break;
-
-    default:
-        return K2STAT_ERROR_NOT_SUPPORTED;
+        if (apDevice->mMediaIsReadOnly)
+        {
+            if (apTransfer->mIsWrite)
+            {
+                stat = K2STAT_ERROR_READ_ONLY;
+            }
+        }
+        if (!K2STAT_IS_ERROR(stat))
+        {
+            apDevice->mpTransfer = apTransfer;
+            apDevice->mTransferStatus = K2STAT_ERROR_UNKNOWN;
+            K2_CpuWriteBarrier();
+        }
+    }
+    else
+    {
+        stat = K2STAT_ERROR_NO_MEDIA;
     }
 
-    K2_CpuFullBarrier();
+    K2OS_CritSec_Leave(&apDevice->Sec);
 
-    return K2STAT_NO_ERROR;
+    if (K2STAT_IS_ERROR(stat))
+    {
+        return stat;
+    }
+
+    //
+    // hand off to channel thread
+    //
+    ok = K2OS_Notify_Signal(apDevice->mpChannel->mTokNotify);
+    K2_ASSERT(ok);
+
+    ok = K2OS_Thread_WaitOne(&waitResult, apDevice->mTokTransferWaitNotify, K2OS_TIMEOUT_INFINITE);
+    stat = K2OS_Thread_GetLastStatus();
+
+    K2OS_CritSec_Enter(&apDevice->Sec);
+
+    K2_ASSERT(NULL == apDevice->mpTransfer);
+
+    if (!ok)
+    {
+        K2OSKERN_Debug("IDE(%08X) channel %d device %d wait failed! (%08X)\n", stat);
+    }
+    else
+    {
+        stat = apDevice->mTransferStatus;
+        K2_CpuReadBarrier();
+        if (K2STAT_IS_ERROR(stat))
+        {
+            K2OSKERN_Debug("***IDE transfer status %08X\n", stat);
+        }
+    }
+
+    apDevice->mTransferStatus = K2STAT_ERROR_UNKNOWN;
+    K2_CpuWriteBarrier();
+
+    K2OS_CritSec_Leave(&apDevice->Sec);
+
+    return stat;
 }

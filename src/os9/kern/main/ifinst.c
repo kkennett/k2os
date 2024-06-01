@@ -381,7 +381,7 @@ KernIfInstId_GetDetail(
         if (NULL != pTreeNode)
         {
             pIfInst = K2_GET_CONTAINER(K2OSKERN_OBJ_IFINST, pTreeNode, IdTreeNode);
-            if ((pIfInst->mIsPublic) && (!pIfInst->mIsDeparting))
+            if (!pIfInst->mIsDeparting)
             {
                 apRetDetail->mClassCode = pIfInst->mClassCode;
                 apRetDetail->mInstId = pIfInst->IdTreeNode.mUserVal;

@@ -862,4 +862,76 @@
 
 /* --------------------------------------------------------------------------------- */
 
+#define K2_IANA_HTYPE_ETHERNET      1
+#define K2_IANA_HTYPE_IEEE_802      6
+#define K2_IANA_HTYPE_SERIAL        20
+
+// [RFC6328]
+#define K2_IANA_NLPID_IPV4                  0xCC    // [RFC791]
+#define K2_IANA_NLPID_PPP                   0xCF    // [RFC1661]
+
+#define K2_PPP_AUTO_TIMER_DEFAULT_MS        3000
+#define K2_PPP_AUTO_MAX_TERMINATE_COUNT     2
+#define K2_PPP_AUTO_MAX_CONFIGURE_COUNT     10
+#define K2_PPP_AUTO_MAX_FAILURE_COUNT       5
+
+#define K2_PPP_AUTO_CONFIGURE_REQUEST       1
+#define K2_PPP_AUTO_CONFIGURE_ACK           2
+#define K2_PPP_AUTO_CONFIGURE_NACK          3
+#define K2_PPP_AUTO_CONFIGURE_REJECT        4
+#define K2_PPP_AUTO_TERMINATE_REQUEST       5
+#define K2_PPP_AUTO_TERMINATE_ACK           6
+#define K2_PPP_AUTO_CODE_REJECT             7
+#define K2_PPP_AUTO_PROTOCOL_REJECT         8
+#define K2_PPP_AUTO_ECHO_REQUEST            9
+#define K2_PPP_AUTO_ECHO_REPLY              10
+#define K2_PPP_AUTO_DISCARD_REQUEST         11
+
+#define K2_PPP_PROTO_LCP                    0xC021
+#define K2_PPP_PROTO_PAP                    0xC023
+#define K2_PPP_PROTO_LQR                    0xC025
+#define K2_PPP_PROTO_CHAP                   0xC223
+
+#define K2_PPP_PROTO_IPCP                   0x8021
+
+#define K2_PPP_PROTO_IPV4                   0x0021
+#define K2_PPP_PROTO_PADDING                0x0001
+#define K2_PPP_PROTO_MULTI                  0x003D
+
+#define K2_PPP_NLP_RANGE_FIRST              0x0000
+#define K2_PPP_NLP_RANGE_LAST               0x3FFF
+#define K2_PPP_LV_RANGE_FIRST               0x4000
+#define K2_PPP_LV_RANGE_LAST                0x7FFF
+#define K2_PPP_NCP_RANGE_FIRST              0x8000
+#define K2_PPP_NCP_RANGE_LAST               0xBFFF
+#define K2_PPP_LCP_RANGE_FIRST              0xC000
+#define K2_PPP_LCP_RANGE_LAST               0xFEFF
+
+#define K2_PPP_LCPOPT_MRU                   1
+#define K2_PPP_LCPOPT_ACCM                  2
+#define K2_PPP_LCPOPT_AUTH                  3
+#define K2_PPP_LCPOPT_QUAL                  4
+#define K2_PPP_LCPOPT_MAGIC                 5
+#define K2_PPP_LCPOPT_PFC                   7
+#define K2_PPP_LCPOPT_ACFC                  8
+#define K2_PPP_MRU_MINIMUM                  1500
+#define K2_PPP_LCPOPT_MRU_DEFAULT_VAL       K2_PPP_MRU_MINIMUM 
+#define K2_PPP_LCPOPT_ACCM_DEFAULT_VAL      0xFFFFFFFF
+    
+#define K2_PPP_IPCP_CONFIGURE_REQUEST       1
+#define K2_PPP_IPCP_CONFIGURE_ACK           2
+#define K2_PPP_IPCP_CONFIGURE_NACK          3
+#define K2_PPP_IPCP_CONFIGURE_REJECT        4
+#define K2_PPP_IPCP_TERMINATE_REQUEST       5
+#define K2_PPP_IPCP_TERMINATE_ACK           6
+#define K2_PPP_IPCP_CODE_REJECT             7
+
+#define K2_PPP_ICPCOPT_IP_ADDRESSES         1   // deprecated
+#define K2_PPP_ICPCOPT_IP_COMPRESS_PROTO    2   // RFC 1332
+#define K2_PPP_ICPCOPT_IP_ADDRESS           3
+#define K2_PPP_ICPCOPT_PRIMARY_DNS          129
+#define K2_PPP_ICPCOPT_SECONDARY_DNS        131 // RFC 1877
+
+/* --------------------------------------------------------------------------------- */
+
 #endif // __K2BASEDEFS_INC

@@ -58,6 +58,46 @@ CrtMail_Init(
 }
 
 BOOL
+CrtMail_Cloned(
+    K2OS_TOKEN aTokOriginal,
+    K2OS_TOKEN aTokClone
+)
+{
+    CRT_MAIL_TRACK *pTrackBox;
+    CRT_MAIL_TRACK *pNewTrack;
+    K2TREE_NODE *   pTreeNode;
+
+    pNewTrack = (CRT_MAIL_TRACK *)K2OS_Heap_Alloc(sizeof(CRT_MAIL_TRACK));
+    if (NULL == pNewTrack)
+    {
+        return FALSE;
+    }
+
+    K2MEM_Zero(pNewTrack, sizeof(CRT_MAIL_TRACK));
+    pNewTrack->TreeNode.mUserVal = (UINT32)aTokClone;
+
+    K2OS_CritSec_Enter(&sgTrackSec);
+
+    pTreeNode = K2TREE_Find(&sgTrackTree, (UINT32)aTokOriginal);
+    if (NULL != pTreeNode)
+    {
+        pTrackBox = K2_GET_CONTAINER(CRT_MAIL_TRACK, pTreeNode, TreeNode);
+        pNewTrack->mIsSlot = pTrackBox->mIsSlot;
+        pNewTrack->mVirtAddr = pTrackBox->mVirtAddr;
+        K2TREE_Insert(&sgTrackTree, pNewTrack->TreeNode.mUserVal, &pNewTrack->TreeNode);
+    }
+
+    K2OS_CritSec_Leave(&sgTrackSec);
+
+    if (NULL == pTreeNode)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+BOOL
 CrtMail_TokenDestroy(
     K2OS_TOKEN aToken
 )
@@ -443,7 +483,7 @@ K2OS_Mailbox_Send(
     //
     bitsVal = pProd->OwnerMask[ixWord].mVal;
     K2_CpuReadBarrier();
-    K2_ASSERT(0 != (bitsVal & (1 << ixBit)));
+    K2_ASSERT(0 == (bitsVal & (1 << ixBit)));
 
     K2MEM_Copy(&pData->Msg[ixSlot], apMsg, sizeof(K2OS_MSG));
     K2_CpuWriteBarrier();

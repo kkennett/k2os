@@ -685,6 +685,8 @@ KernXdlHost_Threaded_Finalize(
         }
     }
 
+    K2OSKERN_Debug("KERNXDL: Loaded [%.*s]\n", apFileHdr->mNameLen, apFileHdr->mName);
+
     return K2STAT_NO_ERROR;
 }
 
@@ -700,6 +702,8 @@ KernXdlHost_Threaded_Purge(
     BOOL                ok;
 
     pHostFile = (K2OSKERN_HOST_FILE *)apLoadCtx->mHostFile;
+
+    K2OSKERN_Debug("KERNXDL: Unload [%.*s]\n", apLoadCtx->OpenArgs.mNameLen, apLoadCtx->OpenArgs.mpNamePart);
 
     for (ix = XDLSegmentIx_Text; ix < XDLSegmentIx_Count; ix++)
     {

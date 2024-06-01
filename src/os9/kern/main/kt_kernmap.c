@@ -295,3 +295,191 @@ K2OS_VirtMap_GetInfo(
     return result;
 }
 
+K2STAT
+K2OSKERN_PrepIo(
+    BOOL            aUseHwDma, 
+    BOOL            aIsWrite,
+    UINT32          aProcId, 
+    UINT32 *        apAddr, 
+    UINT32 *        apSizeBytes, 
+    K2OS_TOKEN *    apRetToken
+)
+{
+    K2STAT                  stat;
+    UINT32                  firstPageOffset;
+    K2OSKERN_OBJREF         procRef;
+    K2OSKERN_OBJREF         mapRef;
+    UINT32                  addr;
+    UINT32                  sizeBytes;
+    UINT32                  mapPageIx;
+    K2OS_VirtToPhys_MapType mapType;
+    K2OS_VIRTMAP_TOKEN      tokKernVirtMap;
+    K2OSKERN_OBJ_PAGEARRAY *pPageArray;
+    UINT32                  bytesLeft;
+    UINT32                  pageArrayPageIndex;
+    UINT32                  pageArrayBytesLeft;
+    UINT32                  kernMapPageCount;
+    UINT32                  kernVirtAddr;
+    K2OSKERN_OBJREF         kernVirtMapRef;
+
+    addr = *apAddr;
+
+    mapRef.AsAny = NULL;
+
+    if (0 == aProcId)
+    {
+        tokKernVirtMap = K2OS_VirtMap_Acquire(addr, NULL, &mapPageIx);
+        if (NULL == tokKernVirtMap)
+        {
+            return K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        stat = KernToken_Translate(tokKernVirtMap, &mapRef);
+        K2OS_Token_Destroy(tokKernVirtMap);
+    }
+    else
+    {
+        procRef.AsAny = NULL;
+        if (!KernProc_FindAddRefById(aProcId, &procRef))
+        {
+            return K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        stat = KernProc_FindMapAndCreateRef(procRef.AsProc, addr, &mapRef, &mapPageIx);
+        KernObj_ReleaseRef(&procRef);
+    }
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        return stat;
+    }
+
+    mapType = mapRef.AsVirtMap->mMapType;
+    if ((mapType != K2OS_MapType_Data_ReadWrite) &&
+        (mapType != K2OS_MapType_Data_CopyOnWrite) &&
+        (mapType != K2OS_MapType_Thread_Stack) &&
+        (mapType != K2OS_MapType_MemMappedIo_ReadWrite) &&
+        (mapType != K2OS_MapType_Write_Thru))
+    {
+        if (aIsWrite)
+        {
+            return K2STAT_ERROR_READ_ONLY;
+        }
+    }
+
+    //
+    // have mapRef and mapPageIx here
+    //
+    do {
+        sizeBytes = *apSizeBytes;
+        if (0 == sizeBytes)
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+            break;
+        }
+
+        firstPageOffset = addr & K2_VA_MEMPAGE_OFFSET_MASK;
+        pPageArray = mapRef.AsVirtMap->PageArrayRef.AsPageArray;
+
+        //
+        // how much space is left in the map?
+        //
+        bytesLeft = ((mapRef.AsVirtMap->mPageCount - mapPageIx) * K2_VA_MEMPAGE_BYTES) - firstPageOffset;
+        if (sizeBytes > bytesLeft)
+            sizeBytes = bytesLeft;
+
+        //
+        // how much contiguous space is left in the page array?
+        //
+        pageArrayPageIndex = mapRef.AsVirtMap->mPageArrayStartPageIx + mapPageIx;
+        if (pPageArray->mType == KernPageArray_Sparse)
+        {
+            if (aUseHwDma)
+            {
+                pageArrayBytesLeft = K2_VA_MEMPAGE_BYTES - firstPageOffset;
+            }
+            else
+            {
+                pageArrayBytesLeft = bytesLeft;
+            }
+        }
+        else
+        {
+            pageArrayBytesLeft = ((pPageArray->mPageCount - pageArrayPageIndex) * K2_VA_MEMPAGE_BYTES) - firstPageOffset;
+        }
+
+        if (pageArrayBytesLeft < bytesLeft)
+        {
+            if (sizeBytes > pageArrayBytesLeft)
+            {
+                *apSizeBytes = pageArrayBytesLeft;
+            }
+        }
+        else
+        {
+            if (sizeBytes > bytesLeft)
+            {
+                *apSizeBytes = bytesLeft;
+            }
+        }
+
+        if (aUseHwDma)
+        {
+            //
+            // change to physical Address
+            //
+            *apAddr = firstPageOffset + KernPageArray_PagePhys(pPageArray, pageArrayPageIndex);
+            stat = KernToken_Create(&pPageArray->Hdr, apRetToken);
+        }
+        else
+        {
+            if (0 == aProcId)
+            {
+                //
+                // non-hw transfer to kernel space, address unchanged
+                //
+                stat = KernToken_Create(&pPageArray->Hdr, apRetToken);
+            }
+            else
+            {
+                //
+                // make kernel virtmap of transfer area
+                //
+                kernMapPageCount = (firstPageOffset + (*apSizeBytes) + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES;
+
+                kernVirtAddr = KernVirt_Reserve(kernMapPageCount);
+                if (0 == kernVirtAddr)
+                {
+                    stat = K2STAT_ERROR_OUT_OF_MEMORY;
+                }
+                else
+                {
+                    kernVirtMapRef.AsAny = NULL;
+                    stat = KernVirtMap_Create(
+                        pPageArray,
+                        pageArrayPageIndex,
+                        kernMapPageCount,
+                        kernVirtAddr,
+                        K2OS_MapType_Write_Thru,
+                        &kernVirtMapRef
+                    );
+                    KernVirt_Release(kernVirtAddr);
+
+                    if (!K2STAT_IS_ERROR(stat))
+                    {
+                        stat = KernToken_Create(kernVirtMapRef.AsAny, apRetToken);
+                        KernObj_ReleaseRef(&kernVirtMapRef);
+                        if (!K2STAT_IS_ERROR(stat))
+                        {
+                            *apAddr = kernVirtAddr + firstPageOffset;
+                        }
+                    }
+                }
+            }
+        }
+
+    } while (0);
+
+    KernObj_ReleaseRef(&mapRef);
+
+    return stat;
+}
+

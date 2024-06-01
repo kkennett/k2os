@@ -33,7 +33,7 @@
 
 K2OS_CRITSEC        gRpcGraphSec;
 K2TREE_ANCHOR       gRpcHandleTree;    // keyed on pointer to handle header
-K2_GUID128 const    gRpcServerClassId = K2OS_IFACE_RPC_SERVER_CLASSID;
+K2_GUID128 const    gRpcServerClassId = K2OS_IFACE_RPC_SERVER;
 K2OS_IFINST_ID      gRpcServerIfInstId;
 
 void K2OSRPC_Client_Init(void);

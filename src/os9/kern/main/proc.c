@@ -2051,8 +2051,15 @@ KernProc_SysCall_TokenClone(
     K2OSKERN_OBJ_THREAD *       apCurThread
 )
 {
-    K2OSKERN_OBJREF objRef;
-    K2STAT          stat;
+    K2OSKERN_OBJREF     objRef;
+    K2STAT              stat;
+    K2OS_THREAD_PAGE *  pThreadPage;
+
+    //
+    // default indication back to crt is that this is not a mailbox token
+    //
+    pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
+    pThreadPage->mSysCall_Arg7_Result0 = 0;
 
     objRef.AsAny = NULL;
     stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &objRef);
@@ -2065,6 +2072,16 @@ KernProc_SysCall_TokenClone(
             break;
         default:
             stat = KernProc_TokenCreate(apCurThread->User.ProcRef.AsProc, objRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
+            if (!K2STAT_IS_ERROR(stat))
+            {
+                if (objRef.AsAny->mObjType == KernObj_MailboxOwner)
+                {
+                    //
+                    // let crt know this is a mailbox owner token
+                    //
+                    pThreadPage->mSysCall_Arg7_Result0 = 1;
+                }
+            }
             break;
         }
 
@@ -2072,7 +2089,7 @@ KernProc_SysCall_TokenClone(
     }
     if (K2STAT_IS_ERROR(stat))
     {
-        apCurThread->mpKernRwViewOfThreadPage->mLastStatus = stat;
+        pThreadPage->mLastStatus = stat;
         apCurThread->User.mSysCall_Result = 0;
     }
 }
@@ -3283,4 +3300,157 @@ KernProc_SysCall_CacheOp(
 
     apCurThread->User.mSysCall_Result = 1;
     pThreadPage->mLastStatus = K2STAT_NO_ERROR;
+}
+
+K2OS_VIRTMAP_TOKEN
+KernProc_Threaded_UserVirtMapCreate_Internal(
+    K2OSKERN_OBJ_PROCESS *  apProc,
+    UINT32                  aVirtResBase,
+    UINT32                  aVirtResPageCount,
+    K2OS_PAGEARRAY_TOKEN    aTokPageArray
+)
+{
+    K2OS_VIRTMAP_TOKEN  tokResult;
+    K2STAT              stat;
+    K2OSKERN_OBJREF     pageArrayRef;
+    K2OSKERN_OBJREF     mapRef;
+
+    tokResult = NULL;
+
+    pageArrayRef.AsAny = NULL;
+    stat = KernToken_Translate(aTokPageArray, &pageArrayRef);
+    if (!K2STAT_IS_ERROR(stat))
+    {
+        if (pageArrayRef.AsAny->mObjType != KernObj_PageArray)
+        {
+            stat = K2STAT_ERROR_BAD_TOKEN;
+        }
+        else
+        {
+            mapRef.AsAny = NULL;
+            stat = KernVirtMap_CreateUser(
+                apProc,
+                pageArrayRef.AsPageArray,
+                0,
+                aVirtResBase,
+                aVirtResPageCount,
+                K2OS_MapType_Data_ReadWrite,
+                &mapRef
+            );
+            if (!K2STAT_IS_ERROR(stat))
+            {
+                stat = KernToken_Create(mapRef.AsAny, &tokResult);
+
+                KernObj_ReleaseRef(&mapRef);
+            }
+        }
+
+        KernObj_ReleaseRef(&pageArrayRef);
+    }
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OS_Thread_SetLastStatus(stat);
+    }
+    else
+    {
+        K2_ASSERT(NULL != tokResult);
+    }
+
+    return tokResult;
+}
+
+
+K2OS_VIRTMAP_TOKEN 
+KernProc_Threaded_UserVirtMapCreate(
+    UINT32                  aProcessId,
+    UINT32                  aVirtResBase,
+    UINT32                  aVirtResPageCount,
+    K2OS_PAGEARRAY_TOKEN    aTokPageArray
+)
+{
+    K2OSKERN_OBJREF     procRef;
+    K2OS_VIRTMAP_TOKEN  tokResult;
+
+    procRef.AsAny = NULL;
+    if (!KernProc_FindAddRefById(aProcessId, &procRef))
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_NOT_FOUND);
+        return 0;
+    }
+
+    tokResult = KernProc_Threaded_UserVirtMapCreate_Internal(
+        procRef.AsProc,
+        aVirtResBase,
+        aVirtResPageCount,
+        aTokPageArray
+    );
+
+    KernObj_ReleaseRef(&procRef);
+
+    if (NULL == tokResult)
+    {
+        K2_ASSERT(K2STAT_IS_ERROR(K2OS_Thread_GetLastStatus()));
+    }
+
+    return tokResult;
+}
+
+K2STAT             
+KernProc_Threaded_UserMap(
+    UINT32                  aProcessId,
+    K2OS_PAGEARRAY_TOKEN    aKernTokPageArray,
+    UINT32                  aPageCount,
+    UINT32 *                apRetUserVirtAddr,
+    K2OS_VIRTMAP_TOKEN *    apRetTokUserVirtMap
+)
+{
+    K2OSKERN_OBJREF         procRef;
+    K2STAT                  stat;
+    K2OSKERN_PROCHEAP_NODE *pProcHeapNode;
+    UINT32                  procVirtAddr;
+    K2OS_VIRTMAP_TOKEN      tokVirtMap;
+
+    procRef.AsAny = NULL;
+    if (!KernProc_FindAddRefById(aProcessId, &procRef))
+    {
+        stat = K2STAT_ERROR_NOT_FOUND;
+    }
+    else
+    {
+        stat = KernProc_UserVirtHeapAlloc(procRef.AsProc, aPageCount, &pProcHeapNode);
+        if (!K2STAT_IS_ERROR(stat))
+        {
+            procVirtAddr = K2HEAP_NodeAddr(&pProcHeapNode->HeapNode);
+            K2_ASSERT(0 != procVirtAddr);
+
+            tokVirtMap = KernProc_Threaded_UserVirtMapCreate_Internal(
+                procRef.AsProc,
+                procVirtAddr,
+                aPageCount,
+                aKernTokPageArray
+            );
+
+            if (NULL == tokVirtMap)
+            {
+                stat = K2OS_Thread_GetLastStatus();
+                K2_ASSERT(K2STAT_IS_ERROR(stat));
+                KernProc_UserVirtHeapFree(procRef.AsProc, procVirtAddr);
+            }
+            else
+            {
+                *apRetUserVirtAddr = procVirtAddr;
+                *apRetTokUserVirtMap = tokVirtMap;
+            }
+        }
+
+        KernObj_ReleaseRef(&procRef);
+    }
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OS_Thread_SetLastStatus(stat);
+    }
+
+    return stat;
 }

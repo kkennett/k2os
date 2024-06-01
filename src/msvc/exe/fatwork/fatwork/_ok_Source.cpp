@@ -61,7 +61,7 @@ K2OS_IFINST_ID  K2OS_RpcServer_GetIfInstId(K2OS_RPC_SERVER aServer);
 BOOL            K2OS_RpcServer_GetState(K2OS_RPC_SERVER aServer, UINT32 *apRetState);
 BOOL            K2OS_RpcServer_RequestStop(K2OS_RPC_SERVER aServer);
 BOOL            K2OS_RpcServer_Delete(K2OS_RPC_SERVER aServer);
-K2OS_RPC_CLASS  K2OS_RpcServer_Register(K2OS_RPC_SERVER aServer, K2OS_RPC_OBJECT_CLASS const *apClassDef);
+K2OS_RPC_CLASS  K2OS_RpcServer_Register(K2OS_RPC_SERVER aServer, K2OS_RPC_OBJ_CLASS const *apClassDef);
 BOOL            K2OS_RpcServer_Deregister(K2OS_RPC_SERVER aServer, K2OS_RPC_CLASS aRegisteredClass);
 BOOL            K2OS_RpcServer_SendNotify(K2OS_RPC_OBJ aObject, UINT32 aNotify1, UINT32 aNotify2);
 

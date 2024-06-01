@@ -32,6 +32,44 @@
 
 #include "pcibus.h"
 
+UINT32 
+PciBus_FindIrqLine(
+    PCIBUS *    pPciBus,
+    UINT32      aDevice,
+    UINT8       aPin
+)
+{
+    ACPI_PCI_ROUTING_ENTRY *pEntry;
+
+    pEntry = pPciBus->mpRoutingTable;
+    if (NULL == pEntry)
+        return 0xFFFFFFFF;
+    if (pEntry->Length == 0)
+        return 0xFFFFFFFF;
+    if ((aPin == 0) || (aPin > 4))  // entry pins go 0-3, pci cfg space pin #s go 1-4
+        return 0xFFFFFFFF;
+    do { 
+        if (((UINT32)(pEntry->Address >> 16)) == aDevice)
+        {
+            if (pEntry->Pin == (aPin - 1))  // entry pins go 0-3, pci cfg space pin #s go 1-4
+            {
+                if (pEntry->Source[0] == 0)
+                {
+                    return pEntry->SourceIndex;
+                }
+                else
+                {
+                    // redirect to routing object - TBD
+                    K2OSKERN_Debug("%02X [%s]\n", pEntry->Source[0], pEntry->Source);
+                    K2_ASSERT(0);
+                }
+            }
+        }
+        pEntry = (ACPI_PCI_ROUTING_ENTRY *)(((UINT8 *)pEntry) + pEntry->Length);
+    } while (pEntry->Length != 0);
+    return 0xFFFFFFFF;
+}
+
 void
 PciBus_MountChild(
     PCIBUS_CHILD *  apChild
@@ -47,48 +85,20 @@ PciBus_MountChild(
     UINT32          maskVal;
     PCIBUS *        pPciBus;
     K2OSDDK_RESDEF  resDef;
-    UINT32          mountFlags;
+    UINT32          irqLine;
     
     pPciBus = apChild->mpParent;
 
     address = (((UINT64)(apChild->DeviceLoc.Device)) << 16) | ((UINT64)(apChild->DeviceLoc.Function));
 
-    mountFlags = 0;
-    if (apChild->Ident.mClassCode == PCI_CLASS_BRIDGE)
-    {
-        switch (apChild->Ident.mSubClassCode)
-        {
-        case PCI_BRIDGE_SUBCLASS_ISA:
-            mountFlags = K2OS_BUSTYPE_ISA;
-            break;
-        case PCI_BRIDGE_SUBCLASS_EISA:
-            mountFlags = K2OS_BUSTYPE_EISA;
-            break;
-        case PCI_BRIDGE_SUBCLASS_PCI:
-            mountFlags = K2OS_BUSTYPE_PCI;
-            break;
-        case PCI_BRIDGE_SUBCLASS_PCMCIA:
-            mountFlags = K2OS_BUSTYPE_PCMCIA;
-            break;
-        case PCI_BRIDGE_SUBCLASS_CARDBUS:
-            mountFlags = K2OS_BUSTYPE_CARDBUS;
-            break;
-        default:
-            mountFlags = K2OS_BUSTYPE_HOST;
-            break;
-        }
-    }
-    else
-    {
-        mountFlags = K2OS_BUSTYPE_HOST;
-    }
-
-    stat = K2OSDDK_MountChild(pPciBus->mDevCtx, mountFlags, &address, &apChild->Ident, &apChild->mInstanceId);
+    stat = K2OSDDK_MountChild(pPciBus->mDevCtx, K2OS_BUSTYPE_PCI, &address, &apChild->Ident, pPciBus->mRpcIfInstId, &apChild->ChildIdTreeNode.mUserVal);
     if (K2STAT_IS_ERROR(stat))
     {
-        K2OSKERN_Debug("*** PciBus(%d,%d): Failed to mount child device object %d (%08X)\n", pPciBus->mSegNum, pPciBus->mSegNum, apChild->mInstanceId, stat);
+        K2OSKERN_Debug("*** PciBus(%d,%d): Failed to mount child device object (%08X)\n", pPciBus->mSegNum, pPciBus->mSegNum, stat);
         return;
     }
+
+    K2TREE_Insert(&pPciBus->ChildIdTree, apChild->ChildIdTreeNode.mUserVal, &apChild->ChildIdTreeNode);
 
     if (!PciBus_CheckOverrideRes(apChild))
     {
@@ -206,7 +216,7 @@ PciBus_MountChild(
                             resDef.mId = ix;
                             resDef.Io.Range.mBasePort = (UINT16)(apChild->mBarVal[ix] & PCI_BAR_BASEMASK_IO);
                             resDef.Io.Range.mSizeBytes = apChild->mBarSize[ix];
-                            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+                            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
                             if (K2STAT_IS_ERROR(stat))
                             {
                                 K2OSKERN_Debug("*** PciBus(%d,%d): Failed to add child %04X/%04X io range (%08X)\n", pPciBus->mSegNum, pPciBus->mSegNum, apChild->Ident.mVendorId, apChild->Ident.mDeviceId, stat);
@@ -220,7 +230,7 @@ PciBus_MountChild(
                             resDef.mId = ix;
                             resDef.Phys.Range.mBaseAddr = apChild->mBarVal[ix] & PCI_BAR_BASEMASK_MEMORY;
                             resDef.Phys.Range.mSizeBytes = apChild->mBarSize[ix];
-                            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+                            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
                             if (K2STAT_IS_ERROR(stat))
                             {
                                 K2OSKERN_Debug("*** PciBus(%d,%d): Failed to add child %04X/%04X memmap range (%08X)\n", pPciBus->mSegNum, pPciBus->mSegNum, apChild->Ident.mVendorId, apChild->Ident.mDeviceId, stat);
@@ -244,19 +254,30 @@ PciBus_MountChild(
             K2OSKERN_Debug("*** PciBus(%d,%d): Failed to read child %04X/%04X interrupt line from config space (%08X)\n", pPciBus->mSegNum, pPciBus->mSegNum, apChild->Ident.mVendorId, apChild->Ident.mDeviceId, stat);
             return;
         }
-
         if (val64 != 0xFF)
         {
-            K2MEM_Zero(&resDef, sizeof(resDef));
-            resDef.mType = K2OS_RESTYPE_IRQ;
-            resDef.mId = 0;
-            resDef.Irq.Config.Line.mIsActiveLow = TRUE;
-            resDef.Irq.Config.mSourceIrq = (UINT8)val64;
-            stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->mInstanceId, &resDef);
+            stat = pPciBus->mfConfigRead(pPciBus, &apChild->DeviceLoc, PCI_CONFIG_TYPEX_OFFSET_INTPIN, &val64, 8);
             if (K2STAT_IS_ERROR(stat))
             {
-                K2OSKERN_Debug("*** PciBus(%d,%d): Failed to add child %04X/%04X irq (%08X)\n", pPciBus->mSegNum, pPciBus->mSegNum, apChild->Ident.mVendorId, apChild->Ident.mDeviceId, stat);
-                return;
+                K2OSKERN_Debug("*** PciBus(%d,%d): Failed to read child %04X/%04X interrupt ping from config space (%08X)\n", pPciBus->mSegNum, pPciBus->mSegNum, apChild->Ident.mVendorId, apChild->Ident.mDeviceId, stat);
+            }
+            else
+            {
+                irqLine = PciBus_FindIrqLine(pPciBus, apChild->DeviceLoc.Device, (UINT8)val64);
+                if (irqLine != 0xFFFFFFFF)
+                {
+                    K2MEM_Zero(&resDef, sizeof(resDef));
+                    resDef.mType = K2OS_RESTYPE_IRQ;
+                    resDef.mId = 0;
+                    resDef.Irq.Config.Line.mIsActiveLow = TRUE;
+                    resDef.Irq.Config.mSourceIrq = (UINT16)irqLine;
+                    stat = K2OSDDK_AddChildRes(pPciBus->mDevCtx, apChild->ChildIdTreeNode.mUserVal, &resDef);
+                    if (K2STAT_IS_ERROR(stat))
+                    {
+                        K2OSKERN_Debug("*** PciBus(%d,%d): Failed to add child %04X/%04X irq (%08X)\n", pPciBus->mSegNum, pPciBus->mSegNum, apChild->Ident.mVendorId, apChild->Ident.mDeviceId, stat);
+                        return;
+                    }
+                }
             }
         }
     }

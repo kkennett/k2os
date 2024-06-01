@@ -213,18 +213,20 @@ KernVirt_RamHeapCreateRange(
     K2LIST_LINK *           pListLink;
     K2OSKERN_PHYSTRACK *    pTrack;
     K2OSKERN_PHYSRES        res;
+    K2OSKERN_VIRTHEAP_NODE *pVirtHeapNode;
+    UINT32                  virtEnd;
+    UINT32 *                pPTE;
 
     K2_ASSERT(aInitCommitPageCount <= aTotalPageCount);
 
-    virtSpace = KernVirt_Locked_Alloc(aTotalPageCount, NULL);
+    virtSpace = KernVirt_Locked_Alloc(aTotalPageCount, &pVirtHeapNode);
     if (0 == virtSpace)
         return K2STAT_ERROR_OUT_OF_MEMORY;
 
-    //    K2OSKERN_Debug("Allocated Virtual Range of %d pages at %08X\n", aTotalPageCount, virtSpace);
+    virtEnd = virtSpace + (K2_VA_MEMPAGE_BYTES * aTotalPageCount);
 
-        //
-        // pull physical pages for initial commit count
-        //
+    K2TREE_NODE_SETUSERBIT(&pVirtHeapNode->HeapNode.SizeTreeNode);
+
     if (!KernPhys_Reserve_Init(&res, aInitCommitPageCount))
     {
         stat = K2STAT_ERROR_OUT_OF_MEMORY;
@@ -247,6 +249,17 @@ KernVirt_RamHeapCreateRange(
                 virtPageAddr += K2_VA_MEMPAGE_BYTES;
             } while (pListLink != NULL);
 
+            if (virtPageAddr != virtEnd)
+            {
+                pPTE = (UINT32 *)K2OS_KVA_TO_PTE_ADDR(virtPageAddr);
+                do {
+                    *pPTE = K2OSKERN_PTE_HEAPMAP_PENDING;
+                    pPTE++;
+                    virtPageAddr += K2_VA_MEMPAGE_BYTES;
+                } while (virtPageAddr != virtEnd);
+                K2_CpuWriteBarrier();
+            }
+
             K2LIST_AppendToTail(&gData.Virt.PhysTrackList, &trackList);
 
             *appRetRange = (void *)virtSpace;
@@ -262,6 +275,11 @@ KernVirt_RamHeapCreateRange(
     if (K2STAT_IS_ERROR(stat))
     {
         KernVirt_Locked_Release(virtSpace);
+    }
+    else if (gData.Virt.mKernHeapThreaded)
+    {
+        K2_ASSERT(NULL == gData.Virt.mpRamHeapHunk);
+        gData.Virt.mpRamHeapHunk = pVirtHeapNode;
     }
 
     return stat;
@@ -306,10 +324,54 @@ KernVirt_RamHeapCommitPages(
 
         virtPageAddr += K2_VA_MEMPAGE_BYTES;
     } while (pListLink != NULL);
+    K2_CpuWriteBarrier();
 
     K2LIST_AppendToTail(&gData.Virt.PhysTrackList, &trackList);
 
     return K2STAT_NO_ERROR;
+}
+
+void
+KernHeap_NewHeapMap(
+    K2OSKERN_VIRTHEAP_NODE * apVirtHeapNode
+)
+{
+    K2OSKERN_OBJ_VIRTMAP *  pVirtMap;
+    K2OSKERN_OBJREF         refPageArray;
+    K2STAT                  stat;
+    UINT32                  virtAddr;
+    UINT32                  pageCount;
+    BOOL                    disp;
+
+    virtAddr = apVirtHeapNode->HeapNode.AddrTreeNode.mUserVal;
+    pageCount = apVirtHeapNode->HeapNode.SizeTreeNode.mUserVal / K2_VA_MEMPAGE_BYTES;
+
+    refPageArray.AsAny = NULL;
+    stat = KernPageArray_CreatePreMap(virtAddr, pageCount, 0, &refPageArray);
+    K2_ASSERT(!K2STAT_IS_ERROR(stat));
+
+    pVirtMap = K2OS_Heap_Alloc(sizeof(K2OSKERN_OBJ_VIRTMAP));
+    K2_ASSERT(NULL != pVirtMap);
+
+    K2MEM_Zero(pVirtMap, sizeof(K2OSKERN_OBJ_VIRTMAP));
+
+    pVirtMap->Hdr.mObjType = KernObj_VirtMap;
+    pVirtMap->Hdr.mObjFlags = K2OSKERN_OBJ_FLAG_PERMANENT;
+    K2LIST_Init(&pVirtMap->Hdr.RefObjList);
+    KernObj_CreateRef(&pVirtMap->PageArrayRef, refPageArray.AsAny);
+    KernObj_ReleaseRef(&refPageArray);
+    pVirtMap->mMapType = K2OS_MapType_Data_ReadWrite;
+    pVirtMap->mPageArrayStartPageIx = 0;
+    pVirtMap->mPageCount = pageCount;
+    pVirtMap->OwnerMapTreeNode.mUserVal = virtAddr;
+    pVirtMap->Kern.mpVirtHeapNode = apVirtHeapNode;
+    pVirtMap->Kern.mSizeBytes = pageCount * K2_VA_MEMPAGE_BYTES;
+    pVirtMap->Kern.mType = KernMap_PreMap;
+    pVirtMap->mpPte = (UINT32 *)K2OS_KVA_TO_PTE_ADDR(virtAddr);
+    
+    disp = K2OSKERN_SeqLock(&gData.VirtMap.SeqLock);
+    K2TREE_Insert(&gData.VirtMap.Tree, pVirtMap->OwnerMapTreeNode.mUserVal, &pVirtMap->OwnerMapTreeNode);
+    K2OSKERN_SeqUnlock(&gData.VirtMap.SeqLock, disp);
 }
 
 void * 
@@ -317,16 +379,29 @@ KernHeap_Alloc(
     UINT32 aByteCount
 )
 {
-    K2STAT  stat;
-    void *  retPtr;
-    BOOL    disp;
+    K2STAT                      stat;
+    void *                      retPtr;
+    BOOL                        disp;
+    K2OSKERN_VIRTHEAP_NODE *    pVirtHeapNode;
 
     disp = K2OSKERN_SeqLock(&gData.Virt.HeapSeqLock);
 
     stat = K2RAMHEAP_Alloc(&gData.Virt.RamHeap, aByteCount, TRUE, &retPtr);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
+    pVirtHeapNode = gData.Virt.mpRamHeapHunk;
+    gData.Virt.mpRamHeapHunk = NULL;
+
     K2OSKERN_SeqUnlock(&gData.Virt.HeapSeqLock, disp);
+
+    if (NULL != pVirtHeapNode)
+    {
+        //
+        // now we need to create the pagearray and virtmap
+        // for 'hunkVirtBase' and 'hunkPageCount'
+        //
+        KernHeap_NewHeapMap(pVirtHeapNode);
+    }
 
     return retPtr;
 }
@@ -537,6 +612,7 @@ KernVirt_Locked_Alloc(
     {
         pKernHeapNode = K2_GET_CONTAINER(K2OSKERN_VIRTHEAP_NODE, pHeapNode, HeapNode);
         pKernHeapNode->mRefs = 1;
+        K2TREE_NODE_CLRUSERBIT(&pKernHeapNode->HeapNode.SizeTreeNode);
         K2_CpuWriteBarrier();
         if (NULL != apRetHeapNode)
         {
@@ -635,6 +711,7 @@ KernVirt_Locked_Alloc(
 
     pKernHeapNode = K2_GET_CONTAINER(K2OSKERN_VIRTHEAP_NODE, pHeapNode, HeapNode);
     pKernHeapNode->mRefs = 1;
+    K2TREE_NODE_CLRUSERBIT(&pKernHeapNode->HeapNode.SizeTreeNode);
     K2_CpuWriteBarrier();
     if (NULL != apRetHeapNode)
     {
@@ -745,4 +822,62 @@ KernVirt_Release(
 
     return result;
 }
+
+void
+KernVirt_Threaded_Init(
+    void
+)
+{
+    K2HEAP_NODE *           pHeapNode;
+    K2OSKERN_VIRTHEAP_NODE *pVirtHeapNode;
+    BOOL                    disp;
+    K2TREE_NODE *           pTreeNode;
+
+    //
+    // any virtual allocations that do not have a K2OSKERN_OBJ_VIRTMAP need one
+    // this is running threaded but is the first thread in the system and it has
+    // not done anything yet
+    //
+
+    do {
+        disp = K2OSKERN_SeqLock(&gData.Virt.HeapSeqLock);
+
+        pHeapNode = K2HEAP_GetFirstNode(&gData.Virt.Heap);
+        K2_ASSERT(NULL != pHeapNode);
+
+        do {
+            pVirtHeapNode = K2_GET_CONTAINER(K2OSKERN_VIRTHEAP_NODE, pHeapNode, HeapNode);
+
+            if (0 != K2TREE_NODE_USERBIT(&pVirtHeapNode->HeapNode.AddrTreeNode))
+            {
+                //
+                // this is a RAMHEAP allocation
+                //
+                pTreeNode = K2TREE_Find(&gData.VirtMap.Tree, pVirtHeapNode->HeapNode.AddrTreeNode.mUserVal);
+                if (NULL == pTreeNode)
+                {
+                    break;
+                }
+            }
+
+            pHeapNode = K2HEAP_GetNextNode(&gData.Virt.Heap, pHeapNode);
+
+        } while (NULL != pHeapNode);
+
+        K2OSKERN_SeqUnlock(&gData.Virt.HeapSeqLock, disp);
+
+        if (NULL == pHeapNode)
+            break;
+
+        //
+        // need to add a kernel virtual map for pVirtHeapNode
+        // so that things in the kernel can do I/O to it
+        //
+        KernHeap_NewHeapMap(pVirtHeapNode);
+
+    } while (1);
+
+    gData.Virt.mKernHeapThreaded = TRUE;
+}
+
 

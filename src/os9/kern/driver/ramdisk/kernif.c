@@ -57,24 +57,15 @@ RAMDISK_Transfer(
 {
     UINT8 * pBlock;
 
-    pBlock = (UINT8 *)(apDevice->mVirtBase + (apTransfer->mStartBlock * RAMDISK_BLOCKSIZE));
+    pBlock = (UINT8 *)(apDevice->mVirtBase + (((UINT32)apTransfer->mStartBlock) * RAMDISK_BLOCKSIZE));
 
-    switch (apTransfer->mType)
+    if (!apTransfer->mIsWrite)
     {
-    case K2OS_BlockIoTransfer_Read:
-        K2MEM_Copy((void *)apTransfer->mTargetAddr, pBlock, apTransfer->mBlockCount * RAMDISK_BLOCKSIZE);
-        break;
-
-    case K2OS_BlockIoTransfer_Write:
-        K2MEM_Copy(pBlock, (void *)apTransfer->mTargetAddr, apTransfer->mBlockCount * RAMDISK_BLOCKSIZE);
-        break;
-
-    case K2OS_BlockIoTransfer_Erase:
-        K2MEM_Zero(pBlock, apTransfer->mBlockCount * RAMDISK_BLOCKSIZE);
-        break;
-
-    default:
-        return K2STAT_ERROR_NOT_SUPPORTED;
+        K2MEM_Copy((void *)apTransfer->mAddress, pBlock, apTransfer->mBlockCount * RAMDISK_BLOCKSIZE);
+    }
+    else
+    {
+        K2MEM_Copy(pBlock, (void *)apTransfer->mAddress, apTransfer->mBlockCount * RAMDISK_BLOCKSIZE);
     }
 
     K2_CpuFullBarrier();
@@ -162,7 +153,7 @@ StartDriver(
     stat = K2OSDDK_DriverStarted(apDevice->mDevCtx);
     if (!K2STAT_IS_ERROR(stat))
     {
-        stat = K2OSDDK_BlockIoRegister(apDevice->mDevCtx, apDevice, &sgBlockIoFuncTab);
+        stat = K2OSDDK_BlockIoRegister(apDevice->mDevCtx, apDevice, &sgBlockIoFuncTab, &apDevice->mpNotifyKey);
 
         if (!K2STAT_IS_ERROR(stat))
         {

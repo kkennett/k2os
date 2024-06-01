@@ -78,6 +78,7 @@ K2OS_IfSubs_Create(
         }
         else
         {
+            refSubs.AsAny = NULL;
             stat = KernIfSubs_Create(
                 refMailboxOwner.AsMailboxOwner->RefMailbox.AsMailbox,
                 aClassCode,

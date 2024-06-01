@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+\<?xml version="1.0" ?>
 <!--
    
    BSD 3-Clause License
@@ -51,6 +51,15 @@
     <source>workthread.c</source>
     <source>ddk.c</source>
     <source>blockio.c</source>
+    <source>volmgr.c</source>
+    <source>fsmgr.c</source>
+    <source>netio.c</source>
+    <source>rofs.c</source>
+
+    <lib>~lib/k2osblockio</lib>
+    <lib>~lib/k2osstorvol</lib>
+    <lib>~lib/k2rundown</lib>
+    <lib>@shared/lib/k2fat</lib>
 
     <xdl>~kern/k2osacpi</xdl>
     <xdl arch="x32">~kern/main/x32/k2oskern</xdl>

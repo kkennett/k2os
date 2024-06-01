@@ -37,7 +37,6 @@ bool                gDebugMode;
 static char         sgArchModeBuf[12];
 char const *        gpArchMode = sgArchModeBuf;
 UINT_PTR const      gArchModeLen = 9;
-//char const * const  gpOsVer = "os8";
 char const * const  gpOsVer = "os9";
 
 char const * const gpBuildXmlFileName = "k2build.xml";

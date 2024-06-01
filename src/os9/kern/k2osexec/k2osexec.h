@@ -38,7 +38,9 @@
 #include "../main/kernexec.h"
 #include "../k2osacpi/k2osacpi.h"
 #include <spec/k2pci.h>
-#include <k2osdev_blockio.h>
+#include <k2osstor.h>
+#include <k2osnet.h>
+#include <lib/k2rundown.h>
 
 #if __cplusplus
 extern "C" {
@@ -62,7 +64,11 @@ typedef struct  _DEV_IRQ            DEV_IRQ;
 typedef struct  _DEV_PHYS           DEV_PHYS;
 typedef struct  _ACPI_NODE          ACPI_NODE;
 typedef struct  _BLOCKIO            BLOCKIO;
+typedef struct  _BLOCKIO_SESSION    BLOCKIO_SESSION;
 typedef struct  _BLOCKIO_RANGE      BLOCKIO_RANGE;
+typedef struct  _BLOCKIO_USER       BLOCKIO_USER;
+typedef struct  _BLOCKIO_PROC       BLOCKIO_PROC;
+typedef struct  _NETIO              NETIO;
 
 struct _DEVNODE_REF
 {
@@ -161,6 +167,7 @@ struct _DEVNODE
 
     UINT32              mBusType;
     K2_DEVICE_IDENT     DeviceIdent;
+    K2OS_IFINST_ID      mBusIfInstId;
 
     struct {
         K2TREE_NODE                     InstanceTreeNode;
@@ -169,7 +176,6 @@ struct _DEVNODE
         K2OS_pf_Driver_Call             mfStartDriver;
         K2OS_pf_Driver_Call             mfStopDriver;
         K2OS_pf_Driver_Call             mfDeleteInstance;
-        K2OSKERN_pf_Hook_Key            mfIntrHookKey;
     } Driver;
 
     struct {
@@ -231,9 +237,15 @@ struct _DEVNODE
             K2OS_XDL        mXdl;
         } Driver;
 
-        struct {
-            K2LIST_ANCHOR   List;
-        } BlockIo;
+        union {
+            struct {
+                K2LIST_ANCHOR   List;
+            } BlockIo;
+
+            struct {
+                K2LIST_ANCHOR   List;
+            } NetIo;
+        };
 
     } InSec;
 };
@@ -246,10 +258,10 @@ void Dev_ReleaseRef(DEVNODE_REF *apRef);
 
 void        Dev_NodeLocked_OnEvent(DEVNODE *apNode, DevNodeEventType aType, UINT32 aArg);
 
-DEVNODE *   Dev_NodeLocked_CreateChildNode(DEVNODE *apParent, UINT64 const *apParentRelativeBusAddress, UINT32 aChildBusType, K2_DEVICE_IDENT const *apChildIdent);
+DEVNODE *   Dev_NodeLocked_CreateChildNode(DEVNODE *apParent, UINT64 const *apParentRelativeBusAddress, UINT32 aChildBusType, K2_DEVICE_IDENT const *apChildIdent, K2OS_IFINST_ID aBusIfInstId);
 void        Dev_NodeLocked_DeleteChildNode(DEVNODE *apParent, DEVNODE *apChild);
 
-K2STAT      Dev_NodeLocked_MountChild(DEVNODE *apParent, UINT32 aMounsFlagsAndBusType, UINT64 const *apBusSpecificAddress, K2_DEVICE_IDENT const *apIdent, UINT32 *apRetChildInstanceId);
+K2STAT      Dev_NodeLocked_MountChild(DEVNODE *apParent, UINT32 aMounsFlagsAndBusType, UINT64 const *apBusSpecificAddress, K2_DEVICE_IDENT const *apIdent, K2OS_IFINST_ID aBusIfInstId, UINT32 *apRetChildInstanceId);
 
 K2STAT      Dev_NodeLocked_OnSetMailbox(DEVNODE *apNode, K2OS_MAILBOX_TOKEN aTokMailbox);
 //void        Dev_NodeLocked_OnStop(DEVNODE *apNode);
@@ -281,12 +293,13 @@ struct _ACPI_NODE
     ACPI_BUFFER         CurrentAcpiRes;
 };
 
-void ACPI_Init(K2OSACPI_INIT *apInit);
-void ACPI_Enable(void);
-void ACPI_StartSystemBusDriver(void);
-BOOL ACPI_MatchAndAttachChild(ACPI_NODE *apParentAcpiNode, UINT64 const *apBusAddrOfChild, DEVNODE *apChildNode);
-void ACPI_NodeLocked_PopulateRes(DEVNODE *apDevNode);
-void ACPI_Describe(ACPI_NODE * apAcpiNode, char **appOut, UINT32 *apLeft);
+void   ACPI_Init(K2OSACPI_INIT *apInit);
+void   ACPI_Enable(void);
+void   ACPI_StartSystemBusDriver(void);
+BOOL   ACPI_MatchAndAttachChild(ACPI_NODE *apParentAcpiNode, UINT64 const *apBusAddrOfChild, DEVNODE *apChildNode);
+void   ACPI_NodeLocked_PopulateRes(DEVNODE *apDevNode);
+void   ACPI_Describe(ACPI_NODE * apAcpiNode, char **appOut, UINT32 *apLeft);
+K2STAT ACPI_RunMethod(K2OS_DEVCTX aDevCtx, UINT32 aMethod, UINT32 aFlags, UINT32 aInput, UINT32 *apRetResult);
 
 //
 // -------------------------------------------------------------------------
@@ -324,48 +337,177 @@ K2STAT WorkerThread_Exec(WorkerThread_pf_WorkFunc aWorkFunc, void *apArg);
 
 struct _BLOCKIO_RANGE
 {
-    UINT32          mStartBlock;
-    UINT32          mBlockCount;
-    UINT32          mOwner;
-    UINT32          mId;
-    UINT32          mPrivate;
-    K2LIST_LINK     ListLink;
+    UINT64      mStartBlock;
+    UINT64      mBlockCount;
+    UINT32      mProcessId;
+    UINT32      mId;
+    UINT32      mPrivate;
+    K2LIST_LINK SessionRangeListLink;
+};
+
+struct _BLOCKIO_SESSION
+{
+    K2LIST_ANCHOR   RangeList;
+    UINT64          mBlockCount;
+    UINT32          mBlockSizeBytes;
+    BOOL            mIsReadOnly;
+    K2LIST_LINK     InstanceSessionListLink;
+};
+
+struct _BLOCKIO_PROC
+{
+    UINT32          mProcessId;
+    K2LIST_LINK     InstanceProcListLink;
+    K2LIST_ANCHOR   UserList;
+};
+
+struct _BLOCKIO_USER
+{
+    BLOCKIO_PROC *          mpProc;
+    K2OS_BLOCKIO_CONFIG_IN  Config;
+    BOOL                    mConfigSet;
+    K2LIST_LINK             ProcUserListLink;
 };
 
 struct _BLOCKIO
 {
-    DEVNODE *                   mpDevNode;
-    K2LIST_LINK                 DevNodeBlockIoListLink;
-    void *                      mpDriverContext;
+    INT32 volatile                  mRefCount;
 
-    K2OS_IFINST_TOKEN           mTokIfInst;
-    K2OS_IFINST_ID              mIfInstId;
+    DEVNODE *                       mpDevNode;              // up
+    K2LIST_LINK                     DevNodeBlockIoListLink;
 
-    K2OSDDK_BLOCKIO_REGISTER    Register;
+    K2RUNDOWN                       Rundown;                // down
+    void *                          mpDriverContext;
+    K2OSDDK_BLOCKIO_REGISTER        Register;
 
-    UINT32                      mMediaBlockCount;
-    UINT32                      mMediaBlockSizeBytes;
+    K2OS_XDL                        mHoldXdl[2];            // one for each func in register
 
-    K2OS_CRITSEC                Sec;
-    K2OS_NOTIFY_TOKEN           mTokNotify;
-    K2OS_THREAD_TOKEN           mTokThread;
-    UINT32                      mThreadId;
-    K2OSEXEC_IOTHREAD           IoThread;
-    K2LIST_ANCHOR               IopList;
+    K2OS_CRITSEC                    Sec;
 
-    UINT32                      mLastRangeId;
-    K2LIST_ANCHOR               RangeList;
+    K2LIST_ANCHOR                   ProcList;
+
+    K2LIST_ANCHOR                   SessionList;
+    BLOCKIO_SESSION *               mpCurSession;
+
+    UINT32                          mLastRangeId;
+
+    K2OS_RPC_OBJ                    mRpcObj;
+    K2OS_RPC_OBJ_HANDLE             mRpcObjHandle;
+    K2OS_IFINST_ID                  mRpcIfInstId;
+    K2OS_RPC_IFINST                 mRpcIfInst;
+
+    K2OSDDK_pf_BlockIo_NotifyKey    mfNotify;
+
+    K2LIST_LINK                     GlobalListLink;
 };
 
-UINT32 BlockIo_DeviceThread(void *apArg);
+void        BlockIo_Init(void);
+BLOCKIO *   BlockIo_AcquireByIfInstId(K2OS_IFINST_ID aIfInstId);
+K2STAT      BlockIo_Transfer(BLOCKIO *apBlockIo, UINT32 aProcessId, K2OS_BLOCKIO_TRANSFER_IN const *apTransferIn);
+UINT32      BlockIo_AddRef(BLOCKIO *apBlockIo);
+UINT32      BlockIo_Release(BLOCKIO *apBlockIo);
 
 //
 //------------------------------------------------------------------------
 //
 
-extern UINT32       gMainThreadId;
-extern EXEC_PLAT    gPlat;
-extern K2OSKERN_DDK gKernDdk;
+void VolMgr_Init(void);
+
+//
+//------------------------------------------------------------------------
+//
+
+void FsMgr_Init(void);
+
+//
+//------------------------------------------------------------------------
+//
+
+typedef struct _NETIO_PROC      NETIO_PROC;
+typedef struct _NETIO_USER      NETIO_USER;
+typedef struct _NETIO_BUFTRACK  NETIO_BUFTRACK;
+
+struct _NETIO_PROC
+{
+    UINT32          mProcessId;
+    K2LIST_LINK     InstanceProcListLink;
+    K2LIST_ANCHOR   UserList;
+};
+
+struct _NETIO_USER
+{
+    NETIO_PROC *    mpProc;
+    K2LIST_LINK     ProcUserListLink;
+};
+
+struct _NETIO_BUFTRACK
+{
+    BOOL            mUserOwned;
+    UINT32          mIx;
+    K2LIST_LINK     ListLink;
+};
+
+struct _NETIO
+{
+    INT32 volatile                  mRefCount;
+
+    K2LIST_LINK                     GlobalListLink;
+
+    DEVNODE *                       mpDevNode;              // up
+    K2LIST_LINK                     DevNodeNetIoListLink;
+
+    K2RUNDOWN                       Rundown;                // down
+    void *                          mpDriverContext;
+    K2OSDDK_NETIO_REGISTER          Register;
+
+    K2OS_XDL                        mHoldXdl[4];            // for function pointers inside Register
+
+    K2OS_CRITSEC                    Sec;
+
+    K2LIST_ANCHOR                   ProcList;
+
+    K2OS_RPC_OBJ                    mRpcObj;
+    K2OS_RPC_OBJ_HANDLE             mRpcObjHandle;
+    K2OS_IFINST_ID                  mRpcIfInstId;
+    K2OS_RPC_IFINST                 mRpcIfInst;
+
+    K2OSDDK_pf_NetIo_NotifyKey      mfNotify;       // points inside k2osexec xdl
+    K2OSDDK_pf_NetIo_RecvKey        mfRecv;         // points inside k2osexec xdl
+    K2OSDDK_pf_NetIo_XmitDoneKey    mfXmitDone;     // points inside k2osexec xdl
+
+    UINT32                          mAllBufsCount;
+    NETIO_BUFTRACK *                mpBufTrack;
+    K2LIST_ANCHOR                   BufXmitAvailList;    // buffers available to transmit from
+    K2LIST_ANCHOR                   BufRecvInUseList;    // buffers outstanding receivces
+
+    NETIO_USER *                    mpControlUser;
+
+    K2OS_PAGEARRAY_TOKEN            mTokFramesPageArray;
+
+    K2OS_NETIO_CONFIG_IN            Control_ConfigIn;
+    UINT32                          mControl_BufsVirtBaseAddr;
+    UINT32                          mControl_PageCount;
+    K2OS_VIRTMAP_TOKEN              mControl_TokBufsVirtMap;
+
+    BOOL                            mIsEnabled;
+};
+
+void NetIo_Init(void);
+
+//
+//------------------------------------------------------------------------
+//
+
+void Rofs_Init(void);
+
+//
+//------------------------------------------------------------------------
+//
+
+extern UINT32           gMainThreadId;
+extern EXEC_PLAT        gPlat;
+extern K2OSKERN_DDK     gKernDdk;
+extern K2OS_IFINST_ID   gAcpiBusIfInstId;
 
 //
 // -------------------------------------------------------------------------

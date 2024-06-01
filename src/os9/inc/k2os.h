@@ -54,9 +54,6 @@ typedef K2OS_XDL_OPAQUE *                   K2OS_XDL;
 typedef struct _K2OS_IPCEND_OPAQUE          K2OS_IPCEND_OPAQUE;
 typedef K2OS_IPCEND_OPAQUE *                K2OS_IPCEND;
 
-typedef struct _K2OS_BLOCKIO_RANGE_OPAQUE   K2OS_BLOCKIO_RANGE_OPAQUE;
-typedef K2OS_BLOCKIO_RANGE_OPAQUE *         K2OS_BLOCKIO_RANGE;
-
 typedef UINT32 K2OS_IFINST_ID;
 
 typedef UINT32 (*K2OS_pf_THREAD_ENTRY)(void *apArgument);
@@ -105,7 +102,14 @@ enum _K2OS_VirtToPhys_MapType
 #define K2OS_SYSPROC_ID                         1
 
 #define K2OS_IFACE_CLASSCODE_RPC                1
-#define K2OS_IFACE_CLASSCODE_STORAGE_DEVICE     2
+#define K2OS_IFACE_CLASSCODE_STORAGE_VOLMGR     2
+#define K2OS_IFACE_CLASSCODE_STORAGE_DEVICE     3
+#define K2OS_IFACE_CLASSCODE_STORAGE_PARTITION  4
+#define K2OS_IFACE_CLASSCODE_STORAGE_VOLUME     5
+#define K2OS_IFACE_CLASSCODE_FSMGR              6
+#define K2OS_IFACE_CLASSCODE_FILESYS            7
+#define K2OS_IFACE_CLASSCODE_BUSDRIVER          8
+#define K2OS_IFACE_CLASSCODE_NETWORK_DEVICE     9
 
 typedef struct _K2OS_IFINST_DETAIL K2OS_IFINST_DETAIL;
 struct _K2OS_IFINST_DETAIL
@@ -162,7 +166,6 @@ K2_PACKED_POP
 #define K2OS_SYSTEM_MSGTYPE_SYSPROC     (K2OS_MSGTYPE_SYSTEM_FLAG | 4)
 #define K2OS_SYSTEM_MSGTYPE_DDK         (K2OS_MSGTYPE_SYSTEM_FLAG | 5)
 #define K2OS_SYSTEM_MSGTYPE_RPC         (K2OS_MSGTYPE_SYSTEM_FLAG | 6)
-#define K2OS_SYSTEM_MSGTYPE_BLOCKIO     (K2OS_MSGTYPE_SYSTEM_FLAG | 7)
 
 K2_PACKED_PUSH
 typedef struct _K2OS_MSG K2OS_MSG;
@@ -188,18 +191,16 @@ struct _K2OS_IPCPROCESSMSG_CALLBACKS
     K2OS_IPCEND_pf_Callback_OnRejected   OnRejected;
 };
 
-typedef K2OS_TOKEN  K2OS_WAITABLE_TOKEN;
 typedef K2OS_TOKEN  K2OS_PAGEARRAY_TOKEN;
 typedef K2OS_TOKEN  K2OS_VIRTMAP_TOKEN;
 typedef K2OS_TOKEN  K2OS_IFINST_TOKEN;
 typedef K2OS_TOKEN  K2OS_IFENUM_TOKEN;
 typedef K2OS_TOKEN  K2OS_IFSUBS_TOKEN;
-typedef K2OS_TOKEN  K2OS_BLOCKIO_TOKEN;
 
+typedef K2OS_TOKEN  K2OS_WAITABLE_TOKEN;
 typedef K2OS_WAITABLE_TOKEN K2OS_PROCESS_TOKEN;
 typedef K2OS_WAITABLE_TOKEN K2OS_THREAD_TOKEN;
-typedef K2OS_WAITABLE_TOKEN K2OS_NOTIFY_TOKEN;
-typedef K2OS_WAITABLE_TOKEN K2OS_GATE_TOKEN;
+typedef K2OS_WAITABLE_TOKEN K2OS_SIGNAL_TOKEN;
 typedef K2OS_WAITABLE_TOKEN K2OS_SEMAPHORE_TOKEN;
 typedef K2OS_WAITABLE_TOKEN K2OS_ALARM_TOKEN;
 typedef K2OS_WAITABLE_TOKEN K2OS_INTERRUPT_TOKEN;
@@ -228,7 +229,7 @@ struct _K2OS_CREATED_PROCESS
 };
 
 // {0577283B-90AA-48D8-A10F-B6E44BAF0C3A}
-#define K2OS_IFACE_RPC_SERVER_CLASSID { 0x577283b, 0x90aa, 0x48d8, { 0xa1, 0xf, 0xb6, 0xe4, 0x4b, 0xaf, 0xc, 0x3a } }
+#define K2OS_IFACE_RPC_SERVER { 0x577283b, 0x90aa, 0x48d8, { 0xa1, 0xf, 0xb6, 0xe4, 0x4b, 0xaf, 0xc, 0x3a } }
 
 typedef struct _K2OS_RPC_CLASS_OPAQUE       K2OS_RPC_CLASS_OPAQUE;
 typedef struct _K2OS_RPC_OBJ_HANDLE_OPAQUE  K2OS_RPC_OBJ_HANDLE_OPAQUE;
@@ -240,17 +241,17 @@ typedef K2OS_RPC_OBJ_HANDLE_OPAQUE *    K2OS_RPC_OBJ_HANDLE;
 typedef K2OS_RPC_OBJ_OPAQUE *           K2OS_RPC_OBJ;
 typedef K2OS_RPC_IFINST_OPAQUE *        K2OS_RPC_IFINST;
 
-typedef struct _K2OS_RPC_OBJECT_CLASSDEF K2OS_RPC_OBJECT_CLASSDEF;
+typedef struct _K2OS_RPC_OBJ_CLASSDEF K2OS_RPC_OBJ_CLASSDEF;
 
-typedef struct _K2OS_RPC_OBJECT_CREATE K2OS_RPC_OBJECT_CREATE;
-struct _K2OS_RPC_OBJECT_CREATE
+typedef struct _K2OS_RPC_OBJ_CREATE K2OS_RPC_OBJ_CREATE;
+struct _K2OS_RPC_OBJ_CREATE
 {
-    K2OS_GATE_TOKEN mRemoteDisconnectedGateToken;
-    UINT32          mClassRegisterContext;
-    UINT32          mCreatorProcessId;
-    UINT32          mCreatorContext;
+    K2OS_SIGNAL_TOKEN   mRemoteDisconnectedGateToken;
+    UINT32              mClassRegisterContext;
+    UINT32              mCreatorProcessId;
+    UINT32              mCreatorContext;
 };
-typedef K2STAT (*K2OS_RPC_pf_Object_Create)(K2OS_RPC_OBJ aObject, K2OS_RPC_OBJECT_CREATE const *apCreate, UINT32 *apRetContext, BOOL *apRetSingleUsage);
+typedef K2STAT (*K2OS_RPC_pf_Object_Create)(K2OS_RPC_OBJ aObject, K2OS_RPC_OBJ_CREATE const *apCreate, UINT32 *apRetContext);
 
 typedef K2STAT (*K2OS_RPC_pf_Object_OnAttach)(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aProcessId, UINT32 *apRetUseContext);
 typedef K2STAT (*K2OS_RPC_pf_Object_OnDetach)(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aUseContext);
@@ -265,20 +266,20 @@ struct _K2OS_RPC_CALLARGS
     UINT32          mOutBufByteCount;
 };
 
-typedef struct _K2OS_RPC_OBJECT_CALL K2OS_RPC_OBJECT_CALL;
-struct _K2OS_RPC_OBJECT_CALL
+typedef struct _K2OS_RPC_OBJ_CALL K2OS_RPC_OBJ_CALL;
+struct _K2OS_RPC_OBJ_CALL
 {
     K2OS_RPC_OBJ        mObj;
     UINT32              mObjContext;
     UINT32              mUseContext;
-    K2OS_GATE_TOKEN     mRemoteDisconnectedGateToken;
+    K2OS_SIGNAL_TOKEN   mRemoteDisconnectedGateToken;
     K2OS_RPC_CALLARGS   Args;
 };
-typedef K2STAT (*K2OS_RPC_pf_Object_Call)(K2OS_RPC_OBJECT_CALL const *apCall, UINT32 *apRetUsedOutBytes);
+typedef K2STAT (*K2OS_RPC_pf_Object_Call)(K2OS_RPC_OBJ_CALL const *apCall, UINT32 *apRetUsedOutBytes);
 
 typedef K2STAT (*K2OS_RPC_pf_Object_Delete)(K2OS_RPC_OBJ aObject, UINT32 aObjContext);
 
-struct _K2OS_RPC_OBJECT_CLASSDEF
+struct _K2OS_RPC_OBJ_CLASSDEF
 {
     K2_GUID128                  ClassId;
 
@@ -289,20 +290,68 @@ struct _K2OS_RPC_OBJECT_CLASSDEF
     K2OS_RPC_pf_Object_Delete   Delete;
 };
 
-//
-//------------------------------------------------------------------------
-//
-
-#define K2OS_STORAGE_MEDIA_FRIENDLY_BUFFER_CHARS    32
-
-typedef struct _K2OS_STORAGE_MEDIA K2OS_STORAGE_MEDIA;
-struct _K2OS_STORAGE_MEDIA
+K2_PACKED_PUSH
+struct _K2OS_TIME
 {
-    UINT64  mUniqueId;
-    UINT32  mBlockCount;
-    UINT32  mBlockSizeBytes;
-    UINT64  mTotalBytes;
-    char    mFriendly[K2OS_STORAGE_MEDIA_FRIENDLY_BUFFER_CHARS];
+    UINT16  mTimeZoneId;
+    UINT16  mYear;
+    UINT16  mMonth;
+    UINT16  mDay;
+    UINT16  mHour;
+    UINT16  mMinute;
+    UINT16  mSecond;
+    UINT16  mMillisecond;
+} K2_PACKED_ATTRIB;
+K2_PACKED_POP
+typedef struct _K2OS_TIME K2OS_TIME;
+
+#define K2OS_FILE_NAME_MAX_CHARS    255
+
+#define K2OS_FATTRIB_READ_ONLY      0x00000001
+#define K2OS_FATTRIB_HIDDEN         0x00000002
+#define K2OS_FATTRIB_SYSTEM         0x00000004
+#define K2OS_FATTRIB_RESERVED       0x00000008
+#define K2OS_FATTRIB_FOLDER         0x00000010
+#define K2OS_FATTRIB_ARCHIVE        0x00000020
+
+typedef struct _K2OS_FILE_INFO K2OS_FILE_INFO;
+struct _K2OS_FILE_INFO
+{
+    UINT64      mSizeBytes;
+    K2OS_TIME   mTimeCreated;
+    K2OS_TIME   mTimeModified;
+    K2OS_TIME   mTimeAccessed;
+    UINT32      mAttrib;
+    char        mName[K2OS_FILE_NAME_MAX_CHARS + 1];
+};
+
+typedef enum _K2OS_TimeType K2OS_TimeType;
+enum _K2OS_TimeType
+{
+    K2OS_TimeType_Invalid = 0,
+
+    K2OS_Time_Created,
+    K2OS_Time_Modified,
+    K2OS_Time_Accessed,
+
+    K2OS_TimeType_Count
+};
+
+#define K2OS_FILE_MODE_READ         K2OS_ACCESS_R
+#define K2OS_FILE_MODE_WRITE        K2OS_ACCESS_W
+#define K2OS_FILE_MODE_READ_WRITE   K2OS_ACCESS_RW
+#define K2OS_FILE_MODE_CREATE       (0x00010000 & PF_MASKOS)
+
+typedef enum _K2OS_SetPosType K2OS_SetPosType;
+enum _K2OS_SetPosType
+{
+    K2OS_SetPosType_Invalid = 0,
+
+    K2OS_SetPos_Relative,
+    K2OS_SetPos_FromBegin,
+    K2OS_SetPos_FromEnd,
+
+    K2OS_SetPosType_Count
 };
 
 //
@@ -400,16 +449,17 @@ BOOL   K2OS_Token_Destroy(K2OS_TOKEN aToken);
 //------------------------------------------------------------------------
 //
 
-K2OS_NOTIFY_TOKEN K2OS_Notify_Create(BOOL aInitSignalled);
-BOOL              K2OS_Notify_Signal(K2OS_NOTIFY_TOKEN aTokNotify);
+K2OS_SIGNAL_TOKEN   K2OS_Notify_Create(BOOL aInitSignalled);
+K2OS_SIGNAL_TOKEN   K2OS_Gate_Create(BOOL aInitOpen);
 
-//
-//------------------------------------------------------------------------
-//
+BOOL                K2OS_Signal_Set(K2OS_SIGNAL_TOKEN aTokNotify);
+BOOL                K2OS_Signal_Reset(K2OS_SIGNAL_TOKEN aTokNotify);
+BOOL                K2OS_Signal_Pulse(K2OS_SIGNAL_TOKEN aTokNotify);
 
-K2OS_GATE_TOKEN K2OS_Gate_Create(BOOL aInitOpen);
-BOOL            K2OS_Gate_Open(K2OS_GATE_TOKEN aTokGate);
-BOOL            K2OS_Gate_Close(K2OS_GATE_TOKEN aTokGate);
+#define K2OS_Notify_Signal  K2OS_Signal_Set
+#define K2OS_Gate_Open      K2OS_Signal_Set
+#define K2OS_Gate_Close     K2OS_Signal_Reset
+#define K2OS_Gate_Pulse     K2OS_Signal_Pulse
 
 //
 //------------------------------------------------------------------------
@@ -520,12 +570,12 @@ BOOL        K2OS_Ipc_RejectRequest(UINT32 aRequestId, UINT32 aReasonCode);
 #define K2OS_SYSTEM_MSG_RPC_SHORT_NOTIFY            1
 
 K2OS_IFINST_ID  K2OS_RpcServer_GetIfInstId(void);
-K2OS_RPC_CLASS  K2OS_RpcServer_Register(K2OS_RPC_OBJECT_CLASSDEF const *apClassDef, UINT32 aContext);
+K2OS_RPC_CLASS  K2OS_RpcServer_Register(K2OS_RPC_OBJ_CLASSDEF const *apClassDef, UINT32 aContext);
 BOOL            K2OS_RpcServer_Deregister(K2OS_RPC_CLASS aRegisteredClass);
 
 BOOL            K2OS_RpcObj_GetContext(K2OS_RPC_OBJ aObject, UINT32 *apRetContext);
 BOOL            K2OS_RpcObj_SendNotify(K2OS_RPC_OBJ aObject, UINT32 aSpecificUseOrZeroForAll, UINT32 aNotifyCode, UINT32 aNotifyData);
-K2OS_RPC_IFINST K2OS_RpcObj_PublishIfInst(K2OS_RPC_OBJ aObject, UINT32 aClassCode, K2_GUID128 const* apSpecific, K2OS_IFINST_ID *apRetId);
+K2OS_RPC_IFINST K2OS_RpcObj_AddIfInst(K2OS_RPC_OBJ aObject, UINT32 aClassCode, K2_GUID128 const* apSpecific, K2OS_IFINST_ID *apRetId, BOOL aPublish);
 BOOL            K2OS_RpcObj_RemoveIfInst(K2OS_RPC_OBJ aObject, K2OS_RPC_IFINST aIfInst);
 
 K2OS_RPC_OBJ_HANDLE K2OS_Rpc_CreateObj(K2OS_IFINST_ID aRpcServerIfInstId, K2_GUID128 const *apClassId, UINT32 aCreatorContext);
@@ -535,18 +585,6 @@ BOOL                K2OS_Rpc_GetObjId(K2OS_RPC_OBJ_HANDLE aObjHandle, UINT32 *ap
 BOOL                K2OS_Rpc_SetNotifyTarget(K2OS_RPC_OBJ_HANDLE aObjHandle, K2OS_MAILBOX_TOKEN aTokMailslot);
 K2STAT              K2OS_Rpc_Call(K2OS_RPC_OBJ_HANDLE aObjHandle, K2OS_RPC_CALLARGS const *apCallArgs, UINT32 *apRetActualOutBytes);
 BOOL                K2OS_Rpc_Release(K2OS_RPC_OBJ_HANDLE aObjHandle);
-
-//
-//------------------------------------------------------------------------
-//
-
-K2OS_BLOCKIO_TOKEN  K2OS_BlockIo_Attach(K2OS_IFINST_ID aIfInstId, UINT32 aAccess, UINT32 aShare, K2OS_MAILBOX_TOKEN aTokNotifyMailbox);
-BOOL                K2OS_BlockIo_GetMedia(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_STORAGE_MEDIA *apRetMedia);
-K2OS_BLOCKIO_RANGE  K2OS_BlockIo_RangeCreate(K2OS_BLOCKIO_TOKEN aTokBlockIo, UINT32 aRangeBase, UINT32 aRangeBlockCount, BOOL aMakePrivate);
-BOOL                K2OS_BlockIo_RangeDelete(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_BLOCKIO_RANGE aRange);
-BOOL                K2OS_BlockIo_Read(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_BLOCKIO_RANGE aRange, UINT32 aBytesOffset, void *apBuffer, UINT32 aByteCount);
-BOOL                K2OS_BlockIo_Write(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_BLOCKIO_RANGE aRange, UINT32 aBytesOffset, void const *apBuffer, UINT32 aByteCount);
-BOOL                K2OS_BlockIo_Erase(K2OS_BLOCKIO_TOKEN aTokBlockIo, K2OS_BLOCKIO_RANGE aRange, UINT32 aBytesOffset, UINT32 aByteCount);
 
 //
 //------------------------------------------------------------------------

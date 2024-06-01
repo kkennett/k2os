@@ -33,7 +33,10 @@
 #include "k2osexec.h"
 #include <acevents.h>
 
-static ACPI_NODE sgAcpiTreeRoot;
+static ACPI_NODE    sgAcpiTreeRoot;
+static K2OS_RPC_OBJ sgBusRpcObj;
+
+K2OS_IFINST_ID      gAcpiBusIfInstId;
 
 void
 Acpi_SystemNotifyHandler(
@@ -865,7 +868,7 @@ ACPI_DiscoveredSystemBusChild(
     ident.mClassCode = PCI_CLASS_BRIDGE;
     ident.mSubClassCode = PCI_BRIDGE_SUBCLASS_PCI;
 
-    pChild = Dev_NodeLocked_CreateChildNode(gpDevTree, &pDevInfo->Address, aChildBusType, &ident);
+    pChild = Dev_NodeLocked_CreateChildNode(gpDevTree, &pDevInfo->Address, aChildBusType, &ident, gAcpiBusIfInstId);
     if (NULL == pChild)
         return;
 
@@ -888,6 +891,7 @@ ACPI_DiscoveredSystemBusChild(
             ACPI_Describe(apChildAcpiNode, &pOut, &left);
 
             ioBytes = ((UINT32)(pOut - pIoBuf)) + 1;
+            K2OSKERN_Debug("DevCreate(\"%.*s\");\n", ioBytes, pIoBuf);
 
             pChild->InSec.mpMountedInfo = (char *)K2OS_Heap_Alloc((ioBytes + 4) & ~3);
             if (NULL == pChild->InSec.mpMountedInfo)
@@ -990,7 +994,7 @@ ACPI_AddRamDisk(
     ident.mVendorId = 0xFEED;
     ident.mDeviceId = 0xF00D;
 
-    pChild = Dev_NodeLocked_CreateChildNode(gpDevTree, &addr, K2OS_BUSTYPE_CPU, &ident);
+    pChild = Dev_NodeLocked_CreateChildNode(gpDevTree, &addr, K2OS_BUSTYPE_CPU, &ident, 0);
     if (NULL == pChild)
         return;
 
@@ -1087,18 +1091,127 @@ ACPI_AddRamDisk(
     K2OS_CritSec_Leave(&pChild->Sec);
 }
 
+K2STAT 
+ACPIBusRpc_Create(
+    K2OS_RPC_OBJ                aObject,
+    K2OS_RPC_OBJ_CREATE const * apCreate,
+    UINT32 *                    apRetContext
+)
+{
+    if (0 != apCreate->mCreatorProcessId)
+    {
+        return K2STAT_ERROR_NOT_ALLOWED;
+    }
+
+    if (apCreate->mCreatorContext != (UINT32)ACPIBusRpc_Create)
+    {
+        while (1);
+    }
+
+    sgBusRpcObj = aObject;
+
+    *apRetContext = 0;
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT 
+ACPIBusRpc_OnAttach(
+    K2OS_RPC_OBJ    aObject,
+    UINT32          aObjContext,
+    UINT32          aProcessId,
+    UINT32 *        apRetUseContext
+)
+{
+    if (0 != aProcessId)
+        return K2STAT_ERROR_NOT_ALLOWED;
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT 
+ACPIBusRpc_OnDetach(
+    K2OS_RPC_OBJ    aObject,
+    UINT32          aObjContext,
+    UINT32          aUseContext
+)
+{
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT 
+ACPIBusRpc_Call(
+    K2OS_RPC_OBJ_CALL const *   apCall,
+    UINT32 *                    apRetUsedOutBytes
+)
+{
+    K2STAT                              stat;
+    K2OS_ACPIBUS_RUNMETHOD_IN const *   pIn;
+    K2OS_ACPIBUS_RUNMETHOD_OUT *        pOut;
+
+    switch (apCall->Args.mMethodId)
+    {
+    case K2OS_ACPIBUS_METHOD_RUNMETHOD:
+        if ((apCall->Args.mInBufByteCount < sizeof(K2OS_ACPIBUS_RUNMETHOD_IN)) ||
+            (apCall->Args.mOutBufByteCount < sizeof(K2OS_ACPIBUS_RUNMETHOD_OUT)))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else
+        {
+            pIn = (K2OS_ACPIBUS_RUNMETHOD_IN const *)apCall->Args.mpInBuf;
+            pOut = (K2OS_ACPIBUS_RUNMETHOD_OUT *)apCall->Args.mpOutBuf;
+            stat = ACPI_RunMethod(pIn->mDevCtx, pIn->mMethod, pIn->mFlags, pIn->mInput, &pOut->mResult);
+            if (!K2STAT_IS_ERROR(stat))
+            {
+                *apRetUsedOutBytes = sizeof(K2OS_ACPIBUS_RUNMETHOD_OUT);
+            }
+        }
+        break;
+
+    default:
+        stat = K2STAT_ERROR_NOT_IMPL;
+        break;
+    }
+
+    return stat;
+}
+
+K2STAT 
+ACPIBusRpc_Delete(
+    K2OS_RPC_OBJ    aObject,
+    UINT32          aObjContext
+)
+{
+    K2OSKERN_Panic("*** ACPI Bus Driver Delete!\n");
+    return K2STAT_ERROR_UNKNOWN;
+}
+
 void
 ACPI_StartSystemBusDriver(
     void
 )
 {
-    ACPI_NODE *     pAcpiNode;
-    K2LIST_LINK *   pListLink;
-    UINT32          nodeName;
-    ACPI_STATUS     acpiStatus;
-    ACPI_NODE *     pChildAcpiNode;
-    K2STAT          stat;
-    UINT32          staFlags;
+    // {CE7B2C65-77D9-4694-A38A-C8D97480441B}
+    static K2OS_RPC_OBJ_CLASSDEF const sBusClassDef = {
+        { 0xce7b2c65, 0x77d9, 0x4694, { 0xa3, 0x8a, 0xc8, 0xd9, 0x74, 0x80, 0x44, 0x1b } },
+        ACPIBusRpc_Create,
+        ACPIBusRpc_OnAttach,
+        ACPIBusRpc_OnDetach,
+        ACPIBusRpc_Call,
+        ACPIBusRpc_Delete
+    };
+    static K2_GUID128 sBusIfaceId = K2OS_IFACE_ACPIBUS;
+
+    ACPI_NODE *         pAcpiNode;
+    K2LIST_LINK *       pListLink;
+    UINT32              nodeName;
+    ACPI_STATUS         acpiStatus;
+    ACPI_NODE *         pChildAcpiNode;
+    K2STAT              stat;
+    UINT32              staFlags;
+    K2OS_RPC_CLASS      rpcClass;
+    K2OS_RPC_OBJ_HANDLE rpcObjHandle;
+    K2OS_RPC_IFINST     rpcIfInst;
 
     //
     // parse the ACPI tree top level. do not invoke any methods
@@ -1163,6 +1276,21 @@ ACPI_StartSystemBusDriver(
     gpDevTree->InSec.mState = DevNodeState_Online;
 
     //
+    // create rpc object for children to call via interface instance id
+    //
+    rpcClass = K2OS_RpcServer_Register(&sBusClassDef, 0);
+    K2_ASSERT(NULL != rpcClass);
+
+    sgBusRpcObj = 0;
+    rpcObjHandle = K2OS_Rpc_CreateObj(0, &sBusClassDef.ClassId, (UINT32)ACPIBusRpc_Create);
+    K2_ASSERT(NULL != rpcObjHandle);
+    K2_ASSERT(0 != sgBusRpcObj);
+
+    rpcIfInst = K2OS_RpcObj_AddIfInst(sgBusRpcObj, K2OS_IFACE_CLASSCODE_BUSDRIVER, &sBusIfaceId, &gAcpiBusIfInstId, FALSE);
+    K2_ASSERT(rpcIfInst != NULL);
+//    K2OSKERN_Debug("ACPI Bus driver ifinstId = %d\n", gAcpiBusIfInstId);
+
+    //
     // discover children
     //
     pListLink = pAcpiNode->ChildAcpiNodeList.mpHead;
@@ -1193,7 +1321,7 @@ ACPI_StartSystemBusDriver(
     //
     // add ramdisk node
     //
-    ACPI_AddRamDisk();
+//    ACPI_AddRamDisk();
 
     //
     // everything is enumerated/added.  enable the node now

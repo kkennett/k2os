@@ -34,6 +34,7 @@
 #define __KERN_H
 
 #include <kern/k2osplat.h>
+#include <k2osstor.h>
 #include "kerndef.inc"
 #include <lib/k2rofshelp.h>
 #include <lib/k2ring.h>
@@ -90,7 +91,6 @@ typedef struct _K2OSKERN_OBJ_IFENUM         K2OSKERN_OBJ_IFENUM;
 typedef struct _K2OSKERN_OBJ_IFSUBS         K2OSKERN_OBJ_IFSUBS;
 typedef struct _K2OSKERN_OBJ_IPCEND         K2OSKERN_OBJ_IPCEND;
 typedef struct _K2OSKERN_OBJ_NOTIFYPROXY    K2OSKERN_OBJ_NOTIFYPROXY;
-typedef struct _K2OSKERN_OBJ_BLOCKIO        K2OSKERN_OBJ_BLOCKIO;
 
 /* --------------------------------------------------------------------------------- */
 
@@ -222,7 +222,6 @@ enum _KernObjType
     KernObj_IfSubs,         // 16
     KernObj_IpcEnd,         // 17
     KernObj_NotifyProxy,    // 18
-    KernObj_BlockIo,        // 19
 
     KernObj_Count
 };
@@ -256,7 +255,6 @@ struct _K2OSKERN_OBJREF
         K2OSKERN_OBJ_IFSUBS *       AsIfSubs;
         K2OSKERN_OBJ_IPCEND *		AsIpcEnd;
         K2OSKERN_OBJ_NOTIFYPROXY *  AsNotifyProxy;
-        K2OSKERN_OBJ_BLOCKIO *      AsBlockIo;
     };
 #if SENTINEL_REF
     UINT32          mSentinel1;
@@ -385,8 +383,9 @@ struct _K2OSKERN_CPUCORE
     BOOL                mIsIdle;
 
     BOOL                mInDebugMode;
-    UINT32            mLockStack;
+    UINT32              mLockStack;
 
+    BOOL                mNoDpcQueue;
     K2LIST_ANCHOR       DpcHi;
     K2LIST_ANCHOR       DpcMed;
     K2LIST_ANCHOR       DpcLo;
@@ -455,7 +454,6 @@ enum _KernSchedItemType
     KernSchedItem_Interrupt,
     KernSchedItem_NotifyProxy,
     KernSchedItem_ProcStopped,
-    KernSchedItem_IoMgr_Wake,
     KernSchedItem_KernThread_Exit,
     KernSchedItem_KernThread_SemInc,
     KernSchedItem_KernThread_StartProc,
@@ -485,7 +483,7 @@ struct _K2OSKERN_SCHED_ITEM_ARGS_SEM_INC
 typedef struct _K2OSKERN_SCHED_ITEM_ARGS_GATE_CHANGE K2OSKERN_SCHED_ITEM_ARGS_GATE_CHANGE;
 struct _K2OSKERN_SCHED_ITEM_ARGS_GATE_CHANGE
 {
-    BOOL mSetTo;
+    UINT32 mNewState;
 };
 
 typedef struct _K2OSKERN_SCHED_ITEM_ARGS_THREAD_CREATE K2OSKERN_SCHED_ITEM_ARGS_THREAD_CREATE;
@@ -561,31 +559,6 @@ struct _K2OSKERN_SCHED_ITEM
         K2OSKERN_SCHED_ITEM * volatile  mpNextItem;
         K2LIST_LINK                     ListLink;
     };
-};
-
-/* --------------------------------------------------------------------------------- */
-
-typedef enum _KernIopType KernIopType;
-enum _KernIopType
-{
-    KernIop_Invalid = 0,
-
-    KernIop_UserThread_BlockIo,
-    KernIop_KernThread_BlockIo,
-    KernIop_ProcExit,
-
-    KernIopType_Count
-};
-
-typedef struct _KERN_IOP KERN_IOP;
-struct _KERN_IOP
-{
-    KernIopType         mType;
-    K2OSKERN_OBJREF     RefObj;
-    KERN_IOP * volatile mpChainNext;
-    K2LIST_LINK         InServiceListLink;
-
-    K2OSEXEC_IOP        ExecIop;
 };
 
 /* --------------------------------------------------------------------------------- */
@@ -805,8 +778,6 @@ struct _K2OSKERN_OBJ_PROCESS
         K2LIST_ANCHOR               MacroWaitEntryList;
     } SchedLocked;
 
-    KERN_IOP                        ExitIop;
-
     UINT64 volatile                 mTlsBitmap;
 };
 
@@ -917,12 +888,18 @@ struct _K2OSKERN_USER_THREAD
 
     K2OSKERN_OBJREF                 StackMapRef;
 
-    struct
-    {
+    struct {
         K2OSKERN_DPC_SIMPLE         DpcSimple;
     } CoW;
 
     K2OSKERN_ARCH_EXEC_CONTEXT      ArchExecContext;
+
+    struct {
+        K2LIST_LINK             ProcIoListLink;
+        K2OSKERN_OBJREF         RefCurUserMap;
+        UINT32                  mKernMapVirtAddr;
+        K2OS_VIRTMAP_TOKEN      mTokCurKernMap;
+    } Io;
 };
 
 struct _K2OSKERN_KERN_THREAD
@@ -986,14 +963,6 @@ struct _K2OSKERN_OBJ_THREAD
 
     UINT64                          mHfTicks;
     UINT64                          mQuantumHfTicksRemaining;
-
-    struct {
-        KERN_IOP                    Iop;
-        K2LIST_LINK                 ProcIoListLink;
-        K2OSKERN_OBJREF             RefCurUserMap;
-        UINT32                      mKernMapVirtAddr;
-        K2OSKERN_OBJREF             RefCurKernMap;
-    } ThreadIo;
 
     union
     {
@@ -1260,7 +1229,7 @@ struct _K2OSKERN_OBJ_MAILBOXOWNER
     K2OSKERN_OBJREF         RefMailbox;
     K2OSKERN_OBJREF         RefProc;
     UINT32                  mProcVirt;
-    K2OSKERN_OBJREF         RefProcMap[2];
+    K2OSKERN_OBJREF         RefProcMap;
 };
 
 struct _K2OSKERN_OBJ_MAILSLOT
@@ -1398,19 +1367,27 @@ struct _K2OSKERN_OBJ_NOTIFYPROXY
 
 /* --------------------------------------------------------------------------------- */
 
-struct _K2OSKERN_OBJ_BLOCKIO
+struct _K2OSKERN_OBJ_FOLDER
 {
     K2OSKERN_OBJ_HEADER     Hdr;
-
-    K2OS_IFINST_ID          mIfInstId;
-
-    K2OSEXEC_IOTHREAD *     mpIoThread;
-    UINT32 volatile         mDetached;  // if set, all operations should fail at submission
-
-    K2LIST_LINK             ListLink;
-
+    K2OSKERN_OBJREF         RefParent;
     K2OSKERN_SEQLOCK        SeqLock;
-    K2LIST_ANCHOR           RangeList;
+    K2TREE_NODE             TreeNode;
+    K2TREE_ANCHOR           ChildTree;
+};
+
+struct _K2OSKERN_OBJ_FOLDERENUM_REC
+{
+    K2OS_FILE_INFO  FileInfo;
+    K2LIST_LINK     ListLink;
+};
+
+struct _K2OSKERN_OBJ_FOLDERENUM
+{
+    K2OSKERN_OBJ_HEADER     Hdr;
+    K2OSKERN_SEQLOCK        SeqLock;
+    K2LIST_ANCHOR           List;
+    K2LIST_LINK *           mpCurrent;
 };
 
 /* --------------------------------------------------------------------------------- */
@@ -1453,8 +1430,6 @@ typedef struct _KERN_DATA_EXEC      KERN_DATA_EXEC;
 typedef struct _KERN_DATA_IFACE     KERN_DATA_IFACE;
 typedef struct _KERN_DATA_IPCEND    KERN_DATA_IPCEND;
 typedef struct _KERN_DATA_SYSPROC   KERN_DATA_SYSPROC;
-typedef struct _KERN_DATA_BLOCKIO   KERN_DATA_BLOCKIO;
-typedef struct _KERN_DATA_IOMGR     KERN_DATA_IOMGR;
 
 struct _KERN_DATA_DEBUG
 {
@@ -1525,8 +1500,11 @@ struct _KERN_DATA_VIRT
 
     K2RAMHEAP               RamHeap;
     K2OSKERN_SEQLOCK        RamHeapSeqLock;
+    K2OSKERN_VIRTHEAP_NODE *mpRamHeapHunk;
 
     K2LIST_ANCHOR           PhysTrackList;
+
+    BOOL                    mKernHeapThreaded;
 };
 
 struct _KERN_DATA_OBJ
@@ -1665,20 +1643,11 @@ struct _KERN_DATA_SYSPROC
     K2OSKERN_OBJREF     RefUserVirtMap4;
 
     K2OSKERN_OBJREF     RefNotify;
-};
 
-struct _KERN_DATA_IOMGR
-{
-    K2OSKERN_SCHED_ITEM     SchedItem;  // kernel access
-    K2OSKERN_OBJREF         RefNotify;  // 
-    K2OS_NOTIFY_TOKEN       mTokNotify; // thread access
+    K2OSKERN_OBJREF     RefReady1;      // kernel
+    K2OS_SIGNAL_TOKEN   mTokReady1;     // thread
 
-    UINT32 volatile         mAwake;
-    KERN_IOP * volatile     mpIopIn;
-
-    K2OS_CRITSEC            Sec;
-    K2LIST_ANCHOR           ProcIoList;
-    K2LIST_ANCHOR           InServiceList;
+    K2OS_SIGNAL_TOKEN   mTokReady2;
 };
 
 struct _KERN_DATA
@@ -1710,7 +1679,6 @@ struct _KERN_DATA
     KERN_DATA_IFACE         Iface;
     KERN_DATA_IPCEND        IpcEnd;
     KERN_DATA_SYSPROC       SysProc;
-    KERN_DATA_IOMGR         IoMgr;
 };
 extern KERN_DATA gData;
 
@@ -1843,6 +1811,7 @@ BOOL    KernHeap_Free(void *aPtr);
 UINT32  KernVirt_Reserve(UINT32 aPageCount);
 BOOL    KernVirt_Release(UINT32 aVirtAddr);
 BOOL    KernVirt_AddRefContaining(UINT32 aPagesAddr, K2OSKERN_VIRTHEAP_NODE **appRetVirtHeapNode);
+void    KernVirt_Threaded_Init(void);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -1940,6 +1909,10 @@ BOOL    KernProc_SysCall_Fast_TlsAlloc(K2OSKERN_CPUCORE volatile * apThisCore, K
 BOOL    KernProc_SysCall_Fast_TlsFree(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernProc_SysCall_CacheOp(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
 K2STAT  KernProc_TokenLocked_Destroy(K2OSKERN_OBJ_PROCESS *apProc, K2OS_TOKEN aToken, BOOL *apRetHitZero, K2OSKERN_OBJREF *apRetObjRefIfHitZero);
+
+K2OS_VIRTMAP_TOKEN KernProc_Threaded_UserVirtMapCreate(UINT32 aProcessId, UINT32 aVirtResBase, UINT32 aVirtResPageCount, K2OS_PAGEARRAY_TOKEN aTokPageArray);
+K2STAT             KernProc_Threaded_UserMap(UINT32 aProcessId, K2OS_PAGEARRAY_TOKEN aKernTokPageArray, UINT32 aPageCount, UINT32 *apRetUserVirtAddr, K2OS_VIRTMAP_TOKEN *apRetTokUserVirtMap);
+
 
 /* --------------------------------------------------------------------------------- */
 
@@ -2042,8 +2015,8 @@ void    KernTimer_MsTickFromHfTick(UINT64 *apRetMs, UINT64 const *apHfTicks);
 //
 K2STAT  KernNotify_Create(BOOL aInitSignalled, K2OSKERN_OBJREF *apRetNotifyRef);
 void    KernNotify_SysCall_Create(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
-void    KernNotify_SysCall_Signal(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernNotify_Cleanup(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_NOTIFY *apNotify);
+K2STAT  KernNotify_Threaded_KernelSignal(K2OSKERN_OBJ_THREAD *apThisThread, K2OSKERN_OBJ_NOTIFY *apNotify);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -2052,8 +2025,16 @@ void    KernNotify_Cleanup(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_
 //
 K2STAT  KernGate_Create(BOOL aInitOpen, K2OSKERN_OBJREF *apRetGateRef);
 void    KernGate_SysCall_Create(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
-void    KernGate_SysCall_Change(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernGate_Cleanup(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_GATE *apGate);
+K2STAT  KernGate_Threaded_KernelChange(K2OSKERN_OBJ_THREAD *apThisThread, K2OSKERN_OBJ_GATE *apGate, UINT32 aNewState);
+
+/* --------------------------------------------------------------------------------- */
+
+//
+// notify or gate
+//
+void     KernSignal_SysCall_Change(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
+
 
 /* --------------------------------------------------------------------------------- */
 
@@ -2136,8 +2117,9 @@ void    KernExec_Threaded_Init(void);
 #define KERN_TOKEN_SENTINEL1    K2_MAKEID4('T','O','K','N')
 #define KERN_TOKEN_SENTINEL2    K2_MAKEID4('t','o','k','n')
 
-K2STAT  KernToken_Create(K2OSKERN_OBJ_HEADER *apObjHdr, K2OS_TOKEN *apRetToken);
-K2STAT  KernToken_Translate(K2OS_TOKEN aToken, K2OSKERN_OBJREF *apRef);
+K2STAT      KernToken_Create(K2OSKERN_OBJ_HEADER *apObjHdr, K2OS_TOKEN *apRetToken);
+K2STAT      KernToken_Translate(K2OS_TOKEN aToken, K2OSKERN_OBJREF *apRef);
+K2OS_TOKEN  KernToken_Threaded_CloneFromUser(UINT32 aProcessId, K2OS_TOKEN aUserToken);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -2213,7 +2195,6 @@ void KernIpcEnd_SysCall_Send(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OB
 void KernIpcEnd_SysCall_Accept(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void KernIpcEnd_SysCall_RejectRequest(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void KernIpcEnd_SysCall_ManualDisconnect(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
-void KernIpcEnd_SysCall_Close(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void KernIpcEnd_SysCall_Request(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 BOOL KernIpcEnd_InIntr_SysCall_Load(K2OSKERN_OBJ_THREAD * apCurThread, K2OS_TOKEN aTokIpcEnd);
 void KernIpcEnd_Cleanup(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_IPCEND *apIpcEnd);
@@ -2230,6 +2211,8 @@ void KernIpcEnd_Threaded_Init(void);
 void    KernSysProc_SysCall_Register(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 K2STAT  KernSysProc_Notify(BOOL aFromKernelThread, K2OS_MSG const *apMsg, BOOL *apRetDoSignal);
 
+void    K2OSKERN_WaitSysProcReady(void);
+
 /* --------------------------------------------------------------------------------- */
 
 //
@@ -2238,20 +2221,6 @@ K2STAT  KernSysProc_Notify(BOOL aFromKernelThread, K2OS_MSG const *apMsg, BOOL *
 
 BOOL    KernNotifyProxy_Fire(K2OSKERN_OBJ_NOTIFY * apNotify);
 void    KernNotifyProxy_Cleanup(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_NOTIFYPROXY *apNotifyProxy);
-
-/* --------------------------------------------------------------------------------- */
-
-void    KernBlockIo_Cleanup(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_BLOCKIO *apBlockIo);
-void    KernBlockIo_SysCall_Attach(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
-void    KernBlockIo_SysCall_To_IoMgr(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
-
-/* --------------------------------------------------------------------------------- */
-
-void    KernIoMgr_Threaded_Init(void);
-void    KernIoMgr_Queue(KERN_IOP *apIop);
-
-K2STAT  K2OSKERN_IoMgr_SetThread(K2OS_IFINST_ID aIfInstId, K2OSEXEC_IOTHREAD *apThread);
-void    K2OSKERN_IoMgr_Complete(K2OSEXEC_IOTHREAD *apThread, K2OSEXEC_IOP *apIop, UINT32 aResult, BOOL aSetStat, K2STAT aStat);
 
 /* --------------------------------------------------------------------------------- */
 

@@ -227,7 +227,7 @@ K2OSRPC_ServerThread_DoWork(
     pWorkItem = pThisThread->mpWorkItem;
     K2_ASSERT(NULL != pWorkItem);
 
-    pConn = pWorkItem->mpConn;
+    pConn = pWorkItem->mpConnToClient;
     K2_ASSERT(NULL != pConn);
 
     if (!pWorkItem->mIsCancelled)
@@ -268,8 +268,10 @@ K2OSRPC_ServerThread_DoWork(
 
                 K2OS_CritSec_Enter(&gRpcGraphSec);
 
-                pServHandle->mpConn = pConn;
+                pServHandle->mpConnToClient = pConn;
+                K2_ASSERT(!pServHandle->mOnConnHandleList);
                 K2LIST_AddAtTail(&pConn->HandleList, &pServHandle->ConnHandleListListLink);
+                pServHandle->mOnConnHandleList = TRUE;
 
                 K2OS_CritSec_Leave(&gRpcGraphSec);
 
@@ -310,17 +312,17 @@ K2OSRPC_ServerThread_DoWork(
         K2OS_IpcEnd_Send(pConn->mIpcEnd, pRespHdr, respBytes);
     }
 
-    K2OS_Heap_Free(pWorkItem->mpReqHdr);
-
-    pWorkItem->mpReqHdr = NULL;
-    pWorkItem->mpRespHdr = NULL;
-
     K2OS_CritSec_Enter(&pConn->WorkItemListSec);
 
     K2LIST_Remove(&pConn->WorkItemList, &pWorkItem->ListLink);
-    pWorkItem->mpConn = NULL;
+    pWorkItem->mpConnToClient = NULL;
+    pReqHdr = pWorkItem->mpReqHdr;
+    pWorkItem->mpReqHdr = NULL;
+    pWorkItem->mpRespHdr = NULL;
 
     K2OS_CritSec_Leave(&pConn->WorkItemListSec);
+
+    K2OS_Heap_Free(pReqHdr);
 
     if (NULL != pWorkItem->mpHandle)
     {
@@ -455,8 +457,10 @@ K2OSRPC_ServerConn_OnRecv(
             do {
                 pWorkItem = K2_GET_CONTAINER(RPC_WORKITEM, pListLink, ListLink);
                 pListLink = pListLink->mpNext;
+
                 if (pWorkItem->mpReqHdr->mCallerRef == pReqHdr->mCallerRef)
                     break;
+
             } while (NULL != pListLink);
         }
         K2OS_CritSec_Leave(&pConn->WorkItemListSec);
@@ -499,72 +503,64 @@ K2OSRPC_ServerConn_OnRecv(
         }
         else
         {
-            if (pHandle->mpObj->mBlockAcquire)
+            if (NULL != pHandle->mpObj->mpClass->Def.OnAttach)
             {
-                K2OSRPC_Debug("!!!RPC acquire blocked\n");
-                // this release is for the addref above, which is superfluous to the 
-                // handle held by the connection's handle list. so the object delete
-                // cannot occur here
-                K2OS_Rpc_Release((K2OS_RPC_OBJ_HANDLE)pHandle);
-                K2OSRPC_ServerConn_RespondWithError(aEndpoint, pReqHdr->mCallerRef, K2STAT_ERROR_NOT_ALLOWED);
+#if TRAP_EXCEPTIONS
+                stat = K2_EXTRAP(&trap, pHandle->mpObj->mpClass->Def.OnAttach(
+                    (K2OS_RPC_OBJ)pHandle->mpObj,
+                    pHandle->mpObj->mUserContext,
+                    pConn->ServerConnTreeNode.mUserVal,
+                    &pHandle->mUseContext
+                ));
+#else
+                stat = pHandle->mpObj->mpClass->Def.OnAttach(
+                    (K2OS_RPC_OBJ)pHandle->mpObj,
+                    pHandle->mpObj->mUserContext,
+                    pConn->ServerConnTreeNode.mUserVal,
+                    &pHandle->mUseContext
+                );
+#endif
             }
             else
             {
-                if (NULL != pHandle->mpObj->mpClass->Def.OnAttach)
+                stat = K2STAT_NO_ERROR;
+            }
+
+            if (K2STAT_IS_ERROR(stat))
+            {
+                K2OSRPC_ReleaseInternal((K2OS_RPC_OBJ_HANDLE)pHandle, FALSE);
+                K2OSRPC_ServerConn_RespondWithError(aEndpoint, pReqHdr->mCallerRef, stat);
+            }
+            else
+            {
+                pHandle->mpConnToClient = pConn;
+                K2MEM_Zero(&acquireResp, sizeof(acquireResp));
+                acquireResp.ResponseHdr.mMarker = K2OSRPC_MSG_RESPONSE_HDR_MARKER;
+                acquireResp.ResponseHdr.mCallerRef = pReqHdr->mCallerRef;
+                acquireResp.ResponseHdr.mResultsByteCount = sizeof(acquireResp.Data);
+                acquireResp.ResponseHdr.mStatus = K2STAT_NO_ERROR;
+                acquireResp.Data.mServerObjId = pHandle->mpObj->ServerObjIdTreeNode.mUserVal;
+                acquireResp.Data.mServerHandle = (UINT32)pHandle;
+
+                if (!K2OS_IpcEnd_Send(aEndpoint, &acquireResp, sizeof(acquireResp)))
                 {
-#if TRAP_EXCEPTIONS
-                    stat = K2_EXTRAP(&trap, pHandle->mpObj->mpClass->Def.OnAttach(
-                        (K2OS_RPC_OBJ)pHandle->mpObj,
-                        pHandle->mpObj->mUserContext,
-                        pConn->ServerConnTreeNode.mUserVal,
-                        &pHandle->mUseContext
-                    ));
-#else
-                    stat = pHandle->mpObj->mpClass->Def.OnAttach(
-                        (K2OS_RPC_OBJ)pHandle->mpObj,
-                        pHandle->mpObj->mUserContext,
-                        pConn->ServerConnTreeNode.mUserVal,
-                        &pHandle->mUseContext
-                    );
-#endif
+                    // this release call has a low-probability of
+                    // indeterminate execution time as the object's delete may 
+                    // conceivably occur if all other handles are released
+                    // between the attachbyobjid above and this point.  which is
+                    // super unlikely but possible
+                    pHandle->mpConnToClient = NULL;
+                    K2OS_Rpc_Release((K2OS_RPC_OBJ_HANDLE)pHandle);
                 }
                 else
                 {
-                    stat = K2STAT_NO_ERROR;
-                }
+                    K2OS_CritSec_Enter(&gRpcGraphSec);
 
-                if (K2STAT_IS_ERROR(stat))
-                {
-                    K2OSRPC_ReleaseInternal((K2OS_RPC_OBJ_HANDLE)pHandle, FALSE);
-                    K2OSRPC_ServerConn_RespondWithError(aEndpoint, pReqHdr->mCallerRef, stat);
-                }
-                else
-                {
-                    K2MEM_Zero(&acquireResp, sizeof(acquireResp));
-                    acquireResp.ResponseHdr.mMarker = K2OSRPC_MSG_RESPONSE_HDR_MARKER;
-                    acquireResp.ResponseHdr.mCallerRef = pReqHdr->mCallerRef;
-                    acquireResp.ResponseHdr.mResultsByteCount = sizeof(acquireResp.Data);
-                    acquireResp.ResponseHdr.mStatus = K2STAT_NO_ERROR;
-                    acquireResp.Data.mServerObjId = pHandle->mpObj->ServerObjIdTreeNode.mUserVal;
-                    acquireResp.Data.mServerHandle = (UINT32)pHandle;
+                    K2_ASSERT(!pHandle->mOnConnHandleList);
+                    K2LIST_AddAtTail(&pConn->HandleList, &pHandle->ConnHandleListListLink);
+                    pHandle->mOnConnHandleList = TRUE;
 
-                    if (!K2OS_IpcEnd_Send(aEndpoint, &acquireResp, sizeof(acquireResp)))
-                    {
-                        // this release call has a low-probability of
-                        // indeterminate execution time as the object's delete may 
-                        // conceivably occur if all other handles are released
-                        // between the attachbyobjid above and this point.  which is
-                        // super unlikely but possible
-                        K2OS_Rpc_Release((K2OS_RPC_OBJ_HANDLE)pHandle);
-                    }
-                    else
-                    {
-                        K2OS_CritSec_Enter(&gRpcGraphSec);
-
-                        K2LIST_AddAtTail(&pConn->HandleList, &pHandle->ConnHandleListListLink);
-
-                        K2OS_CritSec_Leave(&gRpcGraphSec);
-                    }
+                    K2OS_CritSec_Leave(&gRpcGraphSec);
                 }
             }
         }
@@ -669,7 +665,7 @@ K2OSRPC_ServerConn_OnRecv(
             K2MEM_Copy(pIoBuffer, apData, aByteCount);
             K2MEM_Zero(pIoBuffer + aByteCount, workItemBytes - aByteCount);
 
-            pWorkItem->mpConn = pConn;
+            pWorkItem->mpConnToClient = pConn;
             pWorkItem->mpHandle = pHandle;
             pWorkItem->mpReqHdr = (K2OSRPC_MSG_REQUEST_HDR *)pIoBuffer;
             pWorkItem->mpInBuf = pIoBuffer + sizeof(K2OSRPC_MSG_REQUEST_HDR);
@@ -690,7 +686,9 @@ K2OSRPC_ServerConn_OnRecv(
 
                 K2OS_CritSec_Enter(&gRpcGraphSec);
 
+                K2_ASSERT(pHandle->mOnConnHandleList);
                 K2LIST_Remove(&pConn->HandleList, &pHandle->ConnHandleListListLink);
+                pHandle->mOnConnHandleList = FALSE;
 
                 K2OS_CritSec_Leave(&gRpcGraphSec);
 
@@ -908,9 +906,11 @@ K2OSRPC_ServerConnThread_DoWork(
             pServerHandle = K2_GET_CONTAINER(K2OSRPC_SERVER_OBJ_HANDLE, pListLink, ConnHandleListListLink);
             pListLink = pListLink->mpNext;
 
+            K2_ASSERT(pServerHandle->mOnConnHandleList);
             K2LIST_Remove(&pThisConn->HandleList, &pServerHandle->ConnHandleListListLink);
+            pServerHandle->mOnConnHandleList = FALSE;
 
-            pServerHandle->mpConn = NULL;
+            pServerHandle->mpConnToClient = NULL;
 
             K2OS_CritSec_Leave(&gRpcGraphSec);
 

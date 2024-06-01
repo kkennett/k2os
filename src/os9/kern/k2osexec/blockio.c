@@ -32,20 +32,292 @@
 
 #include "k2osexec.h"
 
-K2STAT
-BlockIo_Locked_RangeCreate(
-    BLOCKIO *   apBlockIo,
-    UINT32      aStartBlock,
-    UINT32      aBlockCount,
-    UINT32      aOwner,
-    BOOL        aMakePrivate,
-    UINT32 *    apRetRange
+#define MAX_BLOCKIO_CHUNK_BYTES 8192
+
+static K2OS_CRITSEC     sgBlockIoListSec;
+static K2LIST_ANCHOR    sgBlockIoList;
+
+K2STAT 
+K2OSEXEC_BlockIoRpc_Create(
+    K2OS_RPC_OBJ                aObject, 
+    K2OS_RPC_OBJ_CREATE const * apCreate, 
+    UINT32 *                    apRetContext
 )
 {
-    BLOCKIO_RANGE * pNewRange;
-    K2STAT          stat;
+    BLOCKIO * pBlockIo;
+
+    if (0 != apCreate->mCreatorProcessId)
+    {
+        return K2STAT_ERROR_NOT_ALLOWED;
+    }
+
+    pBlockIo = (BLOCKIO *)apCreate->mCreatorContext;
+    pBlockIo->mRpcObj = aObject;
+    *apRetContext = (UINT32)pBlockIo;
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT 
+K2OSEXEC_BlockIoRpc_OnAttach(
+    K2OS_RPC_OBJ    aObject,
+    UINT32          aObjContext,
+    UINT32          aProcessId,
+    UINT32 *        apRetUseContext
+)
+{
+    BLOCKIO *       pBlockIo;
+    BLOCKIO_USER *  pUser;
+    BLOCKIO_PROC *  pProc;
     K2LIST_LINK *   pListLink;
-    BLOCKIO_RANGE * pScan;
+    BLOCKIO_PROC *  pOtherProc;
+
+    pBlockIo = (BLOCKIO *)aObjContext;
+    K2_ASSERT(pBlockIo->mRpcObj == aObject);
+
+    pUser = (BLOCKIO_USER *)K2OS_Heap_Alloc(sizeof(BLOCKIO_USER));
+    if (NULL == pUser)
+    {
+        return K2STAT_ERROR_OUT_OF_MEMORY;
+    }
+
+    pProc = (BLOCKIO_PROC *)K2OS_Heap_Alloc(sizeof(BLOCKIO_PROC));
+    if (NULL == pProc)
+    {
+        K2OS_Heap_Free(pUser);
+        return K2STAT_ERROR_OUT_OF_MEMORY;
+    }
+
+    K2MEM_Zero(pProc, sizeof(BLOCKIO_PROC));
+    pProc->mProcessId = aProcessId;
+    K2LIST_Init(&pProc->UserList);
+
+    K2MEM_Zero(pUser, sizeof(BLOCKIO_USER));
+    *apRetUseContext = (UINT32)pUser;
+
+    pOtherProc = NULL;
+
+    K2OS_CritSec_Enter(&pBlockIo->Sec);
+
+    pListLink = pBlockIo->ProcList.mpHead;
+    if (NULL != pListLink)
+    {
+        do {
+            pOtherProc = K2_GET_CONTAINER(BLOCKIO_PROC, pListLink, InstanceProcListLink);
+            if (pOtherProc->mProcessId == aProcessId)
+                break;
+            pListLink = pListLink->mpNext;
+        } while (NULL != pListLink);
+    }
+
+    if (NULL == pListLink)
+    {
+        //
+        // proc not found
+        //
+        pUser->mpProc = pProc;
+        K2LIST_AddAtTail(&pBlockIo->ProcList, &pProc->InstanceProcListLink);
+        pProc = NULL;
+    }
+    else
+    {
+        pUser->mpProc = pOtherProc;
+    }
+
+    K2LIST_AddAtTail(&pUser->mpProc->UserList, &pUser->ProcUserListLink);
+
+    K2OS_CritSec_Leave(&pBlockIo->Sec);
+
+    if (NULL != pProc)
+    {
+        K2OS_Heap_Free(pProc);
+    }
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT 
+K2OSEXEC_BlockIoRpc_OnDetach(
+    K2OS_RPC_OBJ    aObject, 
+    UINT32          aObjContext, 
+    UINT32          aUseContext
+)
+{
+    BLOCKIO *           pBlockIo;
+    BLOCKIO_USER *      pUser;
+    BLOCKIO_PROC *      pProc;
+    BLOCKIO_RANGE *     pRange;
+    K2LIST_LINK *       pListLink;
+    BLOCKIO_SESSION *   pSession;
+    K2LIST_LINK *       pSessLink;
+
+    pBlockIo = (BLOCKIO *)aObjContext;
+    K2_ASSERT(pBlockIo->mRpcObj == aObject);
+
+    pUser = (BLOCKIO_USER *)aUseContext;
+    pProc = pUser->mpProc;
+
+    K2OS_CritSec_Enter(&pBlockIo->Sec);
+
+    K2LIST_Remove(&pProc->UserList, &pUser->ProcUserListLink);
+    if (0 == pProc->UserList.mNodeCount)
+    {
+        //
+        // last user in this process is detaching
+        //
+        K2LIST_Remove(&pBlockIo->ProcList, &pProc->InstanceProcListLink);
+
+        //
+        // any sessions ever made that have ranges from this process
+        // must have those ranges removed from that session
+        // 
+        pSessLink = pBlockIo->SessionList.mpHead;
+        K2_ASSERT(NULL != pSessLink);
+        do {
+            pSession = K2_GET_CONTAINER(BLOCKIO_SESSION, pSessLink, InstanceSessionListLink);
+            pSessLink = pSessLink->mpNext;
+
+            pListLink = pSession->RangeList.mpHead;
+            if (NULL != pListLink)
+            {
+                do {
+                    pRange = K2_GET_CONTAINER(BLOCKIO_RANGE, pListLink, SessionRangeListLink);
+                    pListLink = pListLink->mpNext;
+
+                    if (pRange->mProcessId == pProc->mProcessId)
+                    {
+                        K2LIST_Remove(&pSession->RangeList, &pRange->SessionRangeListLink);
+                        K2OS_Heap_Free(pRange);
+                    }
+                } while (NULL != pListLink);
+            }
+
+            if (0 == pSession->RangeList.mNodeCount)
+            {
+                //
+                // session has no ranges left. if it not the current session
+                // then prune it
+                //
+                if (pSession != pBlockIo->mpCurSession)
+                {
+                    K2LIST_Remove(&pBlockIo->SessionList, &pSession->InstanceSessionListLink);
+                    K2OS_Heap_Free(pSession);
+                }
+            }
+
+        } while (NULL != pSessLink);
+    }
+    else
+    {
+        pProc = NULL;
+    }
+
+    K2OS_CritSec_Leave(&pBlockIo->Sec);
+
+    if (NULL != pProc)
+    {
+        K2OS_Heap_Free(pProc);
+    }
+
+    K2OS_Heap_Free(pUser);
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT
+BlockIo_Config(
+    BLOCKIO *                       apBlockIo,
+    BLOCKIO_USER *                  apUser,
+    K2OS_BLOCKIO_CONFIG_IN const *  apConfigIn
+)
+{
+    K2STAT stat;
+
+    K2OS_CritSec_Enter(&apBlockIo->Sec);
+
+    if (apUser->mConfigSet)
+    {
+        stat = K2STAT_ERROR_NOT_CONFIGURED;
+    }
+    else
+    {
+        stat = K2STAT_NO_ERROR;
+
+        //
+        // actually validate access and share here
+        //
+
+        K2MEM_Copy(&apUser->Config, apConfigIn, sizeof(K2OS_BLOCKIO_CONFIG_IN));
+        apUser->mConfigSet = TRUE;
+    }
+
+    K2OS_CritSec_Leave(&apBlockIo->Sec);
+
+    return stat;
+}
+
+K2STAT
+BlockIo_GetMedia(
+    BLOCKIO *               apBlockIo,
+    BLOCKIO_USER *          apUser,
+    K2OS_STORAGE_MEDIA *    apRetMedia
+)
+{
+    K2STAT              stat;
+    BLOCKIO_SESSION *   pSession;
+
+    K2OS_CritSec_Enter(&apBlockIo->Sec);
+
+    if (!apUser->mConfigSet)
+    {
+        stat = K2STAT_ERROR_NOT_CONFIGURED;
+    }
+    else
+    {
+        pSession = apBlockIo->mpCurSession;
+        if (NULL == pSession)
+        {
+            stat = K2STAT_ERROR_DEVICE_REMOVED;
+        }
+        else
+        {
+            if (!K2RUNDOWN_Get(&apBlockIo->Rundown))
+            {
+                stat = K2STAT_ERROR_DEVICE_REMOVED;
+            }
+            else
+            {
+                K2_ASSERT(NULL != apBlockIo->Register.GetMedia);
+                stat = apBlockIo->Register.GetMedia(apBlockIo->mpDriverContext, apRetMedia);
+                if (!K2STAT_IS_ERROR(stat))
+                {
+                    pSession->mBlockCount = apRetMedia->mBlockCount;
+                    pSession->mBlockSizeBytes = apRetMedia->mBlockSizeBytes;
+                    pSession->mIsReadOnly = (0 != (apRetMedia->mAttrib & K2OS_STORAGE_MEDIA_ATTRIB_READ_ONLY)) ? TRUE : FALSE;
+                }
+                K2RUNDOWN_Put(&apBlockIo->Rundown);
+            }
+        }
+    }
+
+    K2OS_CritSec_Leave(&apBlockIo->Sec);
+
+    return stat;
+}
+
+K2STAT
+BlockIo_RangeCreate(
+    BLOCKIO *                           apBlockIo,
+    BLOCKIO_USER *                      apUser,
+    K2OS_BLOCKIO_RANGE_CREATE_IN const *apCreateIn,
+    K2OS_BLOCKIO_RANGE_CREATE_OUT *     apCreateOut
+)
+{
+    BLOCKIO_RANGE *     pNewRange;
+    K2STAT              stat;
+    K2LIST_LINK *       pListLink;
+    BLOCKIO_RANGE *     pScan;
+    BLOCKIO_SESSION *   pSession;
 
     pNewRange = K2OS_Heap_Alloc(sizeof(BLOCKIO_RANGE));
     if (NULL == pNewRange)
@@ -56,40 +328,59 @@ BlockIo_Locked_RangeCreate(
     }
 
     K2MEM_Zero(pNewRange, sizeof(BLOCKIO_RANGE));
-    pNewRange->mOwner = aOwner;
-    pNewRange->mId = ++apBlockIo->mLastRangeId;
-    pNewRange->mStartBlock = aStartBlock;
-    pNewRange->mBlockCount = aBlockCount;
-    pNewRange->mPrivate = aMakePrivate;
+    pNewRange->mStartBlock = apCreateIn->mRangeBaseBlock;
+    pNewRange->mBlockCount = apCreateIn->mRangeBlockCount;
+    pNewRange->mPrivate = apCreateIn->mMakePrivate;
+    pNewRange->mProcessId = apUser->mpProc->mProcessId;
 
-    stat = K2STAT_NO_ERROR;
+    K2OS_CritSec_Enter(&apBlockIo->Sec);
 
     do {
-        pListLink = apBlockIo->RangeList.mpHead;
+        pSession = apBlockIo->mpCurSession;
+        if (NULL == pSession)
+        {
+            stat = K2STAT_ERROR_DEVICE_REMOVED;
+            break;
+        }
+        if (0 == pSession->mBlockCount)
+        {
+            stat = K2STAT_ERROR_MEDIA_CHANGED;
+            break;
+        }
+
+        pNewRange->mId = ++apBlockIo->mLastRangeId;
+
+        stat = K2STAT_NO_ERROR;
+
+        pListLink = pSession->RangeList.mpHead;
         if (NULL != pListLink)
         {
             do {
-                pScan = K2_GET_CONTAINER(BLOCKIO_RANGE, pListLink, ListLink);
-                if (aStartBlock < pScan->mStartBlock)
+                pScan = K2_GET_CONTAINER(BLOCKIO_RANGE, pListLink, SessionRangeListLink);
+                if (pScan->mProcessId != apUser->mpProc->mProcessId)
                 {
-                    if ((pScan->mStartBlock - aStartBlock) < aBlockCount)
+                    if (pNewRange->mStartBlock < pScan->mStartBlock)
                     {
-                        // range collision
-                        if (aMakePrivate || pScan->mPrivate)
+                        if ((pScan->mStartBlock - pNewRange->mStartBlock) < pNewRange->mBlockCount)
                         {
-                            stat = K2STAT_ERROR_ALREADY_RESERVED;
-                            break;
+                            // range collision
+                            if (pNewRange->mPrivate || pScan->mPrivate)
+                            {
+                                stat = K2STAT_ERROR_ALREADY_RESERVED;
+                                break;
+                            }
                         }
                     }
-                }
-                else
-                {
-                    if ((aStartBlock - pScan->mStartBlock) < pScan->mBlockCount)
+                    else
                     {
-                        // range collision
-                        if (aMakePrivate || pScan->mPrivate)
+                        if ((pNewRange->mStartBlock - pScan->mStartBlock) < pScan->mBlockCount)
                         {
-                            stat = K2STAT_ERROR_ALREADY_RESERVED;
+                            // range collision
+                            if (pNewRange->mPrivate || pScan->mPrivate)
+                            {
+                                stat = K2STAT_ERROR_ALREADY_RESERVED;
+                                break;
+                            }
                         }
                     }
                 }
@@ -98,14 +389,16 @@ BlockIo_Locked_RangeCreate(
             } while (NULL != pListLink);
         }
 
-        if (K2STAT_IS_ERROR(stat))
-            break;
-
-        K2LIST_AddAtTail(&apBlockIo->RangeList, &pNewRange->ListLink);
-        *apRetRange = pNewRange->mId;
-        pNewRange = NULL;
+        if (!K2STAT_IS_ERROR(stat))
+        {
+            K2LIST_AddAtTail(&pSession->RangeList, &pNewRange->SessionRangeListLink);
+            apCreateOut->mRange = (K2OSSTOR_BLOCKIO_RANGE)pNewRange->mId;
+            pNewRange = NULL;
+        }
 
     } while (0);
+
+    K2OS_CritSec_Leave(&apBlockIo->Sec);
 
     if (NULL != pNewRange)
     {
@@ -116,31 +409,48 @@ BlockIo_Locked_RangeCreate(
 }
 
 K2STAT
-BlockIo_Locked_RangeDelete(
-    BLOCKIO *   apBlockIo,
-    UINT32      aRange,
-    UINT32      aOwner
+BlockIo_RangeDelete(
+    BLOCKIO *                           apBlockIo,
+    BLOCKIO_USER *                      apUser,
+    K2OS_BLOCKIO_RANGE_DELETE_IN const *apDeleteIn
 )
 {
-    K2LIST_LINK *   pListLink;
-    BLOCKIO_RANGE * pScan;
+    K2LIST_LINK *       pSessionListLink;
+    BLOCKIO_SESSION *   pSession;
+    K2LIST_LINK *       pRangeListLink;
+    BLOCKIO_RANGE *     pScan;
 
-    pListLink = apBlockIo->RangeList.mpHead;
-    if (NULL == pListLink)
-    {
-        return K2STAT_ERROR_NOT_FOUND;
-    }
+    pScan = NULL;
 
+    K2OS_CritSec_Enter(&apBlockIo->Sec);
+
+    pSessionListLink = apBlockIo->SessionList.mpHead;
+    K2_ASSERT(NULL != pSessionListLink);
     do {
-        pScan = K2_GET_CONTAINER(BLOCKIO_RANGE, pListLink, ListLink);
-        if ((aOwner == pScan->mOwner) && (aRange == pScan->mId))
-            break;
-        pListLink = pListLink->mpNext;
-    } while (NULL != pListLink);
+        pSession = K2_GET_CONTAINER(BLOCKIO_SESSION, pSessionListLink, InstanceSessionListLink);
+        pRangeListLink = pSession->RangeList.mpHead;
+        if (NULL != pRangeListLink)
+        {
+            do {
+                pScan = K2_GET_CONTAINER(BLOCKIO_RANGE, pRangeListLink, SessionRangeListLink);
+                if (pScan->mId == ((UINT32)apDeleteIn->mRange))
+                {
+                    K2LIST_Remove(&pSession->RangeList, &pScan->SessionRangeListLink);
+                    break;
+                }
+                pRangeListLink = pRangeListLink->mpNext;
+            } while (NULL != pRangeListLink);
 
-    if (NULL != pListLink)
+            if (NULL != pRangeListLink)
+                break;
+        }
+        pSessionListLink = pSessionListLink->mpNext;
+    } while (NULL != pSessionListLink);
+
+    K2OS_CritSec_Leave(&apBlockIo->Sec);
+
+    if (NULL != pScan)
     {
-        K2LIST_Remove(&apBlockIo->RangeList, &pScan->ListLink);
         K2OS_Heap_Free(pScan);
         return K2STAT_NO_ERROR;
     }
@@ -148,367 +458,814 @@ BlockIo_Locked_RangeDelete(
     return K2STAT_ERROR_NOT_FOUND;
 }
 
-BOOL
-BlockIo_ValidateRange(
-    K2OSEXEC_IOTHREAD * apIoThread,
-    K2OS_BLOCKIO_RANGE  aRange,
-    UINT32              aBytesOffset,
-    UINT32              aByteCount,
-    UINT32              aMemPageOffset
-)
-{
-    BLOCKIO *           pBlockIo;
-    K2LIST_LINK *       pListLink;
-    BLOCKIO_RANGE *     pRange;
-    BOOL                ok;
-    UINT32              rangeBytes;
-
-    pBlockIo = K2_GET_CONTAINER(BLOCKIO, apIoThread, IoThread);
-
-    ok = FALSE;
-
-    K2OS_CritSec_Enter(&pBlockIo->Sec);
-
-    if (0 != pBlockIo->mMediaBlockCount)
-    {
-        // there is media
-        K2_ASSERT(0 != pBlockIo->mMediaBlockSizeBytes);
-        if ((aByteCount > 0) && 
-            (0 == (aMemPageOffset % pBlockIo->mMediaBlockSizeBytes)) &&
-            (0 == (aBytesOffset % pBlockIo->mMediaBlockSizeBytes)) &&
-            (0 == (aByteCount % pBlockIo->mMediaBlockSizeBytes)))
-        {
-            // byte count exists and it and memory page offset are aligned to block size
-            pListLink = pBlockIo->RangeList.mpHead;
-            if (NULL != pListLink)
-            {
-                // some range exists
-                do {
-                    pRange = K2_GET_CONTAINER(BLOCKIO_RANGE, pListLink, ListLink);
-                    if (pRange->mId == (UINT32)aRange)
-                        break;
-                    pListLink = pListLink->mpNext;
-                } while (NULL != pListLink);
-                if (NULL != pListLink)
-                {
-                    // the desired range exists
-                    rangeBytes = pRange->mBlockCount * pBlockIo->mMediaBlockSizeBytes;
-                    if ((aBytesOffset < rangeBytes) &&
-                        ((rangeBytes - aBytesOffset) >= aByteCount))
-                    {
-                        // the span requested fits inside the range
-                        ok = TRUE;
-                    }
-                }
-            }
-        }
-    }
-
-    K2OS_CritSec_Leave(&pBlockIo->Sec);
-
-    return ok;
-}
-
-void
-BlockIo_Submit(
-    K2OSEXEC_IOTHREAD * apIoThread,
-    K2OSEXEC_IOP *      apIop
-)
-{
-    BLOCKIO *           pBlockIo;
-    BOOL                setNotify;
-    BOOL                completeNow;
-    UINT32              result;
-    K2STAT              stat;
-    K2_EXCEPTION_TRAP   trap;
-    K2OS_STORAGE_MEDIA  storMedia;
-    K2LIST_LINK *       pListLink;
-    BLOCKIO_RANGE *     pRange;
-    UINT32              rangeBytes;
-
-    //
-    // we are on the kernel's iomgr thread here
-    // so we move the iop to the device thread
-    //
-
-    pBlockIo = K2_GET_CONTAINER(BLOCKIO, apIoThread, IoThread);
-    setNotify = FALSE;
-    result = 0;
-    completeNow = TRUE;
-
-    K2_ASSERT(K2OSExecIop_BlockIo == apIop->mType);
-
-    K2OS_CritSec_Enter(&pBlockIo->Sec);
-
-    if (apIop->Op.BlockIo.mOp == K2OSExecIop_BlockIoOp_GetMedia)
-    {
-        stat = K2_EXTRAP(&trap, pBlockIo->Register.GetMedia(pBlockIo->mpDriverContext, &storMedia));
-        if (K2STAT_IS_ERROR(stat))
-        {
-            pBlockIo->mMediaBlockCount = 0;
-            pBlockIo->mMediaBlockSizeBytes = 0;
-        }
-        else
-        {
-            pBlockIo->mMediaBlockCount = storMedia.mBlockCount;
-            pBlockIo->mMediaBlockSizeBytes = storMedia.mBlockSizeBytes;
-            K2MEM_Copy((void *)apIop->Op.BlockIo.mMemAddr, &storMedia, sizeof(K2OS_STORAGE_MEDIA));
-            result = TRUE;
-        }
-    }
-    else if (0 == pBlockIo->mMediaBlockCount)
-    {
-        stat = K2STAT_ERROR_UNKNOWN_MEDIA_SIZE;
-    }
-    else
-    {
-        if ((apIop->Op.BlockIo.mOp == K2OSExecIop_BlockIoOp_Read) ||
-            (apIop->Op.BlockIo.mOp == K2OSExecIop_BlockIoOp_Write) ||
-            (apIop->Op.BlockIo.mOp == K2OSExecIop_BlockIoOp_Erase))
-        {
-            // these ops are done in bytes
-            if ((0 != (apIop->Op.BlockIo.mOffset % pBlockIo->mMediaBlockSizeBytes)) ||
-                (0 != (apIop->Op.BlockIo.mCount % pBlockIo->mMediaBlockSizeBytes)))
-            {
-                stat = K2STAT_ERROR_BAD_ALIGNMENT;
-            }
-            else
-            {
-                //
-                // find range
-                //
-                pListLink = pBlockIo->RangeList.mpHead;
-                if (NULL == pListLink)
-                {
-                    stat = K2STAT_ERROR_NOT_FOUND;
-                }
-                else
-                {
-                    do {
-                        pRange = K2_GET_CONTAINER(BLOCKIO_RANGE, pListLink, ListLink);
-                        if (pRange->mId == apIop->Op.BlockIo.mRange)
-                            break;
-                        pListLink = pListLink->mpNext;
-                    } while (NULL != pListLink);
-                    if (NULL == pListLink)
-                    {
-                        stat = K2STAT_ERROR_NOT_FOUND;
-                    }
-                    else
-                    {
-                        rangeBytes = pRange->mBlockCount * pBlockIo->mMediaBlockSizeBytes;
-                        if ((apIop->Op.BlockIo.mOffset >= rangeBytes) ||
-                            ((rangeBytes - apIop->Op.BlockIo.mOffset) < apIop->Op.BlockIo.mCount))
-                        {
-                            K2OSKERN_Debug("%s:%d\n", __FUNCTION__, __LINE__);
-                            stat = K2STAT_ERROR_OUT_OF_BOUNDS;
-                        }
-                        else
-                        {
-                            completeNow = FALSE;
-                            if (apIop->Op.BlockIo.mOp != K2OSExecIop_BlockIoOp_Erase)
-                            {
-                                // pBlockIo->mMediaBlockCount checked for zero already above
-                                if (0 != (apIop->Op.BlockIo.mMemAddr % pBlockIo->mMediaBlockSizeBytes))
-                                {
-                                    // memory address is not blocksize aligned
-                                    stat = K2STAT_ERROR_BAD_ALIGNMENT;
-                                    completeNow = TRUE;
-                                }
-                            }
-                            if (!completeNow)
-                            {
-                                // adjust start block for range and put onto device thread work queue
-                                apIop->Op.BlockIo.mOffset += (pRange->mStartBlock * pBlockIo->mMediaBlockSizeBytes);
-                                completeNow = FALSE;
-                                K2LIST_AddAtTail(&pBlockIo->IopList, &apIop->ListLink);
-                                setNotify = (pBlockIo->IopList.mNodeCount == 1) ? TRUE : FALSE;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        else
-        {
-            // range op
-            if (apIop->Op.BlockIo.mOp == K2OSExecIop_BlockIoOp_RangeCreate)
-            {
-                if ((apIop->Op.BlockIo.mOffset >= pBlockIo->mMediaBlockCount) ||
-                    ((pBlockIo->mMediaBlockCount - apIop->Op.BlockIo.mOffset) < apIop->Op.BlockIo.mCount))
-                {
-                    K2OSKERN_Debug("%s:%d\n", __FUNCTION__, __LINE__);
-                    stat = K2STAT_ERROR_OUT_OF_BOUNDS;
-                }
-                else
-                {
-                    stat = BlockIo_Locked_RangeCreate(
-                        pBlockIo,
-                        apIop->Op.BlockIo.mOffset,
-                        apIop->Op.BlockIo.mCount,
-                        apIop->mOwner,
-                        (BOOL)apIop->Op.BlockIo.mRange,
-                        &result
-                    );
-                }
-            }
-            else
-            {
-                K2_ASSERT(apIop->Op.BlockIo.mOp == K2OSExecIop_BlockIoOp_RangeDelete);
-                stat = BlockIo_Locked_RangeDelete(
-                    pBlockIo,
-                    apIop->Op.BlockIo.mRange,
-                    apIop->mOwner
-                );
-                if (!K2STAT_IS_ERROR(stat))
-                {
-                    result = TRUE;
-                }
-            }
-        }
-    }
-
-    K2OS_CritSec_Leave(&pBlockIo->Sec);
-
-    if (completeNow)
-    {
-        gKernDdk.Io_Complete(&pBlockIo->IoThread, apIop, result, K2STAT_IS_ERROR(stat), stat);
-    }
-    else if (setNotify)
-    {
-        K2OS_Notify_Signal(pBlockIo->mTokNotify);
-    }
-}
-
 K2STAT
-BlockIo_Cancel(
-    K2OSEXEC_IOTHREAD * apIoThread,
-    K2OSEXEC_IOP *      apIop
+BlockIo_Transfer(
+    BLOCKIO *                       apBlockIo,
+    UINT32                          aProcessId,
+    K2OS_BLOCKIO_TRANSFER_IN const *apTransferIn
 )
 {
-    K2_ASSERT(0);
-    return K2STAT_ERROR_NOT_IMPL;
-}
+    K2STAT                      stat;
+    BLOCKIO_SESSION *           pSession;
+    K2LIST_LINK *               pRangeListLink;
+    BLOCKIO_RANGE *             pScan;
+    UINT32                      rangeBlockOffset;
+    UINT32                      rangeBlockCount;
+    UINT32                      mediaBlockBytes;
+    UINT32                      mediaBlockCount;
+    BOOL                        mediaReadOnly;
+    K2OS_BLOCKIO_TRANSFER       trans;
+    K2OS_TOKEN                  tokHold;
+    UINT32                      holdAddr;
+    UINT32                      ioSize;
+    UINT32                      blocksLeft;
 
-void
-BlockIo_DeviceThread_ExecIop(
-    BLOCKIO *       apBlockIo,
-    K2OSEXEC_IOP *  apIop
-)
-{
-    K2STAT                  stat;
-    UINT32                  result;
-    K2_EXCEPTION_TRAP       trap;
-    K2OS_BLOCKIO_TRANSFER   transfer;
+    if ((NULL == apTransferIn->mRange) ||
+        (0 == apTransferIn->mByteCount))
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
 
-    K2MEM_Zero(&transfer, sizeof(transfer));
+    mediaBlockBytes = mediaBlockCount = 0;
+    stat = K2STAT_ERROR_NOT_FOUND;
 
     K2OS_CritSec_Enter(&apBlockIo->Sec);
 
-    if (0 == apBlockIo->mMediaBlockCount)
+    pSession = apBlockIo->mpCurSession;
+    if (NULL != pSession)
     {
-        stat = K2STAT_ERROR_MEDIA_CHANGED;
-
-        K2OS_CritSec_Leave(&apBlockIo->Sec);
-    }
-    else
-    {
-        transfer.mStartBlock = apIop->Op.BlockIo.mOffset / apBlockIo->mMediaBlockSizeBytes;
-        transfer.mBlockCount = apIop->Op.BlockIo.mCount / apBlockIo->mMediaBlockSizeBytes;
-        if (apIop->Op.BlockIo.mOp == K2OSExecIop_BlockIoOp_Read)
+        if (0 == pSession->mBlockCount)
         {
-            transfer.mTargetAddr = apIop->Op.BlockIo.mMemAddr;
-            transfer.mType = K2OS_BlockIoTransfer_Read;
-        }
-        else if (apIop->Op.BlockIo.mOp == K2OS_BlockIoTransfer_Write)
-        {
-            transfer.mTargetAddr = apIop->Op.BlockIo.mMemAddr;
-            transfer.mType = K2OS_BlockIoTransfer_Write;
+            stat = K2STAT_ERROR_MEDIA_CHANGED;
         }
         else
         {
-            transfer.mTargetAddr = 0;
-            transfer.mType = K2OS_BlockIoTransfer_Erase;
+            pRangeListLink = pSession->RangeList.mpHead;
+            if (NULL != pRangeListLink)
+            {
+                do {
+                    pScan = K2_GET_CONTAINER(BLOCKIO_RANGE, pRangeListLink, SessionRangeListLink);
+                    if (pScan->mId == ((UINT32)apTransferIn->mRange))
+                    {
+                        stat = K2STAT_NO_ERROR;
+                        mediaBlockBytes = pSession->mBlockSizeBytes;
+                        mediaBlockCount = pSession->mBlockCount;
+                        mediaReadOnly = pSession->mIsReadOnly;
+                        rangeBlockOffset = pScan->mStartBlock;
+                        rangeBlockCount = pScan->mBlockCount;
+                        break;
+                    }
+                    pRangeListLink = pRangeListLink->mpNext;
+                } while (NULL != pRangeListLink);
+            }
         }
-
-        K2OS_CritSec_Leave(&apBlockIo->Sec);
-
-        stat = K2_EXTRAP(&trap, apBlockIo->Register.Transfer(apBlockIo->mpDriverContext, &transfer));
     }
-
-    result = K2STAT_IS_ERROR(stat) ? FALSE : TRUE;
-
-    gKernDdk.Io_Complete(&apBlockIo->IoThread, apIop, result, !result, stat);
-}
-
-UINT32
-BlockIo_DeviceThread(
-    void *apArg
-)
-{
-    static K2_GUID128 sBlockIoClassId = K2OS_IFACE_BLOCKIO_DEVICE_CLASSID;
-
-    BLOCKIO *               pThis;
-    BOOL                    ok;
-    K2OS_WaitResult         waitResult;
-    K2STAT                  stat;
-    K2OSEXEC_IOP *          pIop;
-    K2LIST_LINK *           pHead;
-
-    pThis = (BLOCKIO *)apArg;
-
-    ok = K2OS_CritSec_Init(&pThis->Sec);
-    K2_ASSERT(ok);
-
-    pThis->mTokNotify = K2OS_Notify_Create(FALSE);
-    K2_ASSERT(NULL != pThis->mTokNotify);
-
-    pThis->IoThread.mUsePhysAddr = pThis->Register.Config.mUseHwDma;
-    pThis->IoThread.ValidateRange = BlockIo_ValidateRange;
-    pThis->IoThread.Submit = BlockIo_Submit;
-    pThis->IoThread.Cancel = BlockIo_Cancel;
-
-    stat = gKernDdk.Io_SetThread(pThis->mIfInstId, &pThis->IoThread);
-    if (K2STAT_IS_ERROR(stat))
+    else
     {
-        K2OS_Token_Destroy(pThis->mTokNotify);
-        pThis->mTokNotify = NULL;
-        K2OS_CritSec_Done(&pThis->Sec);
-        return stat;
+        stat = K2STAT_ERROR_DEVICE_REMOVED;
     }
 
-    //
-    // once we publish we can immediately start getting submissions
-    //
-    ok = K2OS_IfInst_Publish(pThis->mTokIfInst, K2OS_IFACE_CLASSCODE_STORAGE_DEVICE, &sBlockIoClassId);
-    K2_ASSERT(ok);
+    K2OS_CritSec_Leave(&apBlockIo->Sec);
 
     do {
-        if (!K2OS_Thread_WaitOne(&waitResult, pThis->mTokNotify, K2OS_TIMEOUT_INFINITE))
+        if (K2STAT_IS_ERROR(stat))
+        {
             break;
+        }
+
+        K2_ASSERT(rangeBlockOffset < mediaBlockCount);
+        K2_ASSERT((mediaBlockCount - rangeBlockOffset) >= rangeBlockCount);
+        K2_ASSERT(apTransferIn->mByteCount != 0);  // checked before we get here
+
+        if ((0 != (apTransferIn->mMemAddr % mediaBlockBytes)) ||
+            (0 != (apTransferIn->mBytesOffset % mediaBlockBytes)) ||
+            (0 != (apTransferIn->mByteCount % mediaBlockBytes)))
+        {
+            stat = K2STAT_ERROR_BAD_ALIGNMENT;
+            break;
+        }
+        else if ((apTransferIn->mIsWrite) && (mediaReadOnly))
+        {
+            stat = K2STAT_ERROR_READ_ONLY;
+            break;
+        }
+
+        trans.mStartBlock = apTransferIn->mBytesOffset / mediaBlockBytes;
+        trans.mBlockCount = apTransferIn->mByteCount / mediaBlockBytes;
+
+        if ((trans.mStartBlock >= rangeBlockCount) ||
+            ((rangeBlockCount - trans.mStartBlock) < trans.mBlockCount))
+        {
+            stat = K2STAT_ERROR_OUT_OF_BOUNDS;
+            break;
+        }
+
+        trans.mStartBlock += rangeBlockOffset;
+        trans.mIsWrite = apTransferIn->mIsWrite;
+        blocksLeft = trans.mBlockCount;
+        trans.mAddress = apTransferIn->mMemAddr;
 
         do {
-            K2OS_CritSec_Enter(&pThis->Sec);
-
-            pHead = pThis->IopList.mpHead;
-            if (NULL != pHead)
+            holdAddr = trans.mAddress;
+            ioSize = trans.mBlockCount * mediaBlockBytes;
+            if (ioSize > MAX_BLOCKIO_CHUNK_BYTES)
             {
-                K2LIST_Remove(&pThis->IopList, pHead);
+                ioSize = (MAX_BLOCKIO_CHUNK_BYTES / mediaBlockBytes) * mediaBlockBytes;
             }
-
-            K2OS_CritSec_Leave(&pThis->Sec);
-
-            if (NULL == pHead)
+            stat = K2OSKERN_PrepIo(
+                apBlockIo->Register.Config.mUseHwDma,
+                apTransferIn->mIsWrite,
+                aProcessId,
+                &trans.mAddress,
+                &ioSize,
+                &tokHold
+            );
+            if (K2STAT_IS_ERROR(stat))
                 break;
 
-            pIop = K2_GET_CONTAINER(K2OSEXEC_IOP, pHead, ListLink);
+            K2_ASSERT(NULL != tokHold);
 
-            BlockIo_DeviceThread_ExecIop(pThis, pIop);
+            K2OS_CritSec_Enter(&apBlockIo->Sec);
+
+            if (apBlockIo->mpCurSession != pSession)
+            {
+                stat = K2STAT_ERROR_MEDIA_CHANGED;
+            }
+
+            K2OS_CritSec_Leave(&apBlockIo->Sec);
+
+            if (!K2STAT_IS_ERROR(stat))
+            {
+                if (K2RUNDOWN_Get(&apBlockIo->Rundown))
+                {
+                    trans.mBlockCount = ioSize / mediaBlockBytes;
+
+                    if ((apBlockIo->Register.Config.mUseHwDma) &&
+                        (apTransferIn->mIsWrite))
+                    {
+                        // drain write buffer and flush data range
+                        K2_ASSERT(0);
+                    }
+
+                    stat = apBlockIo->Register.Transfer(apBlockIo->mpDriverContext, &trans);
+
+                    if ((apBlockIo->Register.Config.mUseHwDma) &&
+                        (!K2STAT_IS_ERROR(stat)) &&
+                        (!apTransferIn->mIsWrite))
+                    {
+                        // invalidate data range    
+                        K2_ASSERT(0);
+                    }
+
+                    K2RUNDOWN_Put(&apBlockIo->Rundown);
+                }
+                else
+                {
+                    stat = K2STAT_ERROR_DEVICE_REMOVED;
+                }
+            }
+
+            K2_CpuWriteBarrier();
+            K2OS_Token_Destroy(tokHold);
+
+            if (K2STAT_IS_ERROR(stat))
+            {
+                break;
+            }
+
+            blocksLeft -= trans.mBlockCount;
+            if (blocksLeft == 0)
+            {
+                break;
+            }
+
+            trans.mAddress = holdAddr + (trans.mBlockCount * mediaBlockBytes);
+            trans.mStartBlock += trans.mBlockCount;
+
+            trans.mBlockCount = blocksLeft;
 
         } while (1);
 
-    } while (1);
+    } while (0);
+
+    return stat;
+}
+
+K2STAT 
+K2OSEXEC_BlockIoRpc_Call(
+    K2OS_RPC_OBJ_CALL const *   apCall, 
+    UINT32 *                    apRetUsedOutBytes
+)
+{
+    BLOCKIO *       pBlockIo;
+    K2STAT          stat;
+    BLOCKIO_USER *  pUser;
+
+    pBlockIo = (BLOCKIO *)apCall->mObjContext;
+    K2_ASSERT(pBlockIo->mRpcObj == apCall->mObj);
+
+    pUser = (BLOCKIO_USER *)apCall->mUseContext;
+
+    switch (apCall->Args.mMethodId)
+    {
+    case K2OS_BLOCKIO_METHOD_CONFIG:
+        if ((apCall->Args.mOutBufByteCount != 0) ||
+            (apCall->Args.mInBufByteCount < sizeof(K2OS_BLOCKIO_CONFIG_IN)))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else if (pUser->mConfigSet)
+        {
+            stat = K2STAT_ERROR_NOT_CONFIGURED;
+        }
+        else
+        {
+            stat = BlockIo_Config(pBlockIo, pUser, (K2OS_BLOCKIO_CONFIG_IN const *)apCall->Args.mpInBuf);
+        }
+        break;
+
+    case K2OS_BLOCKIO_METHOD_GET_MEDIA:
+        if ((apCall->Args.mInBufByteCount != 0) ||
+            (apCall->Args.mOutBufByteCount < sizeof(K2OS_STORAGE_MEDIA)))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else if (!pUser->mConfigSet)
+        {
+            stat = K2STAT_ERROR_NOT_CONFIGURED;
+        }
+        else
+        {
+            stat = BlockIo_GetMedia(pBlockIo, pUser, (K2OS_STORAGE_MEDIA *)apCall->Args.mpOutBuf);
+            if (!K2STAT_IS_ERROR(stat))
+            {
+                *apRetUsedOutBytes = sizeof(K2OS_STORAGE_MEDIA);
+            }
+        }
+        break;
+
+    case K2OS_BLOCKIO_METHOD_RANGE_CREATE:
+        if ((apCall->Args.mInBufByteCount < sizeof(K2OS_BLOCKIO_RANGE_CREATE_IN)) ||
+            (apCall->Args.mOutBufByteCount < sizeof(K2OS_BLOCKIO_RANGE_CREATE_OUT)))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else if (!pUser->mConfigSet)
+        {
+            stat = K2STAT_ERROR_NOT_CONFIGURED;
+        }
+        else
+        {
+            stat = BlockIo_RangeCreate(
+                pBlockIo,
+                pUser,
+                (K2OS_BLOCKIO_RANGE_CREATE_IN const *)apCall->Args.mpInBuf,
+                (K2OS_BLOCKIO_RANGE_CREATE_OUT *)apCall->Args.mpOutBuf
+            );
+            if (!K2STAT_IS_ERROR(stat))
+            {
+                *apRetUsedOutBytes = sizeof(K2OS_BLOCKIO_RANGE_CREATE_OUT);
+            }
+        }
+        break;
+
+    case K2OS_BLOCKIO_METHOD_RANGE_DELETE:
+        if ((apCall->Args.mInBufByteCount < sizeof(K2OS_BLOCKIO_RANGE_DELETE_IN)) ||
+            (apCall->Args.mOutBufByteCount != 0))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else if (!pUser->mConfigSet)
+        {
+            stat = K2STAT_ERROR_NOT_CONFIGURED;
+        }
+        else
+        {
+            stat = BlockIo_RangeDelete(
+                pBlockIo,
+                pUser,
+                (K2OS_BLOCKIO_RANGE_DELETE_IN const *)apCall->Args.mpInBuf
+            );
+        }
+        break;
+
+    case K2OS_BLOCKIO_METHOD_TRANSFER:
+        if ((apCall->Args.mInBufByteCount < sizeof(K2OS_BLOCKIO_TRANSFER_IN)) ||
+            (apCall->Args.mOutBufByteCount != 0))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else if (!pUser->mConfigSet)
+        {
+            stat = K2STAT_ERROR_NOT_CONFIGURED;
+        }
+        else
+        {
+            stat = BlockIo_Transfer(
+                pBlockIo,
+                pUser->mpProc->mProcessId,
+                (K2OS_BLOCKIO_TRANSFER_IN const *)apCall->Args.mpInBuf
+            );
+        }
+        break;
+
+    default:
+        stat = K2STAT_ERROR_NOT_IMPL;
+    }
+
+    return stat;
+}
+
+K2STAT 
+K2OSEXEC_BlockIoRpc_Delete(
+    K2OS_RPC_OBJ    aObject, 
+    UINT32          aObjContext
+)
+{
+    BLOCKIO *   pBlockIo;
+
+    pBlockIo = (BLOCKIO *)aObjContext;
+
+    K2_ASSERT(aObjContext == (UINT32)pBlockIo->mRpcObj);
+
+    // handle should have been nullified by deregister
+    K2_ASSERT(0 != (pBlockIo->Rundown.mState & K2RUNDOWN_TRIGGER));
+    K2_ASSERT(NULL == pBlockIo->mRpcObjHandle);
+    K2_ASSERT(NULL == pBlockIo->mRpcIfInst);
+    K2_ASSERT(0 == pBlockIo->mRpcIfInstId);
+    K2_ASSERT(NULL == pBlockIo->mpCurSession);
+    K2_ASSERT(0 == pBlockIo->ProcList.mNodeCount);
+
+    pBlockIo->mRpcObj = NULL;
+
+    return K2STAT_NO_ERROR;
+}
+
+//
+// ----------------------------------------------------------------------------------
+//
+
+// {3EE88F1D-6779-43F7-B8FE-F56BDBA391CA}
+static K2OS_RPC_OBJ_CLASSDEF sgBlockIoRpcClassDef =
+{
+    { 0x3ee88f1d, 0x6779, 0x43f7, { 0xb8, 0xfe, 0xf5, 0x6b, 0xdb, 0xa3, 0x91, 0xca } },
+    K2OSEXEC_BlockIoRpc_Create,
+    K2OSEXEC_BlockIoRpc_OnAttach,
+    K2OSEXEC_BlockIoRpc_OnDetach,
+    K2OSEXEC_BlockIoRpc_Call,
+    K2OSEXEC_BlockIoRpc_Delete
+};
+
+void 
+BlockIo_Notify(
+    void *      apKey,
+    K2OS_DEVCTX aDevCtx,
+    void *      apDevice,
+    UINT32      aNotifyCode
+)
+{
+    BLOCKIO *   pBlockIo;
+
+    pBlockIo = K2_GET_CONTAINER(BLOCKIO, apKey, mfNotify);
+
+    K2_ASSERT(aDevCtx == (K2OS_DEVCTX)pBlockIo->mpDevNode);
+    K2_ASSERT(apDevice == pBlockIo->mpDriverContext);
+
+    K2OS_CritSec_Enter(&pBlockIo->Sec);
+    K2OS_RpcObj_SendNotify(pBlockIo->mRpcObj, 0, aNotifyCode, pBlockIo->mRpcIfInstId);
+    K2OS_CritSec_Leave(&pBlockIo->Sec);
+}
+
+UINT32      
+BlockIo_AddRef(
+    BLOCKIO *apBlockIo
+)
+{
+    return (UINT32)K2ATOMIC_Inc(&apBlockIo->mRefCount);
+}
+
+UINT32
+BlockIo_Release(
+    BLOCKIO *   apBlockIo
+)
+{
+    UINT32              result;
+    K2LIST_LINK *       pSessionListLink;
+    K2LIST_LINK *       pRangeListLink;
+    BLOCKIO_SESSION *   pSession;
+    BLOCKIO_RANGE *     pRange;
+
+    result = K2ATOMIC_Dec(&apBlockIo->mRefCount);
+    if (0 != result)
+    {
+        return result;
+    }
+
+    K2_ASSERT(0 != (K2RUNDOWN_TRIGGER & apBlockIo->Rundown.mState));
+    K2_ASSERT(NULL == apBlockIo->mpDevNode);
+    K2_ASSERT(NULL == apBlockIo->mpDriverContext);
+    K2_ASSERT(NULL == apBlockIo->mRpcIfInst);
+    K2_ASSERT(0 == apBlockIo->mRpcIfInstId);
+    K2_ASSERT(NULL == apBlockIo->mRpcObjHandle);
+    K2_ASSERT(NULL == apBlockIo->mpCurSession);
+    K2_ASSERT(0 == apBlockIo->ProcList.mNodeCount);
+
+    K2OS_CritSec_Enter(&sgBlockIoListSec);
+    K2LIST_Remove(&sgBlockIoList, &apBlockIo->GlobalListLink);
+    K2OS_CritSec_Leave(&sgBlockIoListSec);
+
+    K2RUNDOWN_Done(&apBlockIo->Rundown);
+
+    K2OS_CritSec_Done(&apBlockIo->Sec);
+
+    K2OS_Xdl_Release(apBlockIo->mHoldXdl[0]);
+    K2OS_Xdl_Release(apBlockIo->mHoldXdl[1]);
+
+    pSessionListLink = apBlockIo->SessionList.mpHead;
+    if (NULL != pSessionListLink)
+    {
+        do {
+            pSession = K2_GET_CONTAINER(BLOCKIO_SESSION, pSessionListLink, InstanceSessionListLink);
+            pSessionListLink = pSessionListLink->mpNext;
+
+            pRangeListLink = pSession->RangeList.mpHead;
+            if (NULL != pRangeListLink)
+            {
+                do {
+                    pRange = K2_GET_CONTAINER(BLOCKIO_RANGE, pRangeListLink, SessionRangeListLink);
+                    pRangeListLink = pRangeListLink->mpNext;
+
+                    K2OS_Heap_Free(pRange);
+
+                } while (NULL != pRangeListLink);
+            }
+
+            K2OS_Heap_Free(pSession);
+
+        } while (NULL != pSessionListLink);
+    }
+
+    K2MEM_Zero(apBlockIo, sizeof(BLOCKIO));
+
+    K2OS_Heap_Free(apBlockIo);
 
     return 0;
 }
 
+K2STAT
+K2OSDDK_BlockIoRegister(
+    K2OS_DEVCTX                     aDevCtx,
+    void *                          apDevice,
+    K2OSDDK_BLOCKIO_REGISTER const *apRegister,
+    K2OSDDK_pf_BlockIo_NotifyKey ** apRetNotifyKey
+)
+{
+    static K2_GUID128 const sBlockIoIfaceId = K2OS_IFACE_BLOCKIO_DEVICE;
+
+    BLOCKIO *                   pNewBlockIo;
+    K2STAT                      stat;
+    DEVNODE *                   pDevNode;
+    K2LIST_LINK *               pListLink;
+    BLOCKIO *                   pOtherBlockIo;
+    BLOCKIO_SESSION *           pNewSession;
+    K2OSDDK_BLOCKIO_REGISTER    regis;
+    K2OS_XDL                    holdXdl[2];
+
+    if (NULL == apRegister)
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    K2MEM_Copy(&regis, apRegister, sizeof(K2OSDDK_BLOCKIO_REGISTER));
+
+    if ((NULL == regis.GetMedia) ||
+        (NULL == regis.Transfer))
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    holdXdl[0] = K2OS_Xdl_AddRefContaining((UINT32)regis.GetMedia);
+    if (NULL == holdXdl[0])
+    {
+        stat = K2OS_Thread_GetLastStatus();
+        K2_ASSERT(K2STAT_IS_ERROR(stat));
+        return stat;
+    }
+
+    stat = K2STAT_NO_ERROR;
+
+    do {
+        holdXdl[1] = K2OS_Xdl_AddRefContaining((UINT32)regis.Transfer);
+        if (NULL == holdXdl[1])
+        {
+            stat = K2OS_Thread_GetLastStatus();
+            K2_ASSERT(K2STAT_IS_ERROR(stat));
+            break;
+        }
+
+        do {
+            pNewBlockIo = (BLOCKIO *)K2OS_Heap_Alloc(sizeof(BLOCKIO));
+
+            if (NULL == pNewBlockIo)
+            {
+                stat = K2OS_Thread_GetLastStatus();
+                K2_ASSERT(K2STAT_IS_ERROR(stat));
+                break;
+            }
+
+            do {
+                pNewSession = (BLOCKIO_SESSION *)K2OS_Heap_Alloc(sizeof(BLOCKIO_SESSION));
+                if (NULL == pNewSession)
+                {
+                    stat = K2OS_Thread_GetLastStatus();
+                    K2_ASSERT(K2STAT_IS_ERROR(stat));
+                    break;
+                }
+
+                do {
+                    K2MEM_Zero(pNewBlockIo, sizeof(BLOCKIO));
+
+                    if (!K2OS_CritSec_Init(&pNewBlockIo->Sec))
+                    {
+                        stat = K2OS_Thread_GetLastStatus();
+                        K2_ASSERT(K2STAT_IS_ERROR(stat));
+                        break;
+                    }
+
+                    do {
+                        if (!K2RUNDOWN_Init(&pNewBlockIo->Rundown))
+                        {
+                            stat = K2OS_Thread_GetLastStatus();
+                            K2_ASSERT(K2STAT_IS_ERROR(stat));
+                            break;
+                        }
+
+                        pNewBlockIo->mRpcObjHandle = K2OS_Rpc_CreateObj(0, &sgBlockIoRpcClassDef.ClassId, (UINT32)pNewBlockIo);
+                        if (NULL == pNewBlockIo->mRpcObjHandle)
+                        {
+                            stat = K2OS_Thread_GetLastStatus();
+                            K2_ASSERT(K2STAT_IS_ERROR(stat));
+                        }
+                        else
+                        {
+                            K2_ASSERT(NULL != pNewBlockIo->mRpcObj);
+
+                            pNewBlockIo->mRefCount = 1;
+                            K2MEM_Copy(&pNewBlockIo->Register, &regis, sizeof(K2OSDDK_BLOCKIO_REGISTER));
+                            pNewBlockIo->mpDevNode = (DEVNODE *)aDevCtx;
+                            pNewBlockIo->mpDriverContext = apDevice;
+                            K2LIST_Init(&pNewBlockIo->ProcList);
+                            K2LIST_Init(&pNewBlockIo->SessionList);
+
+                            K2MEM_Zero(pNewSession, sizeof(BLOCKIO_SESSION));
+                            K2LIST_Init(&pNewSession->RangeList);
+                            K2LIST_AddAtTail(&pNewBlockIo->SessionList, &pNewSession->InstanceSessionListLink);
+                            pNewBlockIo->mpCurSession = pNewSession;
+                            pNewBlockIo->mfNotify = BlockIo_Notify;
+                            *apRetNotifyKey = &pNewBlockIo->mfNotify;
+
+                            pNewBlockIo->mHoldXdl[0] = holdXdl[0];
+                            K2OS_Xdl_AddRef(holdXdl[0]);
+                            pNewBlockIo->mHoldXdl[1] = holdXdl[1];
+                            K2OS_Xdl_AddRef(holdXdl[1]);
+                        }
+
+                        if (K2STAT_IS_ERROR(stat))
+                        {
+                            K2RUNDOWN_Done(&pNewBlockIo->Rundown);
+                        }
+
+                    } while (0);
+
+                    if (K2STAT_IS_ERROR(stat))
+                    {
+                        K2OS_CritSec_Done(&pNewBlockIo->Sec);
+                    }
+
+                } while (0);
+
+                if (K2STAT_IS_ERROR(stat))
+                {
+                    K2OS_Heap_Free(pNewSession);
+                }
+
+            } while (0);
+
+            if (K2STAT_IS_ERROR(stat))
+            {
+                K2OS_Heap_Free(pNewBlockIo);
+            }
+
+        } while (0);
+
+        K2OS_Xdl_Release(holdXdl[1]);
+
+    } while (0);
+
+    K2OS_Xdl_Release(holdXdl[0]);
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        return stat;
+    }
+
+    //
+    // try to add to devnode now
+    //
+    pDevNode = (DEVNODE *)aDevCtx;
+
+    K2OS_CritSec_Enter(&pDevNode->Sec);
+
+    pListLink = pDevNode->InSec.BlockIo.List.mpHead;
+    if (NULL != pListLink)
+    {
+        do {
+            pOtherBlockIo = K2_GET_CONTAINER(BLOCKIO, pListLink, DevNodeBlockIoListLink);
+            if (apDevice == pOtherBlockIo->mpDriverContext)
+                break;
+            pListLink = pListLink->mpNext;
+        } while (NULL != pListLink);
+    }
+
+    if (NULL != pListLink)
+    {
+        stat = K2STAT_ERROR_ALREADY_EXISTS;
+    }
+    else
+    {
+        K2LIST_AddAtTail(&pDevNode->InSec.BlockIo.List, &pNewBlockIo->DevNodeBlockIoListLink);
+        stat = K2STAT_NO_ERROR;
+    }
+
+    K2OS_CritSec_Leave(&pDevNode->Sec);
+
+    if (!K2STAT_IS_ERROR(stat))
+    {
+        //
+        // new blockio track
+        //
+        K2OS_CritSec_Enter(&sgBlockIoListSec);
+        K2LIST_AddAtTail(&sgBlockIoList, &pNewBlockIo->GlobalListLink);
+        K2OS_CritSec_Leave(&sgBlockIoListSec);
+
+        //
+        // calls can come in before we exit this function
+        //
+        pNewBlockIo->mRpcIfInst = K2OS_RpcObj_AddIfInst(
+            pNewBlockIo->mRpcObj,
+            K2OS_IFACE_CLASSCODE_STORAGE_DEVICE,
+            &sBlockIoIfaceId,
+            &pNewBlockIo->mRpcIfInstId,
+            TRUE
+        );
+
+        if (NULL == pNewBlockIo->mRpcIfInst)
+        {
+            stat = K2OS_Thread_GetLastStatus();
+
+            K2_ASSERT(K2STAT_IS_ERROR(stat));
+
+            K2OS_CritSec_Enter(&pDevNode->Sec);
+            K2LIST_Remove(&pDevNode->InSec.BlockIo.List, &pNewBlockIo->DevNodeBlockIoListLink);
+            K2OS_CritSec_Leave(&pDevNode->Sec);
+
+            K2OS_CritSec_Enter(&sgBlockIoListSec);
+            K2LIST_Remove(&sgBlockIoList, &pNewBlockIo->GlobalListLink);
+            K2OS_CritSec_Leave(&sgBlockIoListSec);
+        }
+    }
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OS_Rpc_Release(pNewBlockIo->mRpcObjHandle);
+        K2_ASSERT(NULL == pNewBlockIo->mRpcObj);
+        BlockIo_Release(pNewBlockIo);
+    }
+
+    return stat;
+}
+
+K2STAT
+K2OSDDK_BlockIoDeregister(
+    K2OS_DEVCTX aDevCtx,
+    void *      apDevice
+)
+{
+    DEVNODE *           pDevNode;
+    BLOCKIO *           pBlockIo;
+    K2LIST_LINK *       pListLink;
+    K2STAT              stat;
+    BOOL                ok;
+    K2OS_RPC_OBJ_HANDLE hRpcObj;
+
+    pDevNode = (DEVNODE *)aDevCtx;
+
+    K2OS_CritSec_Enter(&pDevNode->Sec);
+
+    pListLink = pDevNode->InSec.BlockIo.List.mpHead;
+    if (NULL != pListLink)
+    {
+        do {
+            pBlockIo = K2_GET_CONTAINER(BLOCKIO, pListLink, DevNodeBlockIoListLink);
+            if (pBlockIo->mpDriverContext == apDevice)
+                break;
+            pListLink = pListLink->mpNext;
+        } while (NULL != pListLink);
+    }
+    if (NULL == pListLink)
+    {
+        stat = K2STAT_ERROR_NOT_FOUND;
+    }
+    else
+    {
+        //
+        // waiting inside devnode sec!
+        //
+        K2RUNDOWN_Wait(&pBlockIo->Rundown);
+
+        K2LIST_Remove(&pDevNode->InSec.BlockIo.List, &pBlockIo->DevNodeBlockIoListLink);
+
+        //
+        // rundown will prevent use of any of this
+        //
+        pBlockIo->mpDevNode = NULL;
+        pBlockIo->mpDriverContext = NULL;
+
+        stat = K2STAT_NO_ERROR;
+    }
+
+    K2OS_CritSec_Leave(&pDevNode->Sec);
+
+    if (K2STAT_IS_ERROR(stat))
+        return stat;
+
+    K2OS_CritSec_Enter(&pBlockIo->Sec);
+
+    ok = K2OS_RpcObj_RemoveIfInst(pBlockIo->mRpcObj, pBlockIo->mRpcIfInst);
+    pBlockIo->mRpcIfInst = NULL;
+    pBlockIo->mRpcIfInstId = 0;
+    K2_ASSERT(ok);
+    hRpcObj = pBlockIo->mRpcObjHandle;
+    pBlockIo->mRpcObjHandle = NULL;
+    K2MEM_Zero(&pBlockIo->Register, sizeof(K2OSDDK_BLOCKIO_REGISTER));
+    pBlockIo->mpCurSession = NULL;
+
+    K2OS_CritSec_Leave(&pBlockIo->Sec);
+
+    K2OS_Rpc_Release(hRpcObj);
+
+    BlockIo_Release(pBlockIo);
+
+    return K2STAT_NO_ERROR;
+}
+
+BLOCKIO *   
+BlockIo_AcquireByIfInstId(
+    K2OS_IFINST_ID aIfInstId
+)
+{
+    K2LIST_LINK *   pListLink;
+    BLOCKIO *       pBlockIo;
+
+    pBlockIo = NULL;
+
+    K2OS_CritSec_Enter(&sgBlockIoListSec);
+
+    pListLink = sgBlockIoList.mpHead;
+    if (NULL != pListLink)
+    {
+        do {
+            pBlockIo = K2_GET_CONTAINER(BLOCKIO, pListLink, GlobalListLink);
+            if (pBlockIo->mRpcIfInstId == aIfInstId)
+            {
+                BlockIo_AddRef(pBlockIo);
+                break;
+            }
+            pListLink = pListLink->mpNext;
+        } while (NULL != pListLink);
+    }
+
+    K2OS_CritSec_Leave(&sgBlockIoListSec);
+
+    if (NULL == pListLink)
+        return NULL;
+
+    return pBlockIo;
+}
+
+void
+BlockIo_Init(
+    void
+)
+{
+    if (!K2OS_CritSec_Init(&sgBlockIoListSec))
+    {
+        K2OSKERN_Panic("Could not init blockio list cs\n");
+    }
+    K2LIST_Init(&sgBlockIoList);
+
+    if (NULL == K2OS_RpcServer_Register(&sgBlockIoRpcClassDef, 0))
+    {
+        K2OSKERN_Panic("*** could not register blockio class\n");
+    }
+}

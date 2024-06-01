@@ -227,8 +227,6 @@ PciBus_ECAM_ConfigRead(
     K2_ASSERT(apLoc->Device < 32);
     K2_ASSERT(apLoc->Function < 8);
 
-    K2OS_CritSec_Enter(&apPciBus->ChildTreeSec);
-
     do {
         pTreeNode = K2TREE_Find(&apPciBus->ChildTree, (((UINT32)apLoc->Device) << 16) | ((UINT32)apLoc->Function));
         if (NULL == pTreeNode)
@@ -288,8 +286,6 @@ PciBus_ECAM_ConfigRead(
 
     } while (0);
 
-    K2OS_CritSec_Leave(&apPciBus->ChildTreeSec);
-
     return stat;
 }
 
@@ -314,8 +310,6 @@ PciBus_ECAM_ConfigWrite(
     K2_ASSERT(apLoc->Bus == apPciBus->mBusNum);
     K2_ASSERT(apLoc->Device < 32);
     K2_ASSERT(apLoc->Function < 8);
-
-    K2OS_CritSec_Enter(&apPciBus->ChildTreeSec);
 
     do {
         pTreeNode = K2TREE_Find(&apPciBus->ChildTree, (((UINT32)apLoc->Device) << 16) | ((UINT32)apLoc->Function));
@@ -380,8 +374,6 @@ PciBus_ECAM_ConfigWrite(
         stat = K2STAT_NO_ERROR;
 
     } while (0);
-
-    K2OS_CritSec_Leave(&apPciBus->ChildTreeSec);
 
     return stat;
 }
@@ -489,10 +481,8 @@ PciBus_DiscoverIo(
                                     }
                                 }
 
-                                K2OS_CritSec_Enter(&apPciBus->ChildTreeSec);
                                 pChild->ChildTreeNode.mUserVal = (((UINT32)pChild->DeviceLoc.Device) << 16) | ((UINT32)pChild->DeviceLoc.Function);
                                 K2TREE_Insert(&apPciBus->ChildTree, pChild->ChildTreeNode.mUserVal, &pChild->ChildTreeNode);
-                                K2OS_CritSec_Leave(&apPciBus->ChildTreeSec);
                             }
                             else
                             {
@@ -580,11 +570,8 @@ PciBus_DiscoverECAM(
                     pChild->ECAM.mpCfg = pCfg;
                     pChild->ECAM.mTokVirtMap = tokVirtMap;
 
-                    K2OS_CritSec_Enter(&apPciBus->ChildTreeSec);
                     pChild->ChildTreeNode.mUserVal = (((UINT32)pChild->DeviceLoc.Device) << 16) | ((UINT32)pChild->DeviceLoc.Function);
                     K2TREE_Insert(&apPciBus->ChildTree, pChild->ChildTreeNode.mUserVal, &pChild->ChildTreeNode);
-                    K2OS_CritSec_Leave(&apPciBus->ChildTreeSec);
-
                 }
                 if (NULL == pChild)
                 {

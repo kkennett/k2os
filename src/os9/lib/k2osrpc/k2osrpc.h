@@ -130,12 +130,12 @@ struct _K2OSRPC_MSG_CREATE_ACQUIRE_RESPONSE_DATA
 } K2_PACKED_ATTRIB;
 K2_PACKED_POP
 
-#define K2OSRPC_OBJECT_NOTIFY_MARKER    K2_MAKEID4('N','O','T','F')
+#define K2OSRPC_OBJ_NOTIFY_MARKER    K2_MAKEID4('N','O','T','F')
 K2_PACKED_PUSH
-typedef struct _K2OSRPC_OBJECT_NOTIFY K2OSRPC_OBJECT_NOTIFY;
-struct _K2OSRPC_OBJECT_NOTIFY
+typedef struct _K2OSRPC_OBJ_NOTIFY K2OSRPC_OBJ_NOTIFY;
+struct _K2OSRPC_OBJ_NOTIFY
 {
-    UINT32  mMarker;            // K2OSRPC_OBJECT_NOTIFY_MARKER
+    UINT32  mMarker;            // K2OSRPC_OBJ_NOTIFY_MARKER
     UINT32  mServerHandle;
     UINT32  mCode;
     UINT32  mData;
@@ -155,7 +155,7 @@ K2STAT K2OSRPC_Init(void);
 UINT32 K2OSRPC_Debug(char const *apFormat, ...);
 
 K2OS_RPC_OBJ_HANDLE K2OSRPC_Client_CreateObj(K2OS_IFINST_ID aRemoteRpcInstId, K2_GUID128 const *apClassId, UINT32 aCreatorContext);
-K2OS_RPC_OBJ_HANDLE K2OSRPC_Server_LocalCreateObj(K2_GUID128 const *apClassId, UINT32 aCreatorContext, UINT32 aCreatorProcessId, K2OS_GATE_TOKEN aTokRemoteDisconnect, UINT32 *apRetObjId);
+K2OS_RPC_OBJ_HANDLE K2OSRPC_Server_LocalCreateObj(K2_GUID128 const *apClassId, UINT32 aCreatorContext, UINT32 aCreatorProcessId, K2OS_SIGNAL_TOKEN aTokRemoteDisconnect, UINT32 *apRetObjId);
 
 K2OS_RPC_OBJ_HANDLE K2OSRPC_Client_AttachByObjId(K2OS_IFINST_ID aRemoteRpcInstId, UINT32 aRemoteObjectId);
 K2OSRPC_SERVER_OBJ_HANDLE * K2OSRPC_Server_LocalAttachByObjId(UINT32 aObjectId);

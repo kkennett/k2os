@@ -59,12 +59,12 @@ IDE_InitAndDiscover(
     // 
     // find bars
     //
-    for (ixIo = 0; ixIo < apController->mCountIo; ixIo++)
+    for (ixIo = 0; ixIo < apController->InstInfo.mCountIo; ixIo++)
     {
         K2_ASSERT(apController->ResIo[ixIo].Def.mId < 5);
         barToIx[apController->ResIo[ixIo].Def.mId] = ixIo;
     }
-    for (ixPhys = 0; ixPhys < apController->mCountPhys; ixPhys++)
+    for (ixPhys = 0; ixPhys < apController->InstInfo.mCountPhys; ixPhys++)
     {
         K2_ASSERT(apController->ResPhys[ixPhys].Def.mId < 5);
         barToIx[apController->ResPhys[ixPhys].Def.mId] = ixPhys;
@@ -129,7 +129,7 @@ IDE_InitAndDiscover(
 
         apController->Channel[IDE_CHANNEL_PRIMARY].ChanRegs.mIsPhys = FALSE;
     }
-    if (apController->mCountIrq > 0)
+    if (apController->InstInfo.mCountIrq > 0)
     {
         apController->Channel[IDE_CHANNEL_PRIMARY].mpIrqRes = &apController->ResIrq[0];
     }
@@ -185,16 +185,16 @@ IDE_InitAndDiscover(
 
         apController->Channel[IDE_CHANNEL_SECONDARY].ChanRegs.mIsPhys = FALSE;
     }
-    if (apController->mCountIrq > 1)
+    if (apController->InstInfo.mCountIrq > 1)
     {
         apController->Channel[IDE_CHANNEL_SECONDARY].mpIrqRes = &apController->ResIrq[1];
     }
-    else if (apController->mCountIrq > 0)
+    else if (apController->InstInfo.mCountIrq > 0)
     {
         apController->Channel[IDE_CHANNEL_SECONDARY].mpIrqRes = &apController->ResIrq[0];
     }
 
-    if (5 == (apController->mCountIo + apController->mCountPhys))
+    if (5 == (apController->InstInfo.mCountIo + apController->InstInfo.mCountPhys))
     {
         if (barIsPhys[barToIx[4]])
         {
@@ -479,18 +479,17 @@ IDE_InitAndDiscover(
                 {
                     pDevice->mAtaMode = ATA_MODE_LBA28;
                 }
+
+                pDevice->mState = IdeState_EvalIdent;
+                pDevice->mIsATAPI = isATAPI;
+                if (K2OS_CritSec_Init(&pDevice->Sec))
+                {
+                    apController->mPopMask |= (1 << pDevice->mLocation);
+                }
             }
             else
             {
-                // chs determines total addressible sectors
-                pDevice->mAtaMode = ATA_MODE_CHS;
-            }
-
-            pDevice->mState = IdeState_EvalIdent;
-            pDevice->mIsATAPI = isATAPI;
-            if (K2OS_CritSec_Init(&pDevice->Sec))
-            {
-                apController->mPopMask |= (1 << pDevice->mLocation);
+                // CHS - ignore, not supported
             }
         }
     }

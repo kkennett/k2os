@@ -66,6 +66,9 @@ Dev_Init(
     K2LIST_Init(&gpDevTree->InSec.IrqResList);
     K2LIST_Init(&gpDevTree->InSec.IoResList);
     K2LIST_Init(&gpDevTree->InSec.PhysResList);
+
+    BlockIo_Init();
+    NetIo_Init();
 }
 
 void
@@ -380,6 +383,7 @@ Dev_NodeLocked_OnEvent(
 
     case DevNodeEvent_ChildStopped:
         K2OSKERN_Debug("EXEC: Node(%08X): ChildStopped (%08X)\n", apNode, aArg);
+        // will eventually release xdl
         break;
 
     case DevNodeEvent_ChildRefsHitZero:
@@ -404,7 +408,8 @@ Dev_NodeLocked_CreateChildNode(
     DEVNODE *               apParent,
     UINT64 const *          apParentRelativeBusAddr,
     UINT32                  aChildBusType,
-    K2_DEVICE_IDENT const * apChildIdent
+    K2_DEVICE_IDENT const * apChildIdent,
+    K2OS_IFINST_ID          aBusIfInstId
 )
 {
     DEVNODE *   pChild;
@@ -429,6 +434,7 @@ Dev_NodeLocked_CreateChildNode(
 
     pChild->mParentRelativeBusAddress = *apParentRelativeBusAddr;
     pChild->mBusType = aChildBusType;
+    pChild->mBusIfInstId = aBusIfInstId;
 
     K2LIST_Init(&pChild->RefList);
     Dev_CreateRef(&pChild->RefToParent, apParent);
@@ -624,6 +630,7 @@ Dev_NodeLocked_MountChild(
     UINT32                  aMountFlagsAndChildBusType,
     UINT64 const *          apBusAddressOfChild,
     K2_DEVICE_IDENT const * apChildIdent,
+    K2OS_IFINST_ID          aBusIfInstId,
     UINT32 *                apRetChildInstanceId
 )
 {
@@ -655,7 +662,7 @@ Dev_NodeLocked_MountChild(
     //
     // if bustype is different from parent then this is a bus bridge device
     //
-    pChildNode = Dev_NodeLocked_CreateChildNode(apParent, apBusAddressOfChild, aMountFlagsAndChildBusType, apChildIdent);
+    pChildNode = Dev_NodeLocked_CreateChildNode(apParent, apBusAddressOfChild, aMountFlagsAndChildBusType, apChildIdent, aBusIfInstId);
     if (NULL == pChildNode)
     {
         stat = K2STAT_ERROR_OUT_OF_MEMORY;
@@ -882,26 +889,8 @@ Dev_NodeLocked_AddRes(
                 pListLink = pListLink->mpNext;
             } while (NULL != pListLink);
         }
-        if (!K2OSKERN_IrqDefine(&pDevRes->DdkRes.Def.Irq.Config))
-        {
-            return K2STAT_ERROR_REJECTED;
-        }
-        pDevRes->DdkRes.Irq.mTokInterrupt = K2OSKERN_IrqHook(
-            pDevRes->DdkRes.Def.Irq.Config.mSourceIrq, 
-            &apNode->Driver.mfIntrHookKey
-        );
-        if (NULL == pDevRes->DdkRes.Irq.mTokInterrupt)
-        {
-            K2OS_Heap_Free(pDevRes);
-            return K2OS_Thread_GetLastStatus();
-        }
         pu = (UINT32 *)&pDevRes->DdkRes.Def.Irq.Config;
         pDevRes->mPlatRes = gPlat.DeviceAddRes(apNode->InSec.mPlatDev, K2OS_RESTYPE_IRQ, pu[0], pu[1]);
-        if (NULL == pDevRes->mPlatRes)
-        {
-            K2OS_Token_Destroy(pDevRes->DdkRes.Irq.mTokInterrupt);
-            pDevRes->DdkRes.Irq.mTokInterrupt = NULL;
-        }
         break;
     default:
         break;
@@ -924,7 +913,6 @@ Dev_NodeLocked_AddRes(
         break;
     case K2OS_RESTYPE_IRQ:
         K2LIST_AddAtTail(&apNode->InSec.IrqResList, &pDevRes->ListLink);
-        K2_ASSERT(NULL != pDevRes->DdkRes.Irq.mTokInterrupt);
         break;
     default:
         K2_ASSERT(0);

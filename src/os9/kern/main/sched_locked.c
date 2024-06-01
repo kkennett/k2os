@@ -1195,7 +1195,6 @@ KernSched_Locked_StopProcess(
 {
     K2LIST_LINK *           pListLink;
     K2OSKERN_OBJ_THREAD *   pThread;
-    UINT32                  v;
 
     if (apProc->mState >= KernProcState_Stopping)
     {
@@ -1228,26 +1227,6 @@ KernSched_Locked_StopProcess(
                 KernSched_Locked_ExitThread(pThread, aExitCode);
             }
         } while (NULL != pListLink);
-    }
-
-    //
-    // tell the io manager this process is dying so all threads in io
-    // can be taken out of it and die.
-    //
-    apProc->ExitIop.mType = KernIop_ProcExit;
-    KernObj_CreateRef(&apProc->ExitIop.RefObj, &apProc->Hdr);
-    // this is KernIoMgr_Queue but for inside the scheduler
-    do {
-        v = (UINT32)gData.IoMgr.mpIopIn;
-        K2_CpuReadBarrier();
-        apProc->ExitIop.mpChainNext = (KERN_IOP *)v;
-        K2_CpuWriteBarrier();
-    } while (v != K2ATOMIC_CompareExchange((UINT32 volatile *)&gData.IoMgr.mpIopIn, (UINT32)&apProc->ExitIop, v));
-    if (0 == K2ATOMIC_Inc((INT32 volatile *)&gData.IoMgr.mAwake))
-    {
-        // iomgr sleeping. wake it up
-        K2_ASSERT(NULL != gData.IoMgr.RefNotify.AsAny); // sanity
-        KernSched_Locked_SignalNotify(gData.IoMgr.RefNotify.AsNotify);
     }
 
     // 
@@ -1421,11 +1400,24 @@ KernSched_Locked_Thread_SysCall_ChangeGate(
 )
 {
     K2OSKERN_OBJ_GATE *   pGate;
+    UINT32                newState;
 
     pGate = apCallerThread->SchedItem.ObjRef.AsGate;
     K2_ASSERT(NULL != pGate);
     // not possible for this call to fail
-    KernSched_Locked_GateChange(pGate, apCallerThread->SchedItem.Args.Gate_Change.mSetTo);
+    newState = apCallerThread->SchedItem.Args.Gate_Change.mNewState;
+    if (newState <= 2)
+    {
+        // 2 is pulse
+        if (newState != 0)
+        {
+            KernSched_Locked_GateChange(pGate, TRUE);
+        }
+        if (newState != 1)
+        {
+            KernSched_Locked_GateChange(pGate, FALSE);
+        }
+    }
     KernObj_ReleaseRef(&apCallerThread->SchedItem.ObjRef);
 }
 
@@ -2850,6 +2842,14 @@ KernSched_Locked_Thread_SysCall_IpcAccept(
     KernObj_ReleaseRef(&apCallerThread->SchedItem.ObjRef);
 }
 
+void
+KernSched_Locked_Thread_SysCall_SysProcRegister(
+    K2OSKERN_OBJ_THREAD *   apCallerThread
+)
+{
+    K2_ASSERT(NULL != gData.SysProc.mTokReady2);
+    KernSched_Locked_GateChange(gData.SysProc.RefReady1.AsGate, TRUE);
+}
 
 void
 KernSched_Locked_Thread_SysCall(
@@ -3083,17 +3083,14 @@ KernSched_Locked_Thread_SysCall(
         KernSched_Locked_Thread_SysCall_IpcAccept(pCallerThread);
         break;
 
-    case K2OS_SYSCALL_ID_BLOCKIO_GETMEDIA:
-    case K2OS_SYSCALL_ID_BLOCKIO_RANGE_CREATE:
-    case K2OS_SYSCALL_ID_BLOCKIO_RANGE_DELETE:
-    case K2OS_SYSCALL_ID_BLOCKIO_TRANSFER:
-    case K2OS_SYSCALL_ID_BLOCKIO_ERASE:
+    case K2OS_SYSCALL_ID_SYSPROC_REGISTER:
+        K2_ASSERT(apItem->ObjRef.AsAny == NULL);
         if (!procIsAlive)
         {
             KernSched_Locked_ExitThread(pCallerThread, pCallerProc->mExitCode);
             return;
         }
-        // else no-op, resume thread after io completion
+        KernSched_Locked_Thread_SysCall_SysProcRegister(pCallerThread);
         break;
 
     default:
@@ -3394,6 +3391,7 @@ KernSched_Locked_KernThread_GateChange(
 {
     K2OSKERN_OBJ_THREAD *   pThread;
     K2OSKERN_OBJ_GATE *     pGate;
+    UINT32                  newState;
 
     pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, apItem, SchedItem);
     K2_ASSERT(pThread->mIsKernelThread);
@@ -3401,8 +3399,24 @@ KernSched_Locked_KernThread_GateChange(
     K2_ASSERT(apItem->ObjRef.AsAny != NULL);
     K2_ASSERT(apItem->ObjRef.AsAny->mObjType == KernObj_Gate);
     pGate = apItem->ObjRef.AsGate;
+    newState = apItem->Args.Gate_Change.mNewState;
 
-    KernSched_Locked_GateChange(pGate, apItem->Args.Gate_Change.mSetTo);
+    if (newState <= 2)
+    {
+        if (newState != 0)
+        {
+            KernSched_Locked_GateChange(pGate, TRUE);
+        }
+        if (newState != 1)
+        {
+            KernSched_Locked_GateChange(pGate, FALSE);
+        }
+        pThread->Kern.mSchedCall_Result = TRUE;
+    }
+    else
+    {
+        pThread->Kern.mSchedCall_Result = FALSE;
+    }
 
     KernSched_Locked_MakeThreadRun(pThread);
 }
@@ -3672,17 +3686,6 @@ KernSched_Locked_NotifyProxy(
     KernObj_ReleaseRef(&pNotifyProxy->RefSelf);
 }
 
-void
-KernSched_Locked_WakeIoMgr(
-    K2OSKERN_SCHED_ITEM * apItem
-)
-{
-    K2_ASSERT(apItem = &gData.IoMgr.SchedItem);
-    apItem->mType = KernSchedItem_Invalid;
-    K2_CpuWriteBarrier();
-    KernSched_Locked_SignalNotify(gData.IoMgr.RefNotify.AsNotify);
-}
-
 void 
 KernSched_Locked_ExecOneItem(
     K2OSKERN_SCHED_ITEM *apItem
@@ -3740,10 +3743,6 @@ KernSched_Locked_ExecOneItem(
 
     case KernSchedItem_ProcStopped:
         KernSched_Locked_ProcStopped(apItem);
-        break;
-
-    case KernSchedItem_IoMgr_Wake:
-        KernSched_Locked_WakeIoMgr(apItem);
         break;
 
     case KernSchedItem_KernThread_Exit:

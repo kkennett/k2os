@@ -31,37 +31,49 @@
 //
 #include "crtuser.h"
 
-K2OS_GATE_TOKEN
+K2OS_SIGNAL_TOKEN
 K2OS_Gate_Create(
     BOOL aInitOpen
 )
 {
-    return (K2OS_GATE_TOKEN)CrtKern_SysCall1(K2OS_SYSCALL_ID_GATE_CREATE, aInitOpen);
+    return (K2OS_SIGNAL_TOKEN)CrtKern_SysCall1(K2OS_SYSCALL_ID_GATE_CREATE, aInitOpen);
 }
 
 BOOL
-K2OS_Gate_Open(
-    K2OS_GATE_TOKEN aTokGate
+K2OS_Signal_Set(
+    K2OS_SIGNAL_TOKEN aTokSignal
 )
 {
-    if (NULL == aTokGate)
+    if (NULL == aTokSignal)
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
         return FALSE;
     }
-    return (BOOL)CrtKern_SysCall2(K2OS_SYSCALL_ID_GATE_CHANGE, (UINT32)aTokGate, 1);
+    return (BOOL)CrtKern_SysCall2(K2OS_SYSCALL_ID_SIGNAL_CHANGE, (UINT32)aTokSignal, 1);
 }
 
 BOOL
-K2OS_Gate_Close(
-    K2OS_GATE_TOKEN aTokGate
+K2OS_Signal_Reset(
+    K2OS_SIGNAL_TOKEN aTokSignal
 )
 {
-    if (NULL == aTokGate)
+    if (NULL == aTokSignal)
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
         return FALSE;
     }
-    return (BOOL)CrtKern_SysCall2(K2OS_SYSCALL_ID_GATE_CHANGE, (UINT32)aTokGate, 0);
+    return (BOOL)CrtKern_SysCall2(K2OS_SYSCALL_ID_SIGNAL_CHANGE, (UINT32)aTokSignal, 0);
 }
 
+BOOL
+K2OS_Signal_Pulse(
+    K2OS_SIGNAL_TOKEN aTokSignal
+)
+{
+    if (NULL == aTokSignal)
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
+        return FALSE;
+    }
+    return (BOOL)CrtKern_SysCall2(K2OS_SYSCALL_ID_SIGNAL_CHANGE, (UINT32)aTokSignal, 2);
+}

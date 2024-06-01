@@ -42,58 +42,90 @@ K2RING_Init(
     K2_ASSERT(aSize <= 0x7FFF);
     K2MEM_Zero(apRing, sizeof(K2RING));
     apRing->mSize = aSize;
+    apRing->State.Fields.mEmpty = 1;
+    K2_CpuWriteBarrier();
+}
+
+UINT32
+K2RING_Reader_Internal(
+    K2RING *    apRing,
+    UINT32 *    apRetOffset,
+    UINT32 *    apRetState
+)
+{
+    K2RING_STATE    state;
+    UINT32          spaceToEnd;
+    UINT32          gapPos;
+
+    state.mAsUINT32 = apRing->State.mAsUINT32;
+    K2_CpuReadBarrier();
+    if (NULL != apRetState)
+    {
+        *apRetState = state.mAsUINT32;
+    }
+
+    if (state.Fields.mEmpty)
+    {
+        return 0;
+    }
+
+    *apRetOffset = state.Fields.mReadIx;
+
+    if (state.Fields.mReadIx < state.Fields.mWriteIx)
+    {
+        //
+        // simplest case when not empty
+        //
+        return (UINT32)(state.Fields.mWriteIx - state.Fields.mReadIx);
+    }
+
+    //
+    // read is equal to or greater than write
+    //
+    spaceToEnd = apRing->mSize - state.Fields.mReadIx;
+
+    if (0 == state.Fields.mHasGap)
+    {
+        //
+        // no gap, so available block goes exactly to the end
+        //
+        return spaceToEnd;
+    }
+
+    //
+    // gap must be nonzero
+    //
+    K2_ASSERT(0 != apRing->mGapSize);
+
+    // 
+    // calc where the gap starts
+    //
+    gapPos = apRing->mSize - apRing->mGapSize;
+
+    //
+    // if read is at the gap start, then write pos
+    // must not be at zero, and the size of data
+    // available at zero must be greater than the
+    // size of the gap (or the gap wouldn't exist)
+    //
+    if (state.Fields.mReadIx == gapPos)
+    {
+        K2_ASSERT(state.Fields.mWriteIx > 0);
+        K2_ASSERT(state.Fields.mWriteIx > apRing->mGapSize);
+        *apRetOffset = 0;
+        return state.Fields.mWriteIx;
+    }
+
+    return gapPos - state.Fields.mReadIx;
 }
 
 UINT32 
 K2RING_Reader_GetAvail(
     K2RING *    apRing,
-    UINT32 *    apRetOffset,
-    BOOL        aSetSpareOnEmpty
+    UINT32 *    apRetOffset
 )
 {
-    K2RING_STATE    state;
-    K2RING_STATE    newVal;
-    UINT32          v;
-
-    state.mAsUINT32 = apRing->State.mAsUINT32;
-    *apRetOffset = state.Fields.mReadIx;
-
-    if (state.mAsUINT32 == 0)
-    {
-        // buffer is empty
-        if (!aSetSpareOnEmpty)
-        {
-            return 0;
-        }
-
-        newVal.mAsUINT32 = 0;
-        newVal.Fields.mSpare = 1;
-        v = K2ATOMIC_CompareExchange32(&apRing->State.mAsUINT32, newVal.mAsUINT32, 0);
-        if (0 == v)
-        {
-            // empty and spare bit set successfully
-            return 0;
-        }
-
-        // changed between read of empty and trying to set spare bit - no longer empty. 
-        state.mAsUINT32 = v;
-        *apRetOffset = state.Fields.mReadIx;
-    }
-
-    if (state.Fields.mReadIx <= state.Fields.mWriteIx)
-    {
-        return state.Fields.mWriteIx - state.Fields.mReadIx;
-    }
-
-    v = (apRing->mSize - state.Fields.mReadIx);
-
-    if (state.Fields.mHasGap)
-    {
-        K2_ASSERT(state.Fields.mHasGap < v);
-        v -= apRing->mWriterGap;
-    }
-
-    return v;
+    return K2RING_Reader_Internal(apRing, apRetOffset, NULL);
 }
 
 K2STAT 
@@ -103,97 +135,102 @@ K2RING_Reader_Consumed(
 )
 {
     K2RING_STATE    state;
-    K2RING_STATE    newVal;
+    K2RING_STATE    newState;
+    UINT32          offset;
     UINT32          avail;
-    BOOL            clearGap;
-    UINT32          saveGap;
+    UINT32          gapPos;
 
-    if (aCount == 0)
-        return K2STAT_ERROR_BAD_ARGUMENT;
-    clearGap = FALSE;
-    do
-    {
-        state.mAsUINT32 = apRing->State.mAsUINT32;
-        newVal.mAsUINT32 = state.mAsUINT32;
-        if (state.Fields.mReadIx <= state.Fields.mWriteIx)
+    do {
+        avail = K2RING_Reader_Internal(apRing, &offset, (UINT32 *)&state.mAsUINT32);
+        K2_ASSERT(0 == state.Fields.mEmpty);
+        K2_ASSERT(avail >= aCount);
+        newState.mAsUINT32 = state.mAsUINT32;
+
+        if (state.Fields.mHasGap)
         {
-            //
-            // read is behind write.  gap must be empty
-            //
-            K2_ASSERT(state.Fields.mHasGap == 0);
-            K2_ASSERT(apRing->mWriterGap == 0);
-            avail = state.Fields.mWriteIx - state.Fields.mReadIx;
-            if (aCount > avail)
-                return K2STAT_ERROR_TOO_BIG;
-            if (aCount == avail)
+            gapPos = apRing->mSize - apRing->mGapSize;
+            if (state.Fields.mReadIx == gapPos)
             {
-                // ate everything that was left.  clear to empty
-                newVal.mAsUINT32 = 0;
+                //
+                // read index is at the gap, so avail must be
+                // at the start of the buffer (less than write index)
+                // and our update will clear the gap
+                //
+                K2_ASSERT(aCount <= state.Fields.mWriteIx);
+                newState.Fields.mReadIx = aCount;
+                newState.Fields.mHasGap = 0;
+                if (state.Fields.mWriteIx == aCount)
+                {
+                    newState.Fields.mEmpty = 1;
+                }
+                apRing->mGapSize = 0;
+                if (state.mAsUINT32 == K2ATOMIC_CompareExchange(&apRing->State.mAsUINT32, newState.mAsUINT32, state.mAsUINT32))
+                {
+                    break;
+                }
+                // put this back
+                apRing->mGapSize = apRing->mSize - gapPos;
+                // go around and try again
             }
             else
             {
-                // just move the read state
-                newVal.Fields.mReadIx = state.Fields.mReadIx + aCount;
+                //
+                // read is not at the gap, so the count must be less
+                // than the space between where the read cursor is
+                // and where the gap starts
+                //
+                K2_ASSERT((gapPos - state.Fields.mReadIx) >= aCount);
+                newState.Fields.mReadIx += aCount;
+                if (state.mAsUINT32 == K2ATOMIC_CompareExchange(&apRing->State.mAsUINT32, newState.mAsUINT32, state.mAsUINT32))
+                {
+                    break;
+                }
+                // go around and try again
             }
         }
         else
         {
             //
-            // write is behind read
+            // there is no gap
             //
-            avail = (apRing->mSize - state.Fields.mReadIx);
-            if (state.Fields.mHasGap)
+            if (state.Fields.mReadIx < state.Fields.mWriteIx)
             {
-                K2_ASSERT(state.Fields.mHasGap < avail);
-                avail -= apRing->mWriterGap;
-                if (aCount > avail)
-                    return K2STAT_ERROR_TOO_BIG;
-                if (avail == aCount)
+                K2_ASSERT(aCount <= avail);
+                if (aCount == avail)
                 {
-                    // wrap to start and clear gap if read successful
-                    newVal.Fields.mReadIx = 0;
-                    newVal.Fields.mHasGap = 0;
-                    clearGap = TRUE;
+                    newState.Fields.mEmpty = 1;
                 }
-                else
-                {
-                    // just move the read state
-                    newVal.Fields.mReadIx = state.Fields.mReadIx + aCount;
-                }
+                newState.Fields.mReadIx += aCount;
             }
             else
             {
-                // write is behind read and no gap
-                K2_ASSERT(apRing->mWriterGap == 0);
-                if (aCount > avail)
-                    return K2STAT_ERROR_TOO_BIG;
-                if (aCount == avail)
+                //
+                // read is >= write
+                //
+                if (aCount == (apRing->mSize - state.Fields.mReadIx))
                 {
-                    // eating to end of buffer. wrap the read state
-                    newVal.Fields.mReadIx = 0;
+                    //
+                    // exact wrap with no gap
+                    //
+                    newState.Fields.mReadIx = 0;
+                    if (state.Fields.mWriteIx == 0)
+                    {
+                        newState.Fields.mEmpty = 1;
+                    }
                 }
                 else
                 {
-                    // just move the read state
-                    newVal.Fields.mReadIx = state.Fields.mReadIx + aCount;
+                    //
+                    // must be less than space or there would be a gap block
+                    //
+                    K2_ASSERT(aCount < (apRing->mSize - state.Fields.mReadIx));
+                    newState.Fields.mReadIx += aCount;
                 }
             }
-        }
-
-        if (clearGap)
-        {
-            saveGap = apRing->mWriterGap;
-            apRing->mWriterGap = 0;
-        }
-
-        if (state.mAsUINT32 == K2ATOMIC_CompareExchange32(&apRing->State.mAsUINT32, newVal.mAsUINT32, state.mAsUINT32))
-        {
-            break;
-        }
-
-        if (clearGap)
-        {
-            apRing->mWriterGap = saveGap;
+            if (state.mAsUINT32 == K2ATOMIC_CompareExchange(&apRing->State.mAsUINT32, newState.mAsUINT32, state.mAsUINT32))
+            {
+                break;
+            }
         }
     } while (1);
 
@@ -211,27 +248,44 @@ K2RING_Writer_GetOffset(
     UINT32          avail;
 
     state.mAsUINT32 = apRing->State.mAsUINT32;
+    K2_CpuReadBarrier();
+
+    if (0 != state.Fields.mEmpty)
+    {
+        K2_ASSERT(aCount <= apRing->mSize);
+        apRing->mWriteCount = aCount;
+        apRing->mWritePos = *apRetOffset = 0;
+        return TRUE;
+    }
+
+    //
+    // ring is nonempty
+    //
+    *apRetOffset = state.Fields.mWriteIx;
 
     if (state.Fields.mReadIx <= state.Fields.mWriteIx)
     {
-        avail = (apRing->mSize - 1) - state.Fields.mWriteIx;
+        avail = apRing->mSize - state.Fields.mWriteIx;
         if (aCount <= avail)
         {
-            *apRetOffset = state.Fields.mWriteIx;
+            apRing->mWriteCount = aCount;
+            apRing->mWritePos = *apRetOffset;
             return TRUE;
         }
-        if (state.Fields.mReadIx > aCount)
+        if (state.Fields.mReadIx >= aCount)
         {
-            *apRetOffset = 0;
+            apRing->mWriteCount = aCount;
+            apRing->mWritePos = *apRetOffset = 0;
             return TRUE;
         }
     }
     else
     {
-        avail = (state.Fields.mReadIx - 1) - state.Fields.mWriteIx;
+        avail = state.Fields.mReadIx - state.Fields.mWriteIx;
         if (avail >= aCount)
         {
-            *apRetOffset = state.Fields.mWriteIx;
+            apRing->mWriteCount = aCount;
+            apRing->mWritePos = *apRetOffset;
             return TRUE;
         }
     }
@@ -242,71 +296,89 @@ K2RING_Writer_GetOffset(
 
 K2STAT 
 K2RING_Writer_Wrote(
-    K2RING *    apRing,
-    UINT32      aWroteAtOffset,
-    UINT32      aCount
+    K2RING *    apRing
 )
 {
     K2RING_STATE    state;
-    K2RING_STATE    newVal;
-    UINT32          setGap;
+    K2RING_STATE    newState;
+    BOOL            undoGap;
+    UINT32          spaceLeft;
 
-    if (aCount == 0)
-        return K2STAT_ERROR_BAD_ARGUMENT;
-    do
-    {
-        state.mAsUINT32 = apRing->State.mAsUINT32;
-        newVal.mAsUINT32 = state.mAsUINT32;
-        setGap = 0;
+    if (apRing->mWriteCount == 0)
+        return K2STAT_ERROR_API_ORDER;
+    
+    undoGap = FALSE;
 
-        if (aWroteAtOffset == 0)
+    do {
+        if (undoGap)
         {
-            if (0 != state.Fields.mWriteIx)
+            apRing->mGapSize = 0;
+            undoGap = FALSE;
+        }
+        state.mAsUINT32 = apRing->State.mAsUINT32;
+        K2_CpuReadBarrier();
+        newState.mAsUINT32 = state.mAsUINT32;
+        newState.Fields.mEmpty = 0;
+
+        if (state.Fields.mEmpty)
+        {
+            if (0 == apRing->mWritePos)
             {
-                // set gap
-                if (aCount >= state.Fields.mReadIx)
-                    return K2STAT_ERROR_CORRUPTED;
-                setGap = apRing->mSize - state.Fields.mWriteIx;
-                newVal.Fields.mHasGap = 1;
+                newState.Fields.mReadIx = 0;
+                newState.Fields.mWriteIx = apRing->mWriteCount;
             }
-            newVal.Fields.mWriteIx = aCount;
+            else
+            {
+                newState.Fields.mWriteIx += apRing->mWriteCount;
+            }
+            if (apRing->mSize == newState.Fields.mWriteIx)
+            {
+                newState.Fields.mWriteIx = 0;
+            }
         }
         else
         {
-            if (aWroteAtOffset != apRing->State.Fields.mWriteIx)
-                return K2STAT_ERROR_UNKNOWN; //  K2STAT_ERROR_CORRUPTED;
-            newVal.Fields.mWriteIx = state.Fields.mWriteIx + aCount;
+            if (state.Fields.mReadIx <= state.Fields.mWriteIx)
+            {
+                spaceLeft = apRing->mSize - state.Fields.mWriteIx;
+                if (spaceLeft < apRing->mWriteCount)
+                {
+                    //
+                    // gap write
+                    //
+                    K2_ASSERT(0 == apRing->mWritePos);
+                    apRing->mGapSize = spaceLeft;
+                    newState.Fields.mHasGap = 1;
+                    newState.Fields.mWriteIx = apRing->mWriteCount;
+                    undoGap = TRUE;
+                }
+                else
+                {
+                    newState.Fields.mWriteIx += apRing->mWriteCount;
+                    if (apRing->mSize == newState.Fields.mWriteIx)
+                    {
+                        newState.Fields.mWriteIx = 0;
+                    }
+                }
+            }
+            else
+            {
+                //
+                // read is ahead of write, read cannot be off the end
+                //
+                K2_ASSERT(state.Fields.mWriteIx == apRing->mWritePos);
+                spaceLeft = state.Fields.mReadIx - state.Fields.mWriteIx;
+                K2_ASSERT(spaceLeft >= apRing->mWriteCount);
+                newState.Fields.mWriteIx += apRing->mWriteCount;
+            }
         }
 
-        if (setGap != 0)
-        {
-            K2_ASSERT(state.Fields.mHasGap == 0);
-            K2_ASSERT(newVal.Fields.mHasGap == 1);
-            apRing->mWriterGap = setGap;
-        }
+    } while (state.mAsUINT32 != K2ATOMIC_CompareExchange(&apRing->State.mAsUINT32, newState.mAsUINT32, state.mAsUINT32));
 
-        if (state.mAsUINT32 == K2ATOMIC_CompareExchange32(&apRing->State.mAsUINT32, newVal.mAsUINT32, state.mAsUINT32))
-        {
-            break;
-        }
-
-        if (setGap != 0)
-        {
-            apRing->mWriterGap = 0;
-        }
-
-    } while (1);
+    apRing->mWriteCount = 0;
+    K2_CpuWriteBarrier();
 
     return K2STAT_NO_ERROR;
 }
 
-void   
-K2RING_ClearSpareBit(
-    K2RING *    apRing
-)
-{
-    K2RING_STATE state;
-    state.mAsUINT32 = 0;
-    state.Fields.mSpare = 1;
-    K2ATOMIC_And32(&apRing->State.mAsUINT32, ~state.mAsUINT32);
-}
+

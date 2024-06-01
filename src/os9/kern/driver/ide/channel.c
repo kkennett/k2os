@@ -39,12 +39,306 @@ static K2OSDDK_BLOCKIO_REGISTER sgBlockIoFuncTab =
     (K2OSDDK_pf_BlockIo_Transfer)IDE_Device_Transfer
 };
 
-UINT32
-IDE_Device_Service(
-    IDE_DEVICE *apDevice
+KernIntrDispType
+IDE_Channel_Isr(
+    void *              apKey,
+    KernIntrActionType  aAction
 )
 {
-    K2OSKERN_Debug("IDE_Device_Service(%d/%d)\n", apDevice->mpChannel->mChannelIndex, apDevice->mDeviceIndex);
+    IDE_CHANNEL *       pChannel;
+    BOOL                disp;
+    KernIntrDispType    result;
+
+    pChannel = K2_GET_CONTAINER(IDE_CHANNEL, apKey, mIrqHook);
+
+    result = KernIntrDisp_None;
+
+    disp = K2OSKERN_SeqLock(&pChannel->IrqSeqLock);
+    K2_ASSERT(!disp);
+
+    K2OSKERN_Debug("IDE channel %d IRQ\n", pChannel->mChannelIndex);
+
+    K2OSKERN_SeqUnlock(&pChannel->IrqSeqLock, disp);
+
+    return result;
+}
+
+K2STAT
+IDE_Device_ReadBlock_LBA28(
+    IDE_DEVICE *    apDevice,
+    UINT64 const *  apBlockNum,
+    UINT8 *         apData
+)
+{
+    IDE_CHANNEL *   pChannel;
+    UINT8           ideStatus;
+    UINT32          ixData;
+    UINT16 *        pData;
+    BOOL            disp;
+    UINT32          blockNum32;
+
+    pChannel = apDevice->mpChannel;
+
+    blockNum32 = *apBlockNum;
+
+    //
+    // disable interrupts across setup and command issue
+    //
+    disp = K2OSKERN_SeqLock(&pChannel->IrqSeqLock);
+
+    IDE_Write8(pChannel, IdeChanReg_RW_SECCOUNT0, 1);
+    IDE_Write8(pChannel, IdeChanReg_RW_LBA_LOW, (UINT8)(blockNum32 & 0xFF));
+    IDE_Write8(pChannel, IdeChanReg_RW_LBA_MID, (UINT8)((blockNum32 >> 8) & 0xFF));
+    IDE_Write8(pChannel, IdeChanReg_RW_LBA_HI, (UINT8)((blockNum32 >> 16) & 0xFF));
+    ideStatus = (UINT8)((blockNum32 >> 24) & 0x0F) | ATA_HDDSEL_STATIC | ATA_HDDSEL_LBA_MODE;
+    if (apDevice->mDeviceIndex != 0)
+    {
+        ideStatus |= ATA_HDDSEL_DEVICE_SEL;
+    }
+    IDE_Write8(pChannel, IdeChanReg_RW_HDDEVSEL, ideStatus);
+
+    // send read command
+    IDE_Write8(pChannel, IdeChanReg_W_COMMAND, ATA_CMD_READ_PIO);
+
+    // read asr 4 times for 400ns delay
+    for (ixData = 0; ixData < 4; ixData++)
+    {
+        IDE_Read8(pChannel, IdeChanReg_R_ASR);
+    }
+
+    K2OSKERN_SeqUnlock(&pChannel->IrqSeqLock, disp);
+
+    // wait for BSY clear
+    do {
+        ideStatus = IDE_Read8(pChannel, IdeChanReg_R_STATUS);
+        if (0 == (ideStatus & ATA_SR_BSY))
+            break;
+        // check for timeout here
+    } while (1);
+
+    // wait for DRQ
+    do {
+        ideStatus = IDE_Read8(pChannel, IdeChanReg_R_STATUS);
+        if (0 != (ideStatus & ATA_SR_DRQ))
+            break;
+        if (0 != (ideStatus & ATA_SR_ERR))
+        {
+            ideStatus = IDE_Read8(pChannel, IdeChanReg_R_ERROR);
+            K2OSKERN_Debug("error = 0x%02X\n", ideStatus);
+            return K2STAT_ERROR_HARDWARE;
+        }
+        // check for timeout here
+    } while (1);
+
+    // slurp
+    pData = (UINT16 *)apData;
+    for (ixData = 0; ixData < 256; ixData++)
+    {
+        *pData = IDE_Read16(pChannel, IdeChanReg_RW_DATA);
+        pData++;
+    }
+
+    for (ixData = 0; ixData < 4; ixData++)
+    {
+        IDE_Read8(pChannel, IdeChanReg_R_ASR);
+    }
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT
+IDE_Device_ReadBlock_LBA48(
+    IDE_DEVICE *    apDevice,
+    UINT64 const *  apBlockNum,
+    UINT8 *         apData
+)
+{
+    K2_ASSERT(0);
+    return K2STAT_ERROR_NOT_IMPL;
+}
+
+K2STAT
+IDE_Device_WriteBlock_LBA28(
+    IDE_DEVICE *    apDevice,
+    UINT64 const *  apBlockNum,
+    UINT8 *         apData
+)
+{
+    IDE_CHANNEL *   pChannel;
+    UINT8           ideStatus;
+    UINT32          ixData;
+    UINT16 *        pData;
+    BOOL            disp;
+    UINT32          blockNum32;
+
+    pChannel = apDevice->mpChannel;
+
+    blockNum32 = *apBlockNum;
+
+    //
+    // disable interrupts across setup and command issue
+    //
+    disp = K2OSKERN_SetIntr(FALSE);
+
+    IDE_Write8(pChannel, IdeChanReg_RW_SECCOUNT0, 1);
+    IDE_Write8(pChannel, IdeChanReg_RW_LBA_LOW, (UINT8)(blockNum32 & 0xFF));
+    IDE_Write8(pChannel, IdeChanReg_RW_LBA_MID, (UINT8)((blockNum32 >> 8) & 0xFF));
+    IDE_Write8(pChannel, IdeChanReg_RW_LBA_HI, (UINT8)((blockNum32 >> 16) & 0xFF));
+    ideStatus = (UINT8)((blockNum32 >> 24) & 0x0F) | ATA_HDDSEL_STATIC | ATA_HDDSEL_LBA_MODE;
+    if (apDevice->mDeviceIndex != 0)
+    {
+        ideStatus |= ATA_HDDSEL_DEVICE_SEL;
+    }
+    IDE_Write8(pChannel, IdeChanReg_RW_HDDEVSEL, ideStatus);
+
+    // send write command
+    IDE_Write8(pChannel, IdeChanReg_W_COMMAND, ATA_CMD_WRITE_PIO);
+
+    K2OSKERN_SetIntr(disp);
+
+    // read asr 4 times for 400ns delay
+    for (ixData = 0; ixData < 4; ixData++)
+    {
+        IDE_Read8(pChannel, IdeChanReg_R_ASR);
+    }
+
+    // wait for BSY clear
+    do {
+        ideStatus = IDE_Read8(pChannel, IdeChanReg_R_STATUS);
+        if (0 == (ideStatus & ATA_SR_BSY))
+            break;
+        // check for timeout here
+    } while (1);
+
+    // wait for DRQ
+    do {
+        ideStatus = IDE_Read8(pChannel, IdeChanReg_R_STATUS);
+        if (0 != (ideStatus & ATA_SR_DRQ))
+            break;
+        if (0 != (ideStatus & ATA_SR_ERR))
+        {
+            ideStatus = IDE_Read8(pChannel, IdeChanReg_R_ERROR);
+            K2OSKERN_Debug("error = 0x%02X\n", ideStatus);
+            return K2STAT_ERROR_HARDWARE;
+        }
+        // check for timeout here
+    } while (1);
+
+    // bleah
+    pData = (UINT16 *)apData;
+    for (ixData = 0; ixData < 256; ixData++)
+    {
+        IDE_Write16(pChannel, IdeChanReg_RW_DATA, *pData);
+        pData++;
+    }
+
+    for (ixData = 0; ixData < 4; ixData++)
+    {
+        IDE_Read8(pChannel, IdeChanReg_R_ASR);
+    }
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT
+IDE_Device_WriteBlock_LBA48(
+    IDE_DEVICE *    apDevice,
+    UINT64 const *  apBlockNum,
+    UINT8 *         apData
+)
+{
+    K2_ASSERT(0);
+    return K2STAT_ERROR_NOT_IMPL;
+}
+
+K2STAT
+IDE_Device_ReadBlock(
+    IDE_DEVICE *    apDevice,
+    UINT64 const *  apBlockNum,
+    UINT8 *         apData
+)
+{
+    if (apDevice->mAtaMode == ATA_MODE_LBA28)
+    {
+        return IDE_Device_ReadBlock_LBA28(apDevice, apBlockNum, apData);
+    }
+
+    return IDE_Device_ReadBlock_LBA48(apDevice, apBlockNum, apData);
+}
+
+K2STAT
+IDE_Device_WriteBlock(
+    IDE_DEVICE *    apDevice,
+    UINT64 const *  apBlockNum,
+    UINT8 const *   apData
+)
+{
+    if (apDevice->mAtaMode == ATA_MODE_LBA28)
+    {
+        return IDE_Device_WriteBlock_LBA28(apDevice, apBlockNum, (UINT8 *)apData);
+    }
+
+    return IDE_Device_WriteBlock_LBA48(apDevice, apBlockNum, (UINT8 *)apData);
+}
+
+UINT32
+IDE_Device_Service(
+    IDE_DEVICE *apDevice,
+    BOOL        aDueToInterrupt
+)
+{
+    K2OS_BLOCKIO_TRANSFER const *   pTransfer;
+    UINT64                          workBlock;
+    UINT8 *                         mpWorkAddr;
+    UINT32                          blocksLeft;
+    K2STAT                          stat;
+
+//    K2OSKERN_Debug("IDE_Device_Service(%d/%d)\n", apDevice->mpChannel->mChannelIndex, apDevice->mDeviceIndex);
+
+    K2OS_CritSec_Enter(&apDevice->Sec);
+
+    pTransfer = apDevice->mpTransfer;
+    K2_ASSERT(NULL != pTransfer);
+
+    //
+    // for now do the whole transfer here using PIO
+    //
+    workBlock = pTransfer->mStartBlock;
+    K2_ASSERT(workBlock < apDevice->Media.mBlockCount);
+    blocksLeft = pTransfer->mBlockCount;
+    K2_ASSERT(0 != blocksLeft);
+
+    mpWorkAddr = (UINT8 *)pTransfer->mAddress;
+    K2_ASSERT(NULL != mpWorkAddr);
+
+    do {
+        if (!pTransfer->mIsWrite)
+        {
+            stat = IDE_Device_ReadBlock(apDevice, &workBlock, mpWorkAddr);
+        }
+        else
+        {
+            stat = IDE_Device_WriteBlock(apDevice, &workBlock, mpWorkAddr);
+        }
+        mpWorkAddr += apDevice->Media.mBlockSizeBytes;
+
+        if (K2STAT_IS_ERROR(stat))
+            break;
+
+        workBlock++;
+    } while (--blocksLeft);
+
+    apDevice->mTransferStatus = stat; 
+    apDevice->mpTransfer = NULL;
+    K2_CpuWriteBarrier();
+    K2OS_Notify_Signal(apDevice->mTokTransferWaitNotify);
+
+    //
+    // go back to waiting
+    //
+
+    K2OS_CritSec_Leave(&apDevice->Sec);
+
     apDevice->mWaitMs = K2OS_TIMEOUT_INFINITE;
     return 0;
 }
@@ -140,25 +434,19 @@ IDE_Device_EvalIdent(
         --ixData;
     } while ((ixData > 0) && (apDevice->AtaIdent.FirmwareRevision[ixData] == ' '));
 
-    if (ATA_MODE_CHS == apDevice->mAtaMode)
+    K2_ASSERT(0 != (apDevice->AtaIdent.Caps & ATA_IDENTIFY_CAPS_LBA_SUPPORTED));
+    if (apDevice->AtaIdent.UserAddressableSectors >= 0x10000000)
     {
-        apDevice->Media.mBlockCount = apDevice->AtaIdent.NumCylinders * apDevice->AtaIdent.NumHeads * apDevice->AtaIdent.NumSectorsPerTrack;
+        apDevice->mAtaMode = ATA_MODE_LBA48;
+        apDevice->Media.mBlockCount = apDevice->AtaIdent.ExtendedNumberOfUserAddressableSectors[0];
+
     }
     else
     {
-        K2_ASSERT(0 != (apDevice->AtaIdent.Caps & ATA_IDENTIFY_CAPS_LBA_SUPPORTED));
-        if (apDevice->AtaIdent.UserAddressableSectors >= 0x10000000)
-        {
-            apDevice->mAtaMode = ATA_MODE_LBA48;
-            apDevice->Media.mBlockCount = apDevice->AtaIdent.ExtendedNumberOfUserAddressableSectors[0];
-
-        }
-        else
-        {
-            apDevice->mAtaMode = ATA_MODE_LBA28;
-            apDevice->Media.mBlockCount = apDevice->AtaIdent.UserAddressableSectors;
-        }
+        apDevice->mAtaMode = ATA_MODE_LBA28;
+        apDevice->Media.mBlockCount = apDevice->AtaIdent.UserAddressableSectors;
     }
+
     apDevice->Media.mBlockSizeBytes = ATA_SECTOR_BYTES;
 
     apDevice->Media.mTotalBytes = ((UINT64)apDevice->Media.mBlockCount) * ((UINT64)apDevice->Media.mBlockSizeBytes);
@@ -193,7 +481,8 @@ IDE_Device_EvalIdent(
     stat = K2OSDDK_BlockIoRegister(
         apDevice->mpChannel->mpController->mDevCtx,
         apDevice,
-        &sgBlockIoFuncTab);
+        &sgBlockIoFuncTab,
+        &apDevice->mpChannel->mpNotifyKey);
     if (K2STAT_IS_ERROR(stat))
     {
         K2OSKERN_Debug(
@@ -245,7 +534,7 @@ IDE_Device_Eval(
         return IDE_Device_CheckMediaChange(apDevice);
 
     case IdeState_InService:
-        return IDE_Device_Service(apDevice);
+        return IDE_Device_Service(apDevice, aDueToInterrupt);
 
     default:
         K2_ASSERT(0);
@@ -306,10 +595,21 @@ IDE_Channel_Thread(
 
     if (NULL != apChannel->mpIrqRes)
     {
-        tokWait[1] = apChannel->mpIrqRes->Irq.mTokInterrupt;
-        numWait++;
-        ok = K2OSKERN_IntrVoteIrqEnable(tokWait[1], TRUE);
-        K2_ASSERT(ok);
+        if (K2OSKERN_IrqDefine(&apChannel->mpIrqRes->Def.Irq.Config))
+        {
+            apChannel->mIrqHook = IDE_Channel_Isr;
+            tokWait[1] = K2OSKERN_IrqHook(apChannel->mpIrqRes->Def.Irq.Config.mSourceIrq, &apChannel->mIrqHook);
+            if (NULL == tokWait[1])
+            {
+                K2OSKERN_Debug("***Failed to hook irq for IDE channel %d\n", apChannel->mChannelIndex);
+            }
+            else
+            {
+                numWait++;
+                ok = K2OSKERN_IntrVoteIrqEnable(tokWait[1], TRUE);
+                K2_ASSERT(ok);
+            }
+        }
     }
 
     //

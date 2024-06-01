@@ -40,11 +40,14 @@ K2OSDDK_GetInstanceInfo
 K2OSDDK_GetRes
 K2OSDDK_MountChild
 K2OSDDK_SetEnable
-K2OSDDK_RunAcpiMethod
 K2OSDDK_AddChildRes
 K2OSDDK_DriverStarted
 K2OSDDK_DriverStopped
 K2OSDDK_BlockIoRegister
 K2OSDDK_BlockIoDeregister
+K2OSDDK_PageArray_CreateIo
+K2OSDDK_GetPciIrqRoutingTable
+K2OSDDK_NetIoRegister
+K2OSDDK_NetIoDeregister
 
 [Data]

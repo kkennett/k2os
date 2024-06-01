@@ -240,6 +240,7 @@ BuildFileUser_SrcXml::Construct_Img(
                                     }
 
                                 } while (0);
+
                                 if (!ok)
                                     Proj.Img.mpUserSysProcXdl = NULL;
 

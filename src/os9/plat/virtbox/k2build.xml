@@ -39,5 +39,7 @@
     <builtin>~kern/driver/pcibus</builtin>
     <builtin>~kern/driver/ide</builtin>
     <builtin>~kern/driver/ramdisk</builtin>
+    <builtin>~kern/fs/fatfs</builtin>
+    <builtin>~kern/driver/pcnet32</builtin>
     
 </k2build>

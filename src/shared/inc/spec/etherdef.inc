@@ -1,4 +1,4 @@
-//   
+/*   
 //   BSD 3-Clause License
 //   
 //   Copyright (c) 2023, Kurt Kennett
@@ -28,58 +28,39 @@
 //   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 //   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+#ifndef __SPEC_ETHERDEF_INC
+#define __SPEC_ETHERDEF_INC
+
+//
+// --------------------------------------------------------------------------------- 
 //
 
-#include "pcibus.h"
+#define ETHER_FRAME_BYTES                   1518    // 0x5EE
+#define ETHER_FRAME_ALIGN_BYTES             1536    // 0x600, 64-byte aligned
 
-K2STAT
-CreateInstance(
-    K2OS_DEVCTX aDevCtx,
-    void **     appRetDriverContext
-)
-{
-    PCIBUS *    pPciBus;
-    K2STAT      stat;
+#define ETHER_FRAME_MAC_LENGTH              6
+#define ETHER_FRAME_TYPE_OR_LENGTH_LENGTH   2
+#define ETHER_FRAME_MTU                     1500
+#define ETHER_FRAME_FCS_LENGTH              4
 
-    pPciBus = (PCIBUS *)K2OS_Heap_Alloc(sizeof(PCIBUS));
-    if (NULL == pPciBus)
-    {
-        stat = K2OS_Thread_GetLastStatus();
-        K2_ASSERT(K2STAT_IS_ERROR(stat));
-        return stat;
-    }
+#define ETHER_FRAME_HDR_LENGTH              ((ETHER_FRAME_MAC_LENGTH * 2) + ETHER_FRAME_TYPE_OR_LENGTH_LENGTH)
+#define ETHER_FRAME_FULL_LENGTH             (ETHER_FRAME_HDR_LENGTH + ETHER_FRAME_MTU + ETHER_FRAME_FCS_LENGTH)
 
-    K2MEM_Zero(pPciBus, sizeof(PCIBUS));
+#define ETHER_FRAME_DESTMAC_OFFSET          0
+#define ETHER_FRAME_SRCMAC_OFFSET           ETHER_FRAME_MAC_LENGTH
+#define ETHER_FRAME_TYPE_OR_LENGTH_OFFSET   (ETHER_FRAME_MAC_LENGTH * 2)
+#define ETHER_FRAME_DATA_OFFSET             (ETHER_FRAME_TYPE_OR_LENGTH_OFFSET + ETHER_FRAME_TYPE_OR_LENGTH_LENGTH)
 
-    pPciBus->mDevCtx = aDevCtx;
-    *appRetDriverContext = pPciBus;
+#define ETHER_TYPE_IPV4         0x0800
+#define ETHER_TYPE_ARP          0x0806
+#define ETHER_TYPE_RARP         0x8035
+#define ETHER_TYPE_IPV6         0x86DD
+#define ETHER_TYPE_FLOW_CONTROL 0x8808
 
-    pPciBus->mTokMailbox = K2OS_Mailbox_Create();
-    if (NULL == pPciBus->mTokMailbox)
-    {
-        stat = K2OS_Thread_GetLastStatus();
-        K2_ASSERT(K2STAT_IS_ERROR(stat));
-    }
-    else
-    {
-        pPciBus->mTokThread = K2OS_Thread_Create("PciBus", (K2OS_pf_THREAD_ENTRY)PciBus_Instance_Thread, pPciBus, NULL, &pPciBus->mThreadId);
-        if (NULL == pPciBus->mTokThread)
-        {
-            stat = K2OS_Thread_GetLastStatus();
-            K2_ASSERT(K2STAT_IS_ERROR(stat));
-        }
-        if (K2STAT_IS_ERROR(stat))
-        {
-            K2OS_Token_Destroy(pPciBus->mTokMailbox);
-        }
-    }
+//
+// --------------------------------------------------------------------------------- 
+//
 
-    if (K2STAT_IS_ERROR(stat))
-    {
-        K2OS_Heap_Free(pPciBus);
-    }
+#endif // __SPEC_ETHERDEF_INC
 
-    return stat;
-}
-
- 

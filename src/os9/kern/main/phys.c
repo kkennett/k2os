@@ -1173,7 +1173,10 @@ KernPhys_Reserve_Init(
         {
             l = gData.Phys.mPagesLeft;
             if (l < aPageCount)
+            {
+                K2_ASSERT(0);  // want to know
                 return FALSE;
+            }
             if (l == K2ATOMIC_CompareExchange(&gData.Phys.mPagesLeft, l - aPageCount, l))
                 break;
         } while (1);

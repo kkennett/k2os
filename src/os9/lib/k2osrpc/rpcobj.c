@@ -32,6 +32,8 @@
 
 #include "rpcserver.h"
 
+void K2OSRPC_HandleLocked_AtClientServerHandleDestroy(K2OSRPC_CLIENT_OBJ_HANDLE *apHandle);
+
 K2OS_RPC_OBJ_HANDLE 
 K2OS_Rpc_CreateObj(
     K2OS_IFINST_ID      aRpcServerIfInstId, 
@@ -406,6 +408,10 @@ K2OSRPC_ReleaseInternal(
         if (0 == K2ATOMIC_Dec(&pHdr->mRefs))
         {
             K2TREE_Remove(&gRpcHandleTree, &pHdr->GlobalHandleTreeNode);
+            if (!pHdr->mIsServer)
+            {
+                K2OSRPC_HandleLocked_AtClientServerHandleDestroy((K2OSRPC_CLIENT_OBJ_HANDLE *)pHdr);
+            }
         }
         else
         {

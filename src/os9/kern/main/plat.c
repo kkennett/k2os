@@ -202,7 +202,9 @@ KernPlat_IntrLocked_OnIrq(
     K2OSKERN_OBJ_INTERRUPT *    pIntr;
     KernIntrDispType            intrDisp;
     UINT64                      hfTick;
+    K2OSKERN_pf_Hook_Key        irqHook;
 
+//    K2OSKERN_Debug(">>>%d: IRQ(%d)<<<\n", apThisCore->mCoreIx, apIrq->Config.mSourceIrq);
     pListLink = apIrq->InterruptList.mpHead;
     if (1 == apIrq->InterruptList.mNodeCount)
     {
@@ -219,17 +221,34 @@ KernPlat_IntrLocked_OnIrq(
         }
         else
         {
-            intrDisp = (*pIntr->mpHookKey)(pIntr->mpHookKey, KernIntrAction_AtIrq);
+            irqHook = *(pIntr->mpHookKey);
+            if (NULL != irqHook)
+            {
+                intrDisp = irqHook(pIntr->mpHookKey, KernIntrAction_AtIrq);
+            }
+            else
+            {
+                intrDisp = KernIntrDisp_None;
+            }
             switch (intrDisp)
             {
             case KernIntrDisp_Handled:
                 // handled in the hook during irq. do not pulse the interrupt gate
                 return;
+
+            case KernIntrDisp_None:
+                K2OSKERN_Debug("*** IRQ(%d) has only one user and they ignored it.  Disabling\n", apIrq->Config.mSourceIrq);
+            case KernIntrDisp_Handled_Disable:
+                pIntr->mVoteForEnabled = FALSE;
+                KernArch_SetDevIrqMask(apIrq, TRUE);
+                return;
+
             case KernIntrDisp_Fire:
                 // pulse the interrupt gate, but do not need irq to be disabled
                 KernArch_GetHfTimerTick(&hfTick);
                 KernPlat_IntrLocked_Queue(apThisCore->mCoreIx, &hfTick, pIntr);
                 return;
+
             case KernIntrDisp_Fire_Disable:
                 // pulse the interrupt gate and leave the irq disabled
                 KernArch_GetHfTimerTick(&hfTick);
@@ -237,6 +256,7 @@ KernPlat_IntrLocked_OnIrq(
                 pIntr->mVoteForEnabled = FALSE;
                 KernArch_SetDevIrqMask(apIrq, TRUE);
                 return;
+
             default:
                 K2_ASSERT(0);
                 break;

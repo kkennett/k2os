@@ -199,7 +199,7 @@ KernMailbox_SysCall_Create(
     K2OSKERN_OBJ_MAILBOXOWNER * pOwner;
     K2OSKERN_OBJREF             refOwner;
     UINT32                      userOwnerVirt;
-    K2OSKERN_OBJREF             refOwnerMap[2];
+    K2OSKERN_OBJREF             refOwnerMap;
 
     K2OSKERN_OBJ_PROCESS *      pProc;
 
@@ -267,72 +267,55 @@ KernMailbox_SysCall_Create(
                             userOwnerVirt = K2HEAP_NodeAddr(&pOwnerUserHeapNode->HeapNode);
 
                             do {
-                                refOwnerMap[0].AsAny = NULL;
+                                refOwnerMap.AsAny = NULL;
                                 stat = KernVirtMap_CreateUser(pProc,
                                     refPageArray.AsPageArray,
-                                    0, userOwnerVirt, 2,
+                                    0, userOwnerVirt, 3,
                                     K2OS_MapType_Data_ReadWrite,
-                                    &refOwnerMap[0]);
+                                    &refOwnerMap);
                                 if (K2STAT_IS_ERROR(stat))
                                 {
                                     break;
                                 }
 
-                                do {
-                                    refOwnerMap[1].AsAny = NULL;
-                                    stat = KernVirtMap_CreateUser(pProc,
-                                        refPageArray.AsPageArray,
-                                        2, userOwnerVirt + (2 * K2_VA_MEMPAGE_BYTES), 1,
-                                        K2OS_MapType_Data_ReadOnly,
-                                        &refOwnerMap[1]);
-                                    if (K2STAT_IS_ERROR(stat))
-                                    {
-                                        break;
-                                    }
+                                //
+                                // have all resources now
+                                //
+                                KernPte_MakePageMap(NULL, kernMapVirt, KernPageArray_PagePhys(refPageArray.AsPageArray, 0), K2OS_MAPTYPE_KERN_DATA);
+                                KernPte_MakePageMap(NULL, kernMapVirt + K2_VA_MEMPAGE_BYTES, KernPageArray_PagePhys(refPageArray.AsPageArray, 1), K2OS_MAPTYPE_KERN_DATA);
+                                KernPte_MakePageMap(NULL, kernMapVirt + (K2_VA_MEMPAGE_BYTES * 2), KernPageArray_PagePhys(refPageArray.AsPageArray, 2), K2OS_MAPTYPE_KERN_DATA);
 
-                                    //
-                                    // have all resources now
-                                    //
-                                    KernPte_MakePageMap(NULL, kernMapVirt, KernPageArray_PagePhys(refPageArray.AsPageArray, 0), K2OS_MAPTYPE_KERN_DATA);
-                                    KernPte_MakePageMap(NULL, kernMapVirt + K2_VA_MEMPAGE_BYTES, KernPageArray_PagePhys(refPageArray.AsPageArray, 1), K2OS_MAPTYPE_KERN_DATA);
-                                    KernPte_MakePageMap(NULL, kernMapVirt + (K2_VA_MEMPAGE_BYTES * 2), KernPageArray_PagePhys(refPageArray.AsPageArray, 2), K2OS_MAPTYPE_KERN_DATA);
+                                K2MEM_Zero((void *)kernMapVirt, 3 * K2_VA_MEMPAGE_BYTES);
 
-                                    K2MEM_Zero((void *)kernMapVirt, 3 * K2_VA_MEMPAGE_BYTES);
+                                pCons = (K2OS_MAILBOX_CONSUMER_PAGE *)kernMapVirt;
+                                pCons->IxConsumer.mVal = K2OS_MAILBOX_GATE_CLOSED_BIT;
 
-                                    pCons = (K2OS_MAILBOX_CONSUMER_PAGE *)kernMapVirt;
-                                    pCons->IxConsumer.mVal = K2OS_MAILBOX_GATE_CLOSED_BIT;
+                                pProd = (K2OS_MAILBOX_PRODUCER_PAGE *)(kernMapVirt + K2_VA_MEMPAGE_BYTES);
+                                pProd->AvailCount.mVal = K2OS_MAILBOX_MSG_COUNT;
 
-                                    pProd = (K2OS_MAILBOX_PRODUCER_PAGE *)(kernMapVirt + K2_VA_MEMPAGE_BYTES);
-                                    pProd->AvailCount.mVal = K2OS_MAILBOX_MSG_COUNT;
+                                K2_CpuWriteBarrier();
 
-                                    K2_CpuWriteBarrier();
+                                K2MEM_Zero(pMailbox, sizeof(K2OSKERN_OBJ_MAILBOX));
+                                pMailbox->Hdr.mObjType = KernObj_Mailbox;
+                                K2LIST_Init(&pMailbox->Hdr.RefObjList);
+                                pMailbox->mKernVirtAddr = kernMapVirt;
+                                KernObj_CreateRef(&pMailbox->RefGate, refGate.AsAny);
+                                KernObj_CreateRef(&pMailbox->RefPageArray, refPageArray.AsAny);
 
-                                    K2MEM_Zero(pMailbox, sizeof(K2OSKERN_OBJ_MAILBOX));
-                                    pMailbox->Hdr.mObjType = KernObj_Mailbox;
-                                    K2LIST_Init(&pMailbox->Hdr.RefObjList);
-                                    pMailbox->mKernVirtAddr = kernMapVirt;
-                                    KernObj_CreateRef(&pMailbox->RefGate, refGate.AsAny);
-                                    KernObj_CreateRef(&pMailbox->RefPageArray, refPageArray.AsAny);
+                                K2MEM_Zero(pOwner, sizeof(K2OSKERN_OBJ_MAILBOXOWNER));
+                                pOwner->Hdr.mObjType = KernObj_MailboxOwner;
+                                K2LIST_Init(&pOwner->Hdr.RefObjList);
+                                pOwner->mProcVirt = userOwnerVirt;
+                                KernObj_CreateRef(&pOwner->RefProcMap, refOwnerMap.AsAny);
+                                KernObj_CreateRef(&pOwner->RefProc, &pProc->Hdr);
+                                KernObj_CreateRef(&pOwner->RefMailbox, &pMailbox->Hdr);
 
-                                    K2MEM_Zero(pOwner, sizeof(K2OSKERN_OBJ_MAILBOXOWNER));
-                                    pOwner->Hdr.mObjType = KernObj_MailboxOwner;
-                                    K2LIST_Init(&pOwner->Hdr.RefObjList);
-                                    pOwner->mProcVirt = userOwnerVirt;
-                                    KernObj_CreateRef(&pOwner->RefProcMap[0], refOwnerMap[0].AsAny);
-                                    KernObj_CreateRef(&pOwner->RefProcMap[1], refOwnerMap[1].AsAny);
-                                    KernObj_CreateRef(&pOwner->RefProc, &pProc->Hdr);
-                                    KernObj_CreateRef(&pOwner->RefMailbox, &pMailbox->Hdr);
+                                KernObj_CreateRef(&refOwner, &pOwner->Hdr);
+                                pOwner = NULL;
 
-                                    KernObj_CreateRef(&refOwner, &pOwner->Hdr);
-                                    pOwner = NULL;
+                                kernMapVirt = 0;
 
-                                    kernMapVirt = 0;
-
-                                    KernObj_ReleaseRef(&refOwnerMap[1]);
-
-                                } while (0);
-
-                                KernObj_ReleaseRef(&refOwnerMap[0]);
+                                KernObj_ReleaseRef(&refOwnerMap);
 
                             } while (0);
 
@@ -540,17 +523,14 @@ KernMailboxOwner_Cleanup(
 {
     if (NULL != apMailboxOwner->RefProc.AsAny)
     {
-        K2_ASSERT(NULL != apMailboxOwner->RefProcMap[0].AsVirtMap);
-        KernObj_ReleaseRef(&apMailboxOwner->RefProcMap[0]);
-        K2_ASSERT(NULL != apMailboxOwner->RefProcMap[1].AsVirtMap);
-        KernObj_ReleaseRef(&apMailboxOwner->RefProcMap[1]);
+        K2_ASSERT(NULL != apMailboxOwner->RefProcMap.AsVirtMap);
+        KernObj_ReleaseRef(&apMailboxOwner->RefProcMap);
 
         KernObj_ReleaseRef(&apMailboxOwner->RefProc);
     }
     else
     {
-        K2_ASSERT(NULL == apMailboxOwner->RefProcMap[0].AsVirtMap);
-        K2_ASSERT(NULL == apMailboxOwner->RefProcMap[1].AsVirtMap);
+        K2_ASSERT(NULL == apMailboxOwner->RefProcMap.AsVirtMap);
     }
 
     KernObj_ReleaseRef(&apMailboxOwner->RefMailbox);
@@ -678,7 +658,7 @@ KernMailbox_InIntr_Fast_Check_SentFirst(
     result = TRUE;
 
     if ((refSender.AsAny->mObjType != KernObj_Mailslot) &&
-        (refSender.AsAny->mObjType != KernObj_Mailbox))
+        (refSender.AsAny->mObjType != KernObj_MailboxOwner))
     {
         apCurThread->User.mSysCall_Result = 0;
         pThreadPage->mLastStatus = K2STAT_ERROR_BAD_TOKEN;
@@ -804,6 +784,8 @@ KernMailbox_Share(
     K2STAT                      stat;
     K2OSKERN_OBJ_MAILSLOT *     pMailslot;
     K2OSKERN_OBJREF             refSlot;
+
+    K2_ASSERT(apMailbox->Hdr.mObjType == KernObj_Mailbox);
 
     if ((NULL != apTargetProc) && (apTargetProc->mState >= KernProcState_Stopped))
     {

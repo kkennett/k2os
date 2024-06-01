@@ -155,19 +155,20 @@ K2OSKERN_PageArray_CreateIo(
     K2OSKERN_OBJREF         refObj;
     K2OS_TOKEN              tokResult;
 
-    if (31 > aPageCountPow2)
+    if ((0 == aPageCountPow2) ||
+        ((aPageCountPow2 & (aPageCountPow2 - 1)) != 0))
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
         return NULL;
     }
 
-    if (!KernPhys_Reserve_Init(&res, 1 << aPageCountPow2))
+    if (!KernPhys_Reserve_Init(&res, aPageCountPow2))
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_OUT_OF_MEMORY);
         return NULL;
     }
 
-    stat = KernPhys_AllocPow2Bytes(&res, K2_VA_MEMPAGE_BYTES << aPageCountPow2, &pTrack);
+    stat = KernPhys_AllocPow2Bytes(&res, K2_VA_MEMPAGE_BYTES * aPageCountPow2, &pTrack);
 
     KernPhys_Reserve_Release(&res);
 

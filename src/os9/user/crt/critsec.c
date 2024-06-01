@@ -39,7 +39,7 @@ struct _IntCritSec
     UINT32 volatile     mLockOwner;
     UINT32              mRecursionCount;
     UINT32              mSentinel;
-    K2OS_NOTIFY_TOKEN   mNotifyToken;
+    K2OS_SIGNAL_TOKEN   mNotifyToken;
 };
 
 BOOL 

@@ -32,7 +32,7 @@
 
 #include "kern.h"
 
-K2OS_GATE_TOKEN
+K2OS_SIGNAL_TOKEN
 K2OS_Gate_Create(
     BOOL aInitOpen
 )
@@ -61,93 +61,49 @@ K2OS_Gate_Create(
     return result;
 }
 
-BOOL
+K2STAT
 KernGate_Threaded_KernelChange(
-    K2OS_GATE_TOKEN aTokGate, 
-    BOOL            aNowOpen
+    K2OSKERN_OBJ_THREAD *   apThisThread,
+    K2OSKERN_OBJ_GATE *     apGate,
+    UINT32                  aNewState
 )
 {
-
     K2STAT                      stat;
     K2OSKERN_SCHED_ITEM *       pSchedItem;
     K2OSKERN_CPUCORE volatile * pThisCore;
-    K2OS_THREAD_PAGE *          pThreadPage;
-    K2OSKERN_OBJ_THREAD *       pThisThread;
-    K2OSKERN_OBJREF             gateRef;
     BOOL                        disp;
 
-    if (NULL == aTokGate)
+    //
+    // this is done through scheduler call because
+    // unblocking a thread may cause this thread to
+    // never execute another instruction.  so this
+    // thread has to not exec again until after the Gate is processed
+    //
+    pSchedItem = &apThisThread->SchedItem;
+    pSchedItem->mType = KernSchedItem_KernThread_ChangeGate;
+    pSchedItem->Args.Gate_Change.mNewState = aNewState;
+    KernObj_CreateRef(&pSchedItem->ObjRef, &apGate->Hdr);
+
+    disp = K2OSKERN_SetIntr(FALSE);
+    K2_ASSERT(disp);
+
+    pThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
+
+    KernThread_CallScheduler(pThisCore);
+
+    // interrupts will be back on again here
+
+    KernObj_ReleaseRef(&pSchedItem->ObjRef);
+
+    if (0 != apThisThread->Kern.mSchedCall_Result)
     {
-        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
-        return FALSE;
+        stat = K2STAT_NO_ERROR;
+    }
+    else
+    {
+        stat = apThisThread->mpKernRwViewOfThreadPage->mLastStatus;
+        K2_ASSERT(K2STAT_IS_ERROR(stat));
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
-    pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
-    K2_ASSERT(pThisThread->mIsKernelThread);
-
-    gateRef.AsAny = NULL;
-    stat = KernToken_Translate(aTokGate, &gateRef);
-    if (!K2STAT_IS_ERROR(stat))
-    {
-        if (KernObj_Gate == gateRef.AsAny->mObjType)
-        {
-            //
-            // this is done through scheduler call because
-            // unblocking a thread may cause this thread to
-            // never execute another instruction.  so this
-            // thread has to not exec again until after the Gate is processed
-            //
-            pSchedItem = &pThisThread->SchedItem;
-            pSchedItem->mType = KernSchedItem_KernThread_ChangeGate;
-            pSchedItem->Args.Gate_Change.mSetTo = aNowOpen;
-            KernObj_CreateRef(&pSchedItem->ObjRef, gateRef.AsAny);
-
-            disp = K2OSKERN_SetIntr(FALSE);
-            K2_ASSERT(disp);
-
-            pThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
-
-            KernThread_CallScheduler(pThisCore);
-
-            // interrupts will be back on again here
-
-            KernObj_ReleaseRef(&pSchedItem->ObjRef);
-
-            if (pThisThread->Kern.mSchedCall_Result)
-            {
-                stat = K2STAT_NO_ERROR;
-            }
-            else
-            {
-                stat = pThreadPage->mLastStatus;
-                K2_ASSERT(K2STAT_IS_ERROR(stat));
-            }
-        }
-        else
-        {
-            stat = K2STAT_ERROR_BAD_TOKEN;
-        }
-
-        KernObj_ReleaseRef(&gateRef);
-    }
-
-    return (K2STAT_IS_ERROR(stat) ? FALSE : TRUE);
+    return stat;
 }
-
-BOOL
-K2OS_Gate_Open(
-    K2OS_GATE_TOKEN aTokGate
-)
-{
-    return KernGate_Threaded_KernelChange(aTokGate, TRUE);
-}
-
-BOOL
-K2OS_Gate_Close(
-    K2OS_GATE_TOKEN aTokGate
-)
-{
-    return KernGate_Threaded_KernelChange(aTokGate, FALSE);
-}
-

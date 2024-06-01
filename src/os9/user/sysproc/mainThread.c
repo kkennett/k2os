@@ -34,9 +34,11 @@
 
 #define EMIT_THREAD_MSGS    0
 
-K2OS_NOTIFY_TOKEN   gTokKernNotify;
+K2OS_SIGNAL_TOKEN   gTokKernNotify;
 K2OS_SYSPROC_PAGE * gpNotifyPage;
 K2OS_MSG const *    gpNotifyMsgBuf;
+
+static K2OS_SIGNAL_TOKEN sgTokReadyGate;
 
 void
 SysProc_SetupNotify(
@@ -47,7 +49,14 @@ SysProc_SetupNotify(
 
     pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
 
-    gTokKernNotify = (K2OS_NOTIFY_TOKEN)K2OS_Kern_SysCall1(K2OS_SYSCALL_ID_SYSPROC_REGISTER, 0);
+    sgTokReadyGate = K2OS_Gate_Create(FALSE);
+    if (NULL == sgTokReadyGate)
+    {
+        K2_RaiseException(K2STAT_EX_LOGIC);
+    }
+
+    gTokKernNotify = (K2OS_SIGNAL_TOKEN)K2OS_Kern_SysCall1(K2OS_SYSCALL_ID_SYSPROC_REGISTER, (UINT32)sgTokReadyGate);
+
     K2_ASSERT(NULL != gTokKernNotify);
 
     gpNotifyPage = (K2OS_SYSPROC_PAGE *)pThreadPage->mSysCall_Arg7_Result0;
@@ -228,11 +237,18 @@ MainThread(
 )
 {
     K2OS_WaitResult waitResult;
+    BOOL            ok;
 
     SysProc_SetupNotify();
 
     StorMgr_Init();
 
+    NetMgr_Init();
+
+    ok = K2OS_Gate_Open(sgTokReadyGate);
+    K2_ASSERT(ok);
+    ok = K2OS_Token_Destroy(sgTokReadyGate);
+    K2_ASSERT(ok);
     do {
         if (K2OS_Thread_WaitOne(&waitResult, gTokKernNotify, K2OS_TIMEOUT_INFINITE))
         {

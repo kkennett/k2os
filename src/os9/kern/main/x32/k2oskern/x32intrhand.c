@@ -316,9 +316,13 @@ KernArch_SetDevIrqMask(
 
     K2_ASSERT(sgpIrqObjByIrqIx[irqIx] != NULL);
     if (aMask)
+    {
         X32Kern_MaskDevIrq(irqIx);
+    }
     else
+    {
         X32Kern_UnmaskDevIrq(irqIx);
+    }
 
     K2OSKERN_SeqUnlock(&gX32Kern_IntrSeqLock, disp);
 }

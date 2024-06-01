@@ -249,6 +249,14 @@ KernCpu_QueueDpc(
     //
     pThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
 
+    //
+    // if this fires, somebody is trying to queue
+    // a dpc during time-passed processing on the
+    // scheduling core while the scheduler is trying
+    // to exit.  we need to know what this is and
+    // why it is happening
+    K2_ASSERT(!pThisCore->mNoDpcQueue);
+
     apDpc->mpKey = apKey;
 
     switch (aPrio)

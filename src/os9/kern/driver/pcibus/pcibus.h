@@ -49,13 +49,22 @@ typedef struct _PCIBUS PCIBUS;
 typedef K2STAT(*PciBus_pf_ConfigRead)(PCIBUS *apPciBus, K2PCI_DEVICE_LOC *apLoc, UINT32 aReg, UINT64 *apRetValue, UINT32 aWidth);
 typedef K2STAT(*PciBus_pf_ConfigWrite)(PCIBUS *apPciBus, K2PCI_DEVICE_LOC *apLoc, UINT32 aReg, UINT64 const *apValue, UINT32 aWidth);
 
+K2_PACKED_PUSH
+typedef struct _ACPI_PCI_ROUTING_ENTRY ACPI_PCI_ROUTING_ENTRY;
+struct _ACPI_PCI_ROUTING_ENTRY
+{
+    UINT32  Length;
+    UINT32  Pin;
+    UINT64  Address;  
+    UINT32  SourceIndex;
+    char    Source[4];
+} K2_PACKED_ATTRIB;
+K2_PACKED_POP
+
 struct _PCIBUS
 {
     K2OS_DEVCTX             mDevCtx;
-    K2_DEVICE_IDENT         Ident;
-    UINT32                  mCountIo;
-    UINT32                  mCountPhys;
-    UINT32                  mCountIrq;
+    K2OSDDK_INSTINFO        InstInfo;
     UINT16                  mSegNum;
     UINT16                  mBusNum;
 
@@ -65,8 +74,8 @@ struct _PCIBUS
 
     K2OSDDK_RES             BusIoRes;
     
-    K2OS_CRITSEC            ChildTreeSec;
     K2TREE_ANCHOR           ChildTree;
+    K2TREE_ANCHOR           ChildIdTree;
 
     K2OS_THREAD_TOKEN       mTokThread;
     UINT32                  mThreadId;
@@ -75,6 +84,16 @@ struct _PCIBUS
     PciBus_pf_ConfigWrite   mfConfigWrite;
 
     K2OS_MAILBOX_TOKEN      mTokMailbox;
+
+    K2OS_IFINST_ID          mBusIfInstId;
+
+    K2OS_RPC_CLASS          mRpcClass;
+    K2OS_RPC_OBJ            mRpcObj;
+    K2OS_RPC_OBJ_HANDLE     mRpcObjHandle;
+    K2OS_RPC_IFINST         mRpcIfInst;
+    K2OS_IFINST_ID          mRpcIfInstId;
+
+    ACPI_PCI_ROUTING_ENTRY *mpRoutingTable;
 };
 
 typedef struct _PCIBUS_CHILD PCIBUS_CHILD;
@@ -84,7 +103,7 @@ struct _PCIBUS_CHILD
 
     K2_DEVICE_IDENT     Ident;
 
-    UINT32              mInstanceId;
+    K2TREE_NODE         ChildIdTreeNode;
 
     K2PCI_DEVICE_LOC    DeviceLoc;
 

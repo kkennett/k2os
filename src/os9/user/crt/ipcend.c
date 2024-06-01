@@ -293,7 +293,7 @@ K2OS_IpcEnd_User_Recv(
     recvCount = (aRecvBytes + (apIpcEnd->mLocalChunkBytes - 1)) / apIpcEnd->mLocalChunkBytes;
 
     offsetCount = (UINT32)-1;
-    availCount = K2RING_Reader_GetAvail(apIpcEnd->mpRecvRing, &offsetCount, FALSE);
+    availCount = K2RING_Reader_GetAvail(apIpcEnd->mpRecvRing, &offsetCount);
     K2_ASSERT(availCount >= recvCount);
     K2_ASSERT(offsetCount < apIpcEnd->mpRecvRing->mSize);
 
@@ -682,7 +682,7 @@ K2OS_IpcEnd_SendVector(
                 K2_ASSERT(!K2STAT_IS_ERROR(stat));
                 K2_ASSERT(byteCount == bytesToSend);
 
-                stat = K2RING_Writer_Wrote(pIpcEnd->mpSendRing, offset, count);
+                stat = K2RING_Writer_Wrote(pIpcEnd->mpSendRing);
                 if (K2STAT_IS_ERROR(stat))
                 {
                     CrtDbg_Printf("*** Writer_Wrote error 0x%08X\n", stat);

@@ -46,6 +46,8 @@ KernSysProc_SysCall_Register(
     UINT32                      virtAddr;
     K2OSKERN_PROCHEAP_NODE *    pUserHeapNode;
     K2OS_SYSPROC_PAGE *         pSysProcPage;
+    K2OSKERN_OBJREF             refGate;
+    K2OSKERN_SCHED_ITEM *       pSchedItem;
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
@@ -57,6 +59,20 @@ KernSysProc_SysCall_Register(
         pThreadPage->mLastStatus = K2STAT_ERROR_NOT_ALLOWED;
         return;
     }
+
+    refGate.AsAny = NULL;
+    stat = KernProc_TokenTranslate(pProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refGate);
+    if ((K2STAT_IS_ERROR(stat)) ||
+        (refGate.AsAny->mObjType != KernObj_Gate))
+    {
+        K2OSKERN_Panic("*** Sysproc did not register with a gate token\n");
+    }
+    stat = KernToken_Create(refGate.AsAny, &gData.SysProc.mTokReady2);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OSKERN_Panic("*** Coult not create kernel token for sysproc ready\n");
+    }
+    KernObj_ReleaseRef(&refGate);
 
     refPageArray1.AsAny = NULL;
     stat = KernPageArray_CreateSparse(1, K2OS_MAPTYPE_USER_DATA, &refPageArray1);
@@ -142,6 +158,12 @@ KernSysProc_SysCall_Register(
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
     pThreadPage->mSysCall_Arg5_Result2 = (UINT32)stat;
+
+    pSchedItem = &apCurThread->SchedItem;
+    pSchedItem->mType = KernSchedItem_Thread_SysCall;
+    KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
+    KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
+    KernSched_QueueItem(pSchedItem);
 }
 
 K2STAT
@@ -225,3 +247,22 @@ KernSysProc_Notify(
     return K2STAT_NO_ERROR;
 }
 
+void 
+K2OSKERN_WaitSysProcReady(
+    void
+)
+{
+    K2OS_WaitResult waitResult;
+
+    if ((!K2OS_Thread_WaitOne(&waitResult, gData.SysProc.mTokReady1, K2OS_TIMEOUT_INFINITE)) ||
+        (waitResult != K2OS_Wait_Signalled_0))
+    {
+        K2OSKERN_Panic("*** Wait for sysproc ready1 failed\n");
+    }
+
+    if ((!K2OS_Thread_WaitOne(&waitResult, gData.SysProc.mTokReady2, K2OS_TIMEOUT_INFINITE)) ||
+        (waitResult != K2OS_Wait_Signalled_0))
+    {
+        K2OSKERN_Panic("*** Wait for sysproc ready2 failed\n");
+    }
+}

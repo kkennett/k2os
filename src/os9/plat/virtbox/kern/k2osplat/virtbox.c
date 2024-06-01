@@ -93,9 +93,6 @@ K2OSPLAT_DeviceCreate(
     bytesIn = *apMountInfoBytesIo;
     *apMountInfoBytesIo = 0;
 
-    //    K2OSKERN_Debug("K2OSPLAT_DeviceCreate(%d, %.4s, %08X, %d)\n", aParent, (char const *)&aName, aDeviceContext, aBytesIn);
-    //    K2OSKERN_Debug("  MountInfo: \"%.*s\"\n", aBytesIn, (char *)apMountInfoIo);
-
     if (0 != bytesIn)
     {
         //
@@ -116,7 +113,6 @@ K2OSPLAT_DeviceCreate(
             }
             pScan++;
         } while ((*pScan) != 0);
-
     }
 
     //
@@ -135,9 +131,19 @@ K2OSPLAT_DeviceCreate(
     //
     // third forced driver is the ramdisk
     //
-    if (0 == K2ASC_CompInsLen((char const *)apMountInfoIo, "RAMDISK;", 8))
+//    if (0 == K2ASC_CompInsLen((char const *)apMountInfoIo, "RAMDISK;", 8))
+//    {
+//        *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, ":ramdisk.xdl");
+//        return (K2OSPLAT_DEV)++gCount;
+//    }
+
+    if ((apDeviceIdent->mVendorId == 0x1022) &&
+        (apDeviceIdent->mDeviceId == 0x2000))
     {
-        *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, ":ramdisk.xdl");
+        //
+        // this is the ide controller. force the driver to the built in ide driver
+        //
+        *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, ":pcnet32.xdl");
         return (K2OSPLAT_DEV)++gCount;
     }
 

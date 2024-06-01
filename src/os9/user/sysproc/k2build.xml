@@ -39,5 +39,20 @@
     <source>mainThread.c</source>
     <source>debug.c</source>
     <source>stormgr.c</source>
-    
+    <source>netmgr.c</source>
+    <source>netdev.c</source>
+    <source>netbuffer.c</source>
+    <source>nettimer.c</source>
+    <source>netether.c</source>
+    <source>netarp.c</source>
+    <source>netip.c</source>
+    <source>netudp.c</source>
+    <source>netdhcp.c</source>
+    <source>nettcp.c</source>
+    <source>neticmp.c</source>
+    <source>netdns.c</source>
+
+    <lib>~lib/k2osblockio</lib>
+    <lib>~lib/k2osnetio</lib>
+   
 </k2build>

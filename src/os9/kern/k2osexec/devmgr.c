@@ -38,7 +38,7 @@ K2LIST_ANCHOR       gTimerQueue;
 K2OSKERN_SEQLOCK    gEventSeqLock;
 K2LIST_ANCHOR       gEventQueue;
 
-K2OS_NOTIFY_TOKEN   gKickNotifyToken;
+K2OS_SIGNAL_TOKEN   gKickNotifyToken;
 
 void
 DevMgr_Init(

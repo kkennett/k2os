@@ -43,13 +43,78 @@ extern "C" {
 //
 
 // {5D2DAF34-2B80-48DC-8ED5-DB4E1DDA4055}
-#define K2OS_IFACE_BLOCKIO_DEVICE_CLASSID   { 0x5d2daf34, 0x2b80, 0x48dc, { 0x8e, 0xd5, 0xdb, 0x4e, 0x1d, 0xda, 0x40, 0x55 } }
+#define K2OS_IFACE_BLOCKIO_DEVICE   { 0x5d2daf34, 0x2b80, 0x48dc, { 0x8e, 0xd5, 0xdb, 0x4e, 0x1d, 0xda, 0x40, 0x55 } }
 
-#define K2OS_SYSTEM_MSG_BLOCKIO_SHORT_MEDIA_CHANGED     1
+#define K2OS_BLOCKIO_NOTIFY_MEDIA_CHANGED   1
 
 //
 //------------------------------------------------------------------------
 //
+
+typedef struct _K2OSSTOR_BLOCKIO_OPAQUE K2OSSTOR_BLOCKIO_OPAQUE;
+typedef K2OSSTOR_BLOCKIO_OPAQUE *       K2OSSTOR_BLOCKIO;
+
+typedef struct _K2OSSTOR_BLOCKIO_RANGE_OPAQUE   K2OSSTOR_BLOCKIO_RANGE_OPAQUE;
+typedef K2OSSTOR_BLOCKIO_RANGE_OPAQUE *         K2OSSTOR_BLOCKIO_RANGE;
+
+K2OSSTOR_BLOCKIO        K2OS_BlockIo_Attach(K2OS_IFINST_ID aIfInstId, UINT32 aAccess, UINT32 aShare, K2OS_MAILBOX_TOKEN aTokNotifyMailbox);
+BOOL                    K2OS_BlockIo_GetMedia(K2OSSTOR_BLOCKIO aStorBlockIo, K2OS_STORAGE_MEDIA *apRetMedia);
+K2OSSTOR_BLOCKIO_RANGE  K2OS_BlockIo_RangeCreate(K2OSSTOR_BLOCKIO aStorBlockIo, UINT64 const *apRangeBaseBlock, UINT64 const *apRangeBlockCount, BOOL aMakePrivate);
+BOOL                    K2OS_BlockIo_RangeDelete(K2OSSTOR_BLOCKIO aStorBlockIo, K2OSSTOR_BLOCKIO_RANGE aRange);
+BOOL                    K2OS_BlockIo_Read(K2OSSTOR_BLOCKIO aStorBlockIo, K2OSSTOR_BLOCKIO_RANGE aRange, UINT64 const *apBytesOffset, void *apBuffer, UINT32 aByteCount);
+BOOL                    K2OS_BlockIo_Write(K2OSSTOR_BLOCKIO aStorBlockIo, K2OSSTOR_BLOCKIO_RANGE aRange, UINT64 const *apBytesOffset, void const *apBuffer, UINT32 aByteCount);
+BOOL                    K2OS_BlockIo_Detach(K2OSSTOR_BLOCKIO aStorBlockIo);
+
+//
+//------------------------------------------------------------------------
+//
+
+#define K2OS_BLOCKIO_METHOD_CONFIG          1
+typedef struct _K2OS_BLOCKIO_CONFIG_IN K2OS_BLOCKIO_CONFIG_IN;
+struct _K2OS_BLOCKIO_CONFIG_IN
+{
+    UINT32  mAccess;
+    UINT32  mShare;
+};
+
+#define K2OS_BLOCKIO_METHOD_GET_MEDIA       2
+
+#define K2OS_BLOCKIO_METHOD_RANGE_CREATE    3
+typedef struct _K2OS_BLOCKIO_RANGE_CREATE_IN K2OS_BLOCKIO_RANGE_CREATE_IN;
+struct _K2OS_BLOCKIO_RANGE_CREATE_IN
+{
+    UINT64  mRangeBaseBlock;
+    UINT64  mRangeBlockCount;
+    BOOL    mMakePrivate;
+};
+typedef struct _K2OS_BLOCKIO_RANGE_CREATE_OUT K2OS_BLOCKIO_RANGE_CREATE_OUT;
+struct _K2OS_BLOCKIO_RANGE_CREATE_OUT
+{
+    K2OSSTOR_BLOCKIO_RANGE  mRange;
+};
+
+#define K2OS_BLOCKIO_METHOD_RANGE_DELETE    4
+typedef struct _K2OS_BLOCKIO_RANGE_DELETE_IN K2OS_BLOCKIO_RANGE_DELETE_IN;
+struct _K2OS_BLOCKIO_RANGE_DELETE_IN
+{
+    K2OSSTOR_BLOCKIO_RANGE  mRange;
+};
+
+#define K2OS_BLOCKIO_METHOD_TRANSFER        5
+typedef struct _K2OS_BLOCKIO_TRANSFER_IN K2OS_BLOCKIO_TRANSFER_IN;
+struct _K2OS_BLOCKIO_TRANSFER_IN
+{
+    UINT64                  mBytesOffset;
+    UINT32                  mByteCount;
+    UINT32                  mMemAddr;
+    K2OSSTOR_BLOCKIO_RANGE  mRange;
+    BOOL                    mIsWrite;
+};
+
+//
+//------------------------------------------------------------------------
+//
+
 
 #if __cplusplus
 }
