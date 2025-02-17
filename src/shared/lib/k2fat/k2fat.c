@@ -371,8 +371,8 @@ K2FAT_ParseBootSector(
     }
     else
     {
-        if ((apRetPart->mLastValidClusterIndex < 0xFF5) && 
-            (0 == K2ASC_CompLen(((FAT_BOOTSECTOR12OR16 const *)apBootSector)->BS_FilSysType,"FAT12 ",6)))
+        if ((apRetPart->mLastValidClusterIndex < 0xFF5) &&
+            (0 == K2ASC_CompLen((char *)((FAT_BOOTSECTOR12OR16 const *)apBootSector)->BS_FilSysType, "FAT12 ", 6)))
         {
             apRetPart->mFATType = K2FAT_Type12;
             apRetPart->mDriveNumber = ((FAT_BOOTSECTOR12OR16 *)apBootSector)->BS_DrvNum;
@@ -398,7 +398,7 @@ K2FAT_MakeDate(
 
     ret = (((UINT16)(aYear - 1980)) << FAT_DATE_YEAR_SHL) & FAT_DATE_YEAR_MASK;
     ret |= (((UINT16)aMonth) << FAT_DATE_MONTH_SHL) & FAT_DATE_MONTH_MASK;
-    return ret | ((UINT16)aDay) & FAT_DATE_DOM_MASK;
+    return ret | (((UINT16)aDay) & FAT_DATE_DOM_MASK);
 }
 
 UINT16
