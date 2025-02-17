@@ -51,7 +51,7 @@ KernSysProc_SysCall_Register(
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
 
     if (pProc->mId != K2OS_SYSPROC_ID)
     {
@@ -114,7 +114,7 @@ KernSysProc_SysCall_Register(
     );
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
-    stat = KernProc_UserVirtHeapAlloc(apCurThread->User.ProcRef.AsProc, 1, &pUserHeapNode);
+    stat = KernProc_UserVirtHeapAlloc(apCurThread->RefProc.AsProc, 1, &pUserHeapNode);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
     virtAddr = K2HEAP_NodeAddr(&pUserHeapNode->HeapNode);
@@ -131,7 +131,7 @@ KernSysProc_SysCall_Register(
     );
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
-    stat = KernProc_UserVirtHeapAlloc(apCurThread->User.ProcRef.AsProc, 4, &pUserHeapNode);
+    stat = KernProc_UserVirtHeapAlloc(apCurThread->RefProc.AsProc, 4, &pUserHeapNode);
     K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
     virtAddr = K2HEAP_NodeAddr(&pUserHeapNode->HeapNode);
@@ -160,7 +160,7 @@ KernSysProc_SysCall_Register(
     pThreadPage->mSysCall_Arg5_Result2 = (UINT32)stat;
 
     pSchedItem = &apCurThread->SchedItem;
-    pSchedItem->mType = KernSchedItem_Thread_SysCall;
+    pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
     KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
     KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
     KernSched_QueueItem(pSchedItem);
@@ -192,7 +192,7 @@ KernSysProc_Notify(
         // not set up yet
         if (!aFromKernelThread)
         {
-//            K2OSKERN_Debug("!!! SysProc notify before it is ready (%d.%d ignored)\n", apMsg->mType, apMsg->mShort);
+//            K2OSKERN_Debug("!!! SysProc notify before it is ready (%d.%d ignored)\n", apMsg->mMsgType, apMsg->mShort);
             return K2STAT_ERROR_API_ORDER;
         }
         do {

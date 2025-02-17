@@ -37,9 +37,10 @@ KernArch_ResumeThread(
     K2OSKERN_CPUCORE volatile * apThisCore
 )
 {
-    K2OSKERN_OBJ_THREAD *   pCurThread;
-    UINT32                  stackPtr;
-    UINT64                  coreTicks;
+    K2OSKERN_OBJ_THREAD *       pCurThread;
+    UINT32                      stackPtr;
+    UINT64                      coreTicks;
+    K2OSKERN_ARCH_EXEC_CONTEXT *pExec;
 
     //
     // interrupts should be off when we get here
@@ -49,15 +50,16 @@ KernArch_ResumeThread(
     pCurThread = apThisCore->mpActiveThread;
     K2_ASSERT(NULL != pCurThread);
 
-    K2_ASSERT(pCurThread->mIsKernelThread || (apThisCore->MappedProcRef.AsProc == pCurThread->User.ProcRef.AsProc));
+    K2_ASSERT(pCurThread->mIsKernelThread || (apThisCore->MappedProcRef.AsProc == pCurThread->RefProc.AsProc));
 
     if (pCurThread->mIsKernelThread)
     {
         stackPtr = pCurThread->Kern.mStackPtr;
         K2_ASSERT(0 != stackPtr);
+        pExec = (K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr;
 
-        K2_ASSERT(((K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr)->CS == (X32_SEGMENT_SELECTOR_KERNEL_CODE | X32_SELECTOR_RPL_KERNEL));
-        K2_ASSERT(((K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr)->DS == (X32_SEGMENT_SELECTOR_KERNEL_DATA | X32_SELECTOR_RPL_KERNEL));
+        K2_ASSERT(pExec->CS == (X32_SEGMENT_SELECTOR_KERNEL_CODE | X32_SELECTOR_RPL_KERNEL));
+        K2_ASSERT(pExec->DS == (X32_SEGMENT_SELECTOR_KERNEL_DATA | X32_SELECTOR_RPL_KERNEL));
     }
     else
     {
@@ -65,13 +67,15 @@ KernArch_ResumeThread(
         K2_CpuWriteBarrier();
 
         stackPtr = (UINT32)&pCurThread->User.ArchExecContext;
+        pExec = (K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr;
+
         if (pCurThread->User.mIsInSysCall)
         {
             ((K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr)->REGS.EAX = pCurThread->User.mSysCall_Result;
             pCurThread->User.mIsInSysCall = FALSE;
         }
-        K2_ASSERT(((K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr)->CS == (X32_SEGMENT_SELECTOR_USER_CODE | X32_SELECTOR_RPL_USER));
-        K2_ASSERT(((K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr)->DS == (X32_SEGMENT_SELECTOR_USER_DATA | X32_SELECTOR_RPL_USER));
+        K2_ASSERT(pExec->CS == (X32_SEGMENT_SELECTOR_USER_CODE | X32_SELECTOR_RPL_USER));
+        K2_ASSERT(pExec->DS == (X32_SEGMENT_SELECTOR_USER_DATA | X32_SELECTOR_RPL_USER));
     }
 
     pCurThread->mpLastRunCore = apThisCore;
@@ -79,7 +83,7 @@ KernArch_ResumeThread(
     //
     // interrupts must be enabled in the context we are returning to, or something is wrong.
     //
-    K2_ASSERT(0 != (((K2OSKERN_ARCH_EXEC_CONTEXT *)stackPtr)->EFLAGS & X32_EFLAGS_INTENABLE));
+    K2_ASSERT(0 != (pExec->EFLAGS & X32_EFLAGS_INTENABLE));
 
     //
     // translate from global timer ticks to core ticks for quanta remaining
@@ -104,65 +108,40 @@ KernArch_ResumeThread(
     K2OSKERN_Panic("Switch to Thread returned!\n");
 }
 
-void    
-KernArch_TrapToContext(
-    K2_TRAP_CONTEXT *           apTrapContext,
-    K2OSKERN_ARCH_EXEC_CONTEXT *apArchContext,
-    UINT32                      aOverwriteResult
+void
+KernArch_KernThreadPrep(
+    K2OSKERN_OBJ_THREAD *   apThread,
+    UINT32                  aEntryPoint,
+    UINT32 *                apStackPtr,
+    UINT32                  aArg0,
+    UINT32                  aArg1
 )
 {
-    apArchContext->EFLAGS = apTrapContext->EFLAGS;
-    K2MEM_Copy(&apArchContext->REGS, &apTrapContext->EDI, sizeof(X32_PUSHA));
-    apArchContext->EIP = apTrapContext->EIP;
-    apArchContext->ESP = apTrapContext->ESP;
-    apArchContext->REGS.EAX = aOverwriteResult;
+    K2OSKERN_ARCH_EXEC_CONTEXT * pCtx;
+
+    K2_ASSERT(apThread->mState == KernThreadState_InitNoPrep);
+    K2_ASSERT(apThread->mIsKernelThread);
+
+    K2_ASSERT(*(((UINT32 *)K2OS_KVA_THREADPTRS_BASE) + apThread->mGlobalIx) == (UINT32)apThread);
+
+    (*apStackPtr) -= (sizeof(K2OSKERN_ARCH_EXEC_CONTEXT) - (2 * sizeof(UINT32)));
+    pCtx = (K2OSKERN_ARCH_EXEC_CONTEXT *)(*apStackPtr);
+    K2MEM_Zero(pCtx, sizeof(K2OSKERN_ARCH_EXEC_CONTEXT) - 8);
+
+    pCtx->DS = (X32_SEGMENT_SELECTOR_KERNEL_DATA | X32_SELECTOR_RPL_KERNEL);
+
+    pCtx->REGS.ECX = aArg0;
+    pCtx->REGS.EDX = aArg1;
+    pCtx->REGS.ESP_Before_PushA = (UINT32)&pCtx->Exception_Vector;
+    pCtx->EIP = aEntryPoint;
+    pCtx->CS = (X32_SEGMENT_SELECTOR_KERNEL_CODE | X32_SELECTOR_RPL_KERNEL);
+    pCtx->EFLAGS = X32_EFLAGS_INTENABLE | X32_EFLAGS_SBO | X32_EFLAGS_ZERO;
+
+    apThread->mState = KernThreadState_Created;
 }
 
-void    
-KernArch_SetCoreToProcess(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    K2OSKERN_OBJ_PROCESS *      apNewProc
-)
-{
-    BOOL                    disp;
-    K2OSKERN_OBJ_PROCESS *  pCurProc;
-
-    pCurProc = apThisCore->MappedProcRef.AsProc;
-    if (apNewProc == pCurProc)
-        return;
-
-    disp = K2OSKERN_SetIntr(FALSE);
-    
-    if (NULL == apNewProc)
-    {
-        //
-        // cannot have an active thread because FS target (holding current thread global ix)
-        // lives in user space.  Any interrupt with current thread set will cause a check
-        // whether the global ix is set correclty.  If this is set non-null it will cause
-        // a recursive segment fault inside the interrupt handler.
-        //
-        K2_ASSERT(apThisCore->mpActiveThread == NULL);
-        X32_LoadCR3(gData.mpShared->LoadInfo.mTransBasePhys);
-    }
-    else
-    {
-        X32_LoadCR3(apNewProc->mPhysTransBase);
-    }
-
-    K2OSKERN_SetIntr(disp);
-
-    if (NULL != pCurProc)
-    {
-        KernObj_ReleaseRef((K2OSKERN_OBJREF *)&apThisCore->MappedProcRef);
-    }
-    if (NULL != apNewProc)
-    {
-        KernObj_CreateRef((K2OSKERN_OBJREF *)&apThisCore->MappedProcRef, &apNewProc->Hdr);
-    }
-}
-
-void    
-KernArch_IntsOff_EnterMonitorFromKernelThread(
+void
+KernArch_IntsOff_SaveKernelThreadStateAndEnterMonitor(
     K2OSKERN_CPUCORE volatile * apThisCore,
     K2OSKERN_OBJ_THREAD *       apThread
 )
@@ -183,6 +162,6 @@ KernArch_IntsOff_EnterMonitorFromKernelThread(
     newStackPtr -= sizeof(UINT32);
     *((UINT32 *)newStackPtr) = 0;
 
-    X32KernAsm_EnterMonitorFromKernelThread(newStackPtr, &apThread->Kern.mStackPtr);
+    X32KernAsm_SaveKernelThreadStateAndEnterMonitor(newStackPtr, &apThread->Kern.mStackPtr);
 }
 

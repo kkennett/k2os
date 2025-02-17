@@ -47,6 +47,7 @@ KernArch_SendIci(
     UINT32                              reg;
     UINT32                              sendBit;
 
+    K2_ASSERT(1 < gData.mCpuCoreCount); // do not call this in single-core system
     K2_ASSERT(aTargetCoreMask != 0);
     K2_ASSERT(0 == (aTargetCoreMask & (1 << apThisCore->mCoreIx)));
     
@@ -62,7 +63,7 @@ KernArch_SendIci(
     
             pIciTarget = &pOtherCore->IciFromOtherCore[apThisCore->mCoreIx];
 
-            if (pIciTarget->mIciType == KernIci_None)
+            if (pIciTarget->mIciType == KernIciType_Invalid)
             {
                 //
                 // no pending ici from this core to the other core

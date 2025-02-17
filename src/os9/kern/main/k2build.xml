@@ -51,7 +51,7 @@
     <source>proc.c</source>
     <source>user.c</source>
     <source>pagearray.c</source>
-    <source>filesys.c</source>
+    <source>builtin.c</source>
     <source>thread.c</source>
     <source>timer.c</source>
     <source>sched_locked.c</source>
@@ -77,6 +77,10 @@
     <source>sysproc.c</source>
     <source>notifyproxy.c</source>
     <source>signal.c</source>
+    <source>filesys.c</source>
+    <source>fsnode.c</source>
+    <source>firm.c</source>
+    <source>rpc.c</source>
 
     <source>kt_ipcend.c</source>
     <source>kt_alarm.c</source>
@@ -104,7 +108,7 @@
     <source>kt_sysproc.c</source>
     <source>kt_intr.c</source>
     <source>kt_signal.c</source>
+    <source>kt_fsmap.c</source>
+    <source>kt_paging.c</source>
+    <source>kt_rwlock.c</source>
 </k2build>
-
-
-

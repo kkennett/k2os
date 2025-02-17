@@ -117,3 +117,17 @@ K2OS_System_MsTick32FromHfTick(
 {
     return (UINT32)(((*apHfTick) * 1000ull) / ((UINT64)gTimerFreq));
 }
+
+void 
+K2OS_System_GetTime(
+    K2OS_TIME *apRetTime
+)
+{
+    K2OS_THREAD_PAGE * pThreadPage;
+
+    CrtKern_SysCall1(K2OS_SYSCALL_ID_GET_TIME, 0);
+    
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+
+    K2MEM_Copy(apRetTime, pThreadPage->mMiscBuffer, sizeof(K2OS_TIME));
+}

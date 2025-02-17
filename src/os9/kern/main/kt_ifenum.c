@@ -117,12 +117,9 @@ K2OS_IfEnum_Next(
     UINT32 *            apIoEntryBufferCount
 )
 {
-    K2STAT              stat;
-    K2OSKERN_OBJREF     objRef;
-    UINT32              startIx;
-    UINT32              userCount;
-    BOOL                disp;
-    UINT32              numCopy;
+    K2STAT          stat;
+    K2OSKERN_OBJREF objRef;
+    UINT32          userCount;
 
     if ((NULL == aIfEnumToken) ||
         (NULL == apEntryBuffer) ||
@@ -149,39 +146,12 @@ K2OS_IfEnum_Next(
         }
         else
         {
-            // snapshot - if at end already this saves us all the time to lock the buffer maps
-            startIx = objRef.AsIfEnum->Locked.mCurrentIx;
-            K2_CpuReadBarrier();
-            if (startIx == objRef.AsIfEnum->mEntryCount)
+            stat = KernIfEnum_Next(objRef.AsIfEnum, apEntryBuffer, &userCount);
+            if (!K2STAT_IS_ERROR(stat))
             {
-                stat = K2STAT_ERROR_NO_MORE_ITEMS;
-            }
-            else
-            {
-                disp = K2OSKERN_SeqLock(&objRef.AsIfEnum->SeqLock);
-
-                startIx = objRef.AsIfEnum->Locked.mCurrentIx;
-
-                numCopy = objRef.AsIfEnum->mEntryCount - startIx;
-                if (numCopy == 0)
-                {
-                    stat = K2STAT_ERROR_NO_MORE_ITEMS;
-                }
-                else
-                {
-                    if (numCopy > userCount)
-                    {
-                        numCopy = userCount;
-                    }
-                    K2MEM_Copy(apEntryBuffer, &objRef.AsIfEnum->mpEntries[startIx], numCopy * sizeof(K2OS_IFINST_DETAIL));
-
-                    objRef.AsIfEnum->Locked.mCurrentIx += numCopy;
-
-                    stat = K2STAT_NO_ERROR;
-                    *apIoEntryBufferCount = numCopy;
-                }
-
-                K2OSKERN_SeqUnlock(&objRef.AsIfEnum->SeqLock, disp);
+                K2_ASSERT(userCount > 0);
+                K2_ASSERT(userCount <= *apIoEntryBufferCount);
+                *apIoEntryBufferCount = userCount;
             }
         }
 

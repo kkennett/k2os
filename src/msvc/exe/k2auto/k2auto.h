@@ -38,6 +38,8 @@
 //--------------------------------------------------------------------------------------------------
 // 
 
+#define IS_OSA 0
+
 #define ALL_ARCH_FLAGS ((1 << K2_ARCH_X32) | (1 << K2_ARCH_A32) | (1 << K2_ARCH_X64) | (1 << K2_ARCH_A64))
 #define STRBUF_CHARS    4096
 
@@ -263,13 +265,16 @@ public:
             ProjDep *               mpKernXdl;
             ProjDep *               mpPlatXdl;
             ProjDep *               mpKernCrtXdl;
+#if !IS_OSA
             ProjDep *               mpKernAcpiXdl;
             ProjDep *               mpKernExecXdl;
+#endif
             ProjDep *               mpUserCrtXdl;
             ProjDep *               mpUserSysProcXdl;
             K2LIST_ANCHOR           RawXdlProjList;
             K2LIST_ANCHOR           UserXdlProjList;
             K2LIST_ANCHOR           BuiltInXdlProjList;
+            K2LIST_ANCHOR           BuiltInKernXdlProjList;
             VfsFolder *             mpImgFolder;
         } Img;
     } Proj;

@@ -73,7 +73,7 @@ BEGIN_A32_PROC(A32KernAsm_ExceptionCommon)
     str r14, [r12, #60]
     msr cpsr, r3
 
-    // context saved. we are in SYS mode. go to C code now
+    // context saved. if we came from USR we are in SYS mode instead. go to C code now
     // r0 is reason
     mov r1, r13     // r1 is stack pointer in src mode exception stack (points to exception context)
     mov r2, r3      // r2 is cpsr to tell where we are

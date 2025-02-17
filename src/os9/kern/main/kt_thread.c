@@ -42,7 +42,6 @@ K2OS_Thread_Create(
 )
 {
     K2STAT                      stat;
-    BOOL                        ok;
     K2OSKERN_OBJ_THREAD *       pNewThread;
     K2OS_THREAD_TOKEN           tokThread;
     K2OS_THREAD_CONFIG          config;
@@ -50,13 +49,10 @@ K2OS_Thread_Create(
     K2OS_XDL                    parentXdl;
     BOOL                        disp;
     K2TREE_NODE *               pTreeNode;
-    K2OSKERN_PHYSRES            res;
     K2OSKERN_CPUCORE volatile * pThisCore;
     K2OSKERN_OBJ_THREAD *       pThisThread;
-    K2OSKERN_PHYSSCAN           scan;
-    UINT32                      virtWork;
-    UINT32                      physPageAddr;
     K2OSKERN_OBJ_VIRTMAP *      pVirtMap;
+    K2OSKERN_OBJREF             ioNotifyRef;
 
     //
     // sanitize config
@@ -93,6 +89,7 @@ K2OS_Thread_Create(
     parentXdl = K2OS_Xdl_AddRefContaining((UINT32)aEntryPoint);
     if (NULL == parentXdl)
     {
+        K2OSKERN_Debug("Thread entrypoint %08X not found in a known XDL\n", aEntryPoint);
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_NOT_FOUND);
         return NULL;
     }
@@ -148,7 +145,7 @@ K2OS_Thread_Create(
         {
             K2_ASSERT(NULL == pVirtMap->ProcRef.AsAny);
             K2_ASSERT(pVirtMap->OwnerMapTreeNode.mUserVal <= (UINT32)aEntryPoint);
-            if ((KernMap_Xdl_Part != pVirtMap->Kern.mType) ||
+            if ((KernSeg_Xdl_Part != pVirtMap->Kern.mSegType) ||
                 (pVirtMap->Kern.XdlPart.mXdlSegmentIx != XDLSegmentIx_Text))
             {
                 stat = K2STAT_ERROR_ADDR_NOT_TEXT;
@@ -168,11 +165,24 @@ K2OS_Thread_Create(
             break;
         }
 
-        stat = KernThread_Create(NULL, &config, &pNewThread);
+        ioNotifyRef.AsAny = NULL;
+        stat = KernNotify_Create(FALSE, &ioNotifyRef);
         if (K2STAT_IS_ERROR(stat))
             break;
 
+        stat = KernThread_Create(NULL, &config, &pNewThread);
+        if (K2STAT_IS_ERROR(stat))
+        {
+            KernObj_ReleaseRef(&ioNotifyRef);
+            break;
+        }
+
         K2_ASSERT(NULL != pNewThread);
+
+        pNewThread->mIsKernelThread = TRUE;
+
+        KernObj_CreateRef(&pNewThread->Kern.Io.NotifyRef, ioNotifyRef.AsAny);
+        KernObj_ReleaseRef(&ioNotifyRef);
 
         if (NULL != apName)
         {
@@ -180,74 +190,16 @@ K2OS_Thread_Create(
             pNewThread->mName[K2OS_THREAD_NAME_BUFFER_CHARS - 1] = 0;
         }
 
-        do {
-            ok = KernPhys_Reserve_Init(&res, config.mStackPages);
-            if (!ok)
-            {
-                stat = K2STAT_ERROR_OUT_OF_MEMORY;
-                break;
-            }
-
-            do {
-                stat = KernPhys_AllocSparsePages(&res, config.mStackPages, &pNewThread->Kern.StackPhysTrackList);
-                if (K2STAT_IS_ERROR(stat))
-                    break;
-
-                do {
-                    KernPhys_CutTrackListIntoPages(&pNewThread->Kern.StackPhysTrackList, FALSE, NULL, TRUE, KernPhysPageList_KernThread_Stack);
-                    KernPhys_ScanInit(&scan, &pNewThread->Kern.StackPhysTrackList, 0);
-
-                    pNewThread->Kern.mStackBaseVirt = K2OS_Virt_Reserve(config.mStackPages + 2);
-                    if (0 == pNewThread->Kern.mStackBaseVirt)
-                    {
-                        stat = K2OS_Thread_GetLastStatus();
-                        K2_ASSERT(K2STAT_IS_ERROR(stat));
-                        break;
-                    }
-
-                    stat = K2STAT_NO_ERROR;
-
-                    virtWork = pNewThread->Kern.mStackBaseVirt + K2_VA_MEMPAGE_BYTES;
-                    physPageAddr = config.mStackPages;
-                    do {
-                        KernPte_MakePageMap(NULL, virtWork, KernPhys_ScanIter(&scan), K2OS_MAPTYPE_KERN_DATA);
-                        virtWork += K2_VA_MEMPAGE_BYTES;
-                    } while (--physPageAddr > 0);
-
-                    // top and bottom pages are guards
-                    pNewThread->Kern.mStackPtr = pNewThread->Kern.mStackBaseVirt + ((1 + config.mStackPages) * K2_VA_MEMPAGE_BYTES);
-                    pNewThread->Kern.mStackPtr -= sizeof(UINT32);
-                    *((UINT32 *)pNewThread->Kern.mStackPtr) = 0;
-                    pNewThread->Kern.mStackPtr -= sizeof(UINT32);
-                    *((UINT32 *)pNewThread->Kern.mStackPtr) = 0;
-
-                    KernArch_KernThreadPrep(pNewThread,
-                        (UINT32)KernThread_EntryPoint,
-                        &pNewThread->Kern.mStackPtr,
-                        (UINT32)aEntryPoint, (UINT32)apArg);
-
-                    pNewThread->Kern.mXdlRef = parentXdl;
-                    parentXdl = NULL;
-
-                } while (0);
-
-                if (K2STAT_IS_ERROR(stat))
-                {
-                    KernPhys_FreeTrackList(&pNewThread->Kern.StackPhysTrackList);
-                }
-
-            } while (0);
-
-            if (K2STAT_IS_ERROR(stat))
-            {
-                KernPhys_Reserve_Release(&res);
-            }
-
-        } while (0);
-
-        if (NULL != parentXdl)
+        stat = KernVirtMap_CreateThreadStack(pNewThread);
+        if (!K2STAT_IS_ERROR(stat))
         {
-            K2OS_Xdl_Release(parentXdl);
+            KernArch_KernThreadPrep(pNewThread,
+                (UINT32)KernThread_EntryPoint,
+                &pNewThread->Kern.mStackPtr,
+                (UINT32)aEntryPoint, (UINT32)apArg);
+
+            pNewThread->Kern.mXdlRef = parentXdl;
+            parentXdl = NULL;
         }
 
         if (K2STAT_IS_ERROR(stat))
@@ -271,14 +223,19 @@ K2OS_Thread_Create(
             pThisThread->Hdr.ObjDpc.Func = KernThread_Cleanup_Dpc;
             KernCpu_QueueDpc(&pThisThread->Hdr.ObjDpc.Dpc, &pThisThread->Hdr.ObjDpc.Func, KernDpcPrio_Med);
 
-            KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
+            KernArch_IntsOff_SaveKernelThreadStateAndEnterMonitor(pThisCore, pThisThread);
             //
-            // this is return point from entering the monitor to do the process create
+            // this is return point from entering the monitor to do the thread create
             // interrupts will be on
             K2_ASSERT(K2OSKERN_GetIntr());
         }
 
     } while (0);
+
+    if (NULL != parentXdl)
+    {
+        K2OS_Xdl_Release(parentXdl);
+    }
 
     if (!K2STAT_IS_ERROR(stat))
     {
@@ -310,7 +267,7 @@ K2OS_Thread_Create(
             pThisThread->Hdr.ObjDpc.Func = KernThread_Cleanup_Dpc;
             KernCpu_QueueDpc(&pThisThread->Hdr.ObjDpc.Dpc, &pThisThread->Hdr.ObjDpc.Func, KernDpcPrio_Med);
 
-            KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
+            KernArch_IntsOff_SaveKernelThreadStateAndEnterMonitor(pThisCore, pThisThread);
             //
             // this is return point from entering the monitor to do the new thread cleanup
             // interrupts will be on
@@ -325,7 +282,7 @@ K2OS_Thread_Create(
             }
 
             pSchedItem = &pThisThread->SchedItem;
-            pSchedItem->mType = KernSchedItem_KernThread_StartThread;
+            pSchedItem->mSchedItemType = KernSchedItem_KernThread_StartThread;
             KernObj_CreateRef(&pSchedItem->ObjRef, &pNewThread->Hdr);
             pSchedItem->Args.Thread_Create.mThreadToken = (UINT32)tokThread;
 
@@ -422,7 +379,7 @@ K2OS_Thread_GetLastStatus(
 {
     K2OS_THREAD_PAGE * pThreadPage;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
 
     return pThreadPage->mLastStatus;
 }
@@ -435,7 +392,7 @@ K2OS_Thread_SetLastStatus(
     K2OS_THREAD_PAGE *  pThreadPage;
     UINT32              result;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
 
     result = pThreadPage->mLastStatus;
     pThreadPage->mLastStatus = aStatus;
@@ -451,7 +408,7 @@ K2OS_Thread_GetCpuCoreAffinityMask(
     K2OS_THREAD_PAGE *      pThreadPage;
     K2OSKERN_OBJ_THREAD *   pThisThread;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
 
     return pThisThread->Config.mAffinityMask;
@@ -468,7 +425,7 @@ K2OS_Thread_SetCpuCoreAffinityMask(
     K2OSKERN_OBJ_THREAD *       pThisThread;
     K2OSKERN_SCHED_ITEM *       pSchedItem;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
@@ -489,7 +446,7 @@ K2OS_Thread_SetCpuCoreAffinityMask(
 
     pSchedItem = &pThisThread->SchedItem;
     pSchedItem->Args.Thread_SetAff.mNewMask = aNewAffinity;
-    pSchedItem->mType = KernSchedItem_KernThread_SetAffinity;
+    pSchedItem->mSchedItemType = KernSchedItem_KernThread_SetAffinity;
 
     KernThread_CallScheduler(pThisCore);
 
@@ -561,7 +518,7 @@ K2OS_Thread_SetName(
     K2OSKERN_OBJ_THREAD *   pThisThread;
     BOOL                    disp;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
@@ -591,7 +548,7 @@ K2OS_Thread_GetName(
     if (NULL == apRetNameBuffer)
         return;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
@@ -694,7 +651,7 @@ K2OS_Tls_SetValue(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
 
     pThreadPage->mTlsValue[aSlotIndex] = aValue;
 
@@ -721,7 +678,7 @@ K2OS_Tls_GetValue(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
 
     *apRetValue = pThreadPage->mTlsValue[aSlotIndex];
 

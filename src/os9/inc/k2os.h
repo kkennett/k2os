@@ -84,6 +84,16 @@ struct _K2OS_FWINFO
     UINT32 mXFacsPhys;
 };
 
+#define K2OS_BUFDESC_ATTRIB_READONLY 1
+
+typedef struct _K2OS_BUFDESC K2OS_BUFDESC;
+struct _K2OS_BUFDESC
+{
+    UINT32  mAddress;
+    UINT32  mBytesLength;
+    UINT32  mAttrib;
+};
+
 typedef enum _K2OS_VirtToPhys_MapType K2OS_VirtToPhys_MapType;
 enum _K2OS_VirtToPhys_MapType
 {
@@ -91,7 +101,6 @@ enum _K2OS_VirtToPhys_MapType
     K2OS_MapType_Text,
     K2OS_MapType_Data_ReadOnly,
     K2OS_MapType_Data_ReadWrite,
-    K2OS_MapType_Data_CopyOnWrite,
     K2OS_MapType_Thread_Stack,
     K2OS_MapType_MemMappedIo_ReadOnly,
     K2OS_MapType_MemMappedIo_ReadWrite,
@@ -107,9 +116,10 @@ enum _K2OS_VirtToPhys_MapType
 #define K2OS_IFACE_CLASSCODE_STORAGE_PARTITION  4
 #define K2OS_IFACE_CLASSCODE_STORAGE_VOLUME     5
 #define K2OS_IFACE_CLASSCODE_FSMGR              6
-#define K2OS_IFACE_CLASSCODE_FILESYS            7
-#define K2OS_IFACE_CLASSCODE_BUSDRIVER          8
-#define K2OS_IFACE_CLASSCODE_NETWORK_DEVICE     9
+#define K2OS_IFACE_CLASSCODE_FSPROV             7
+#define K2OS_IFACE_CLASSCODE_FILESYS            8
+#define K2OS_IFACE_CLASSCODE_BUSDRIVER          9
+#define K2OS_IFACE_CLASSCODE_NETWORK_DEVICE     10
 
 typedef struct _K2OS_IFINST_DETAIL K2OS_IFINST_DETAIL;
 struct _K2OS_IFINST_DETAIL
@@ -171,7 +181,7 @@ K2_PACKED_PUSH
 typedef struct _K2OS_MSG K2OS_MSG;
 struct _K2OS_MSG
 {
-    UINT16  mType;
+    UINT16  mMsgType;
     UINT16  mShort;
     UINT32  mPayload[3];
 } K2_PACKED_ATTRIB;
@@ -196,6 +206,7 @@ typedef K2OS_TOKEN  K2OS_VIRTMAP_TOKEN;
 typedef K2OS_TOKEN  K2OS_IFINST_TOKEN;
 typedef K2OS_TOKEN  K2OS_IFENUM_TOKEN;
 typedef K2OS_TOKEN  K2OS_IFSUBS_TOKEN;
+typedef K2OS_TOKEN  K2OS_FILEMAP_TOKEN;
 
 typedef K2OS_TOKEN  K2OS_WAITABLE_TOKEN;
 typedef K2OS_WAITABLE_TOKEN K2OS_PROCESS_TOKEN;
@@ -305,26 +316,6 @@ struct _K2OS_TIME
 K2_PACKED_POP
 typedef struct _K2OS_TIME K2OS_TIME;
 
-#define K2OS_FILE_NAME_MAX_CHARS    255
-
-#define K2OS_FATTRIB_READ_ONLY      0x00000001
-#define K2OS_FATTRIB_HIDDEN         0x00000002
-#define K2OS_FATTRIB_SYSTEM         0x00000004
-#define K2OS_FATTRIB_RESERVED       0x00000008
-#define K2OS_FATTRIB_FOLDER         0x00000010
-#define K2OS_FATTRIB_ARCHIVE        0x00000020
-
-typedef struct _K2OS_FILE_INFO K2OS_FILE_INFO;
-struct _K2OS_FILE_INFO
-{
-    UINT64      mSizeBytes;
-    K2OS_TIME   mTimeCreated;
-    K2OS_TIME   mTimeModified;
-    K2OS_TIME   mTimeAccessed;
-    UINT32      mAttrib;
-    char        mName[K2OS_FILE_NAME_MAX_CHARS + 1];
-};
-
 typedef enum _K2OS_TimeType K2OS_TimeType;
 enum _K2OS_TimeType
 {
@@ -335,23 +326,6 @@ enum _K2OS_TimeType
     K2OS_Time_Accessed,
 
     K2OS_TimeType_Count
-};
-
-#define K2OS_FILE_MODE_READ         K2OS_ACCESS_R
-#define K2OS_FILE_MODE_WRITE        K2OS_ACCESS_W
-#define K2OS_FILE_MODE_READ_WRITE   K2OS_ACCESS_RW
-#define K2OS_FILE_MODE_CREATE       (0x00010000 & PF_MASKOS)
-
-typedef enum _K2OS_SetPosType K2OS_SetPosType;
-enum _K2OS_SetPosType
-{
-    K2OS_SetPosType_Invalid = 0,
-
-    K2OS_SetPos_Relative,
-    K2OS_SetPos_FromBegin,
-    K2OS_SetPos_FromEnd,
-
-    K2OS_SetPosType_Count
 };
 
 //
@@ -382,6 +356,8 @@ void                K2OS_System_MsTickFromHfTick(UINT64 *apRetMsTick, UINT64 con
 
 void                K2OS_System_HfTickFromMsTick32(UINT64 *apRetHfTick, UINT32 aMsTick32);
 UINT32              K2OS_System_MsTick32FromHfTick(UINT64 const *apHfTick);
+
+void                K2OS_System_GetTime(K2OS_TIME *apRetTime);
 
 K2OS_PROCESS_TOKEN  K2OS_System_CreateProcess(char const *apFilePath, char const *apArgs, UINT32 *apRetId);
 
@@ -488,7 +464,6 @@ BOOL    K2OS_Virt_Release(UINT32 aVirtAddr);
 //
 
 K2OS_VIRTMAP_TOKEN      K2OS_VirtMap_Create(K2OS_PAGEARRAY_TOKEN aTokPageArray, UINT32 aPageOffset, UINT32 aPageCount, UINT32 aVirtAddr, K2OS_VirtToPhys_MapType aMapType);
-K2OS_PAGEARRAY_TOKEN    K2OS_VirtMap_AcquirePageArray(K2OS_VIRTMAP_TOKEN aTokVirtMap, UINT32 *apRetStartPageIndex);
 K2OS_VIRTMAP_TOKEN      K2OS_VirtMap_Acquire(UINT32 aProcAddr, K2OS_VirtToPhys_MapType *apRetMapType, UINT32 *apRetMapPageIndex);
 UINT32                  K2OS_VirtMap_GetInfo(K2OS_VIRTMAP_TOKEN aVirtMap, K2OS_VirtToPhys_MapType *apRetMapType, UINT32 *apRetMapPageCount);
 
@@ -515,7 +490,7 @@ BOOL        K2OS_Xdl_GetIdent(K2OS_XDL aXdl, char *apNameBuf, UINT32 aNameBufLen
 
 K2OS_MAILBOX_TOKEN  K2OS_Mailbox_Create(void);
 BOOL                K2OS_Mailbox_Send(K2OS_MAILBOX_TOKEN aTokMailbox, K2OS_MSG const *apMsg);
-BOOL                K2OS_Mailbox_Recv(K2OS_MAILBOX_TOKEN aTokMailbox, K2OS_MSG *apRetMsg, UINT32 aTimeoutMs);
+BOOL                K2OS_Mailbox_Recv(K2OS_MAILBOX_TOKEN aTokMailbox, K2OS_MSG *apRetMsg);
 
 //
 //------------------------------------------------------------------------
@@ -573,7 +548,7 @@ K2OS_IFINST_ID  K2OS_RpcServer_GetIfInstId(void);
 K2OS_RPC_CLASS  K2OS_RpcServer_Register(K2OS_RPC_OBJ_CLASSDEF const *apClassDef, UINT32 aContext);
 BOOL            K2OS_RpcServer_Deregister(K2OS_RPC_CLASS aRegisteredClass);
 
-BOOL            K2OS_RpcObj_GetContext(K2OS_RPC_OBJ aObject, UINT32 *apRetContext);
+BOOL            K2OS_RpcObj_GetDetail(K2OS_RPC_OBJ aObject, UINT32 *apRetContext, UINT32 *apRetObjId);
 BOOL            K2OS_RpcObj_SendNotify(K2OS_RPC_OBJ aObject, UINT32 aSpecificUseOrZeroForAll, UINT32 aNotifyCode, UINT32 aNotifyData);
 K2OS_RPC_IFINST K2OS_RpcObj_AddIfInst(K2OS_RPC_OBJ aObject, UINT32 aClassCode, K2_GUID128 const* apSpecific, K2OS_IFINST_ID *apRetId, BOOL aPublish);
 BOOL            K2OS_RpcObj_RemoveIfInst(K2OS_RPC_OBJ aObject, K2OS_RPC_IFINST aIfInst);
@@ -581,10 +556,110 @@ BOOL            K2OS_RpcObj_RemoveIfInst(K2OS_RPC_OBJ aObject, K2OS_RPC_IFINST a
 K2OS_RPC_OBJ_HANDLE K2OS_Rpc_CreateObj(K2OS_IFINST_ID aRpcServerIfInstId, K2_GUID128 const *apClassId, UINT32 aCreatorContext);
 K2OS_RPC_OBJ_HANDLE K2OS_Rpc_AttachByObjId(K2OS_IFINST_ID aRpcServerIfInstId, UINT32 aObjId);
 K2OS_RPC_OBJ_HANDLE K2OS_Rpc_AttachByIfInstId(K2OS_IFINST_ID aIfInstId, UINT32 *apRetObjId);
+K2OS_RPC_OBJ_HANDLE K2OS_Rpc_Acquire(K2OS_RPC_OBJ_HANDLE aObjHandle);
 BOOL                K2OS_Rpc_GetObjId(K2OS_RPC_OBJ_HANDLE aObjHandle, UINT32 *apRetObjId);
+BOOL                K2OS_Rpc_GetObjClass(K2OS_RPC_OBJ_HANDLE aObjHandle, K2_GUID128 *apRetClassId);
+K2OS_IFINST_ID      K2OS_Rpc_GetObjRpcServerIfInstId(K2OS_RPC_OBJ_HANDLE aObjHandle);
 BOOL                K2OS_Rpc_SetNotifyTarget(K2OS_RPC_OBJ_HANDLE aObjHandle, K2OS_MAILBOX_TOKEN aTokMailslot);
 K2STAT              K2OS_Rpc_Call(K2OS_RPC_OBJ_HANDLE aObjHandle, K2OS_RPC_CALLARGS const *apCallArgs, UINT32 *apRetActualOutBytes);
 BOOL                K2OS_Rpc_Release(K2OS_RPC_OBJ_HANDLE aObjHandle);
+
+//
+//------------------------------------------------------------------------
+//
+
+typedef struct _K2OS_FSCLIENT_OPAQUE    K2OS_FSCLIENT_OPAQUE;
+typedef K2OS_FSCLIENT_OPAQUE *          K2OS_FSCLIENT;
+
+typedef struct _K2OS_FSENUM_OPAQUE      K2OS_FSENUM_OPAQUE;
+typedef K2OS_FSENUM_OPAQUE *            K2OS_FSENUM;
+
+typedef struct _K2OS_FILE_OPAQUE        K2OS_FILE_OPAQUE;
+typedef K2OS_FILE_OPAQUE *              K2OS_FILE;
+
+typedef enum _K2OS_FileOpenType K2OS_FileOpenType;
+enum _K2OS_FileOpenType
+{
+    K2OS_FileOpenType_Invalid = 0,
+
+    K2OS_FileOpen_Existing,             // file must exist already
+    K2OS_FileOpen_CreateNew,            // file must not exist already
+    K2OS_FileOpen_CreateOrTruncate,     // file may or may not exist.  if it does its size is set to zero, if it doesn't an empty file is created
+    K2OS_FileOpen_Always,               // file may or may not exist.  if it does it is opened.  If it does not, and specifies a writeable location an empty file is created
+
+    K2OS_FileOpenType_Count
+};
+
+typedef enum _K2OS_FilePosType K2OS_FilePosType;
+enum _K2OS_FilePosType
+{
+    K2OS_FilePosType_Invalid = 0,
+
+    K2OS_FilePos_Begin,
+    K2OS_FilePos_End,
+    K2OS_FilePos_Current,
+
+    K2OS_FilePosType_Count
+};
+
+#define K2OS_FSITEM_MAX_COMPONENT_NAME_LENGTH   255
+
+#define K2OS_FSFLAG_RESERVED    0x80000000
+#define K2OS_FSFLAG_NO_CACHE    0x40000000
+#define K2OS_FSFLAG_NO_BUFFER   0x20000000
+#define K2OS_FSFLAG_AUTO_DELETE 0x10000000
+#define K2OS_FSFLAGS_INVALID    0xFFFFFFFF
+
+typedef struct _K2OS_FSITEM_INFO K2OS_FSITEM_INFO;
+struct _K2OS_FSITEM_INFO
+{
+    UINT32      mFsAttrib;
+    UINT32      mUseFlags;
+    UINT64      mTime;
+    UINT64      mSizeBytes;
+    char        mName[K2OS_FSITEM_MAX_COMPONENT_NAME_LENGTH + 1];
+};
+
+BOOL            K2OS_FsMgr_FormatVolume(K2OS_IFINST_ID aVolIfInstId, K2_GUID128 const *apFsGuid, K2_GUID128 const *apUniqueId, UINT32 aParam1, UINT32 aParam2);
+BOOL            K2OS_FsMgr_CleanVolume(K2OS_IFINST_ID aVolIfInstId);
+BOOL            K2OS_FsMgr_Mount(K2OS_IFINST_ID aFileSysIfInstId, UINT32 aAccess, UINT32 aShare, char const *apPath);
+BOOL            K2OS_FsMgr_Dismount(char const *apPath);
+BOOL            K2OS_FsMgr_SetNotifyMailbox(K2OS_MAILBOX_TOKEN aTokMailbox);
+
+K2OS_FSCLIENT   K2OS_FsClient_Create(void);
+BOOL            K2OS_FsClient_GetBaseDir(K2OS_FSCLIENT aFsClient, char *apRetPathBuf, UINT_PTR aBufferBytes);
+BOOL            K2OS_FsClient_SetBaseDir(K2OS_FSCLIENT aFsClient, char const *apPath);
+BOOL            K2OS_FsClient_CreateDir(K2OS_FSCLIENT aFsClient, char const *apPath);
+BOOL            K2OS_FsClient_RemoveDir(K2OS_FSCLIENT aFsClient, char const *apPath);
+K2OS_FILE       K2OS_FsClient_OpenFile(K2OS_FSCLIENT aFsClient, char const *apPathToItem, UINT32 aAccess, UINT32 aShare, K2OS_FileOpenType aOpenType, UINT32 aOpenFlags, UINT32 aNewFileAttrib);
+UINT32          K2OS_FsClient_GetAttrib(K2OS_FSCLIENT aFsClient, char const *apPathToItem);
+UINT32          K2OS_FsClient_SetAttrib(K2OS_FSCLIENT aFsClient, char const *apPathToItem, UINT32 aNewAttrib);
+BOOL            K2OS_FsClient_DeleteFile(K2OS_FSCLIENT aFsClient, char const *apPathToItem);
+UINT32          K2OS_FsClient_GetIoBlockAlign(K2OS_FSCLIENT aFsClient, char const *apPathToItem);
+BOOL            K2OS_FsClient_Destroy(K2OS_FSCLIENT aClient);
+
+K2OS_FSENUM     K2OS_FsClient_CreateEnum(K2OS_FSCLIENT aFsClient, char const *apSpec, K2OS_FSITEM_INFO *apRetInfo);
+
+BOOL            K2OS_FsEnum_Next(K2OS_FSENUM aFsEnum, K2OS_FSITEM_INFO *aRetInfo);
+BOOL            K2OS_FsEnum_Destroy(K2OS_FSENUM aFsEnum);
+
+BOOL            K2OS_File_GetInfo(K2OS_FILE aFile, K2OS_FSITEM_INFO *apRetInfo);
+BOOL            K2OS_File_GetPos(K2OS_FILE aFile, INT64 *apRetAbsPointer);
+BOOL            K2OS_File_SetPos(K2OS_FILE aFile, K2OS_FilePosType aPosType, INT64 const *apPointerOffsetBytes);
+BOOL            K2OS_File_GetSize(K2OS_FILE aFile, UINT64 *apRetFileSizeBytes);
+BOOL            K2OS_File_Read(K2OS_FILE aFile, void *apBuffer, UINT_PTR aBytesToRead, UINT_PTR *apRetBytesRead);
+BOOL            K2OS_File_Write(K2OS_FILE aFile, void const *apBuffer, UINT_PTR aBytesToWrite, UINT_PTR *apRetBytesWritten);
+BOOL            K2OS_File_SetEnd(K2OS_FILE aFile);
+UINT32          K2OS_File_GetAccess(K2OS_FILE aFile);
+UINT32          K2OS_File_GetShare(K2OS_FILE aFile);
+UINT32          K2OS_File_GetAttrib(K2OS_FILE aFile);
+UINT32          K2OS_File_GetOpenFlags(K2OS_FILE aFile);
+UINT32          K2OS_File_GetBlockAlign(K2OS_FILE aFile);
+BOOL            K2OS_File_Close(K2OS_FILE aFile);
+
+K2OS_FILEMAP_TOKEN  K2OS_FileMap_Create(K2OS_FILE aFile, UINT32 aMapAccess, UINT32 aMapBytes);
+void *              K2OS_FileMap_Map(K2OS_FILEMAP_TOKEN aTokFileMap, UINT32 aPaging, UINT64 const *apOffset, UINT32 aMapBytes);
+BOOL                K2OS_FileMap_Unmap(void *apMapAddr);
 
 //
 //------------------------------------------------------------------------

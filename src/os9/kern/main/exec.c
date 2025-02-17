@@ -45,11 +45,13 @@ Kern_Exec(
 
     K2OSKERN_Debug("\nK2OS Kernel %d CPU cores\n\n", gData.mCpuCoreCount);
 
+    KernTimer_Init();
     KernBootGraf_Init();
 
     KernObj_Init();
     KernSched_Init();
     KernIntr_Init();
+    KernBuiltIn_Init();
     KernFileSys_Init();
     KernXdl_Init();
     KernUser_Init();

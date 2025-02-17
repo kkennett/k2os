@@ -146,6 +146,7 @@ KernArch_InstallPageTable(
     K2_ASSERT(((*((UINT32 *)K2OS_KVA_TO_PTE_ADDR(virtKernPT))) & K2OSKERN_PTE_PRESENT_BIT) == 0);
     
     KernPte_MakePageMap(NULL, virtKernPT, aPhysPageAddr, K2OS_MAPTYPE_KERN_PAGETABLE);
+    K2MEM_Zero((void *)virtKernPT, K2_VA_MEMPAGE_BYTES);
     
     //
     // now install the PDE that points to this new pagetable

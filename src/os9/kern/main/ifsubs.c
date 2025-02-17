@@ -56,9 +56,7 @@ KernIfSubs_Cleanup(
 
     KernObj_ReleaseRef(&apIfSubs->MailboxRef);
 
-    K2MEM_Zero(apIfSubs, sizeof(K2OSKERN_OBJ_IFSUBS));
-
-    KernHeap_Free(apIfSubs);
+    KernObj_Free(&apIfSubs->Hdr);
 }
 
 K2STAT
@@ -77,25 +75,20 @@ KernIfSubs_Create(
 
     K2_ASSERT(NULL != apSpecific);
 
-    pSubs = (K2OSKERN_OBJ_IFSUBS *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_IFSUBS));
+    pSubs = (K2OSKERN_OBJ_IFSUBS *)KernObj_Alloc(KernObj_IfSubs);
     if (pSubs == NULL)
     {
         return K2STAT_ERROR_OUT_OF_MEMORY;
     }
 
-    K2MEM_Zero(pSubs, sizeof(K2OSKERN_OBJ_IFSUBS));
-
     if (!KernMailbox_Reserve(apMailbox, aBacklogCount))
     {
         stat = K2STAT_ERROR_OUT_OF_RESOURCES;
-        KernHeap_Free(pSubs);
+        KernObj_Free(&pSubs->Hdr);
     }
     else
     {
         stat = K2STAT_NO_ERROR;
-
-        pSubs->Hdr.mObjType = KernObj_IfSubs;
-        K2LIST_Init(&pSubs->Hdr.RefObjList);
 
         KernObj_CreateRef(&pSubs->MailboxRef, &apMailbox->Hdr);
 
@@ -134,7 +127,7 @@ KernIfSubs_SysCall_Create(
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
 
     refMailboxOwner.AsAny = NULL;
     stat = KernProc_TokenTranslate(pProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refMailboxOwner);
@@ -171,7 +164,7 @@ KernIfSubs_SysCall_Create(
                         refSubs.AsIfSubs->mBacklogInit
                     );
                     KernObj_ReleaseRef(&refSubs.AsIfSubs->MailboxRef);
-                    KernHeap_Free(refSubs.AsAny);
+                    KernObj_Free(refSubs.AsAny);
                     refSubs.AsAny = NULL;
                 }
                 else

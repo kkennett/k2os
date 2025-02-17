@@ -43,8 +43,8 @@ K2OS_Vol_Create(
 
 BOOL
 K2OS_Vol_GetInfo(
-    K2OS_VOLUME_TOKEN       aTokVol,
-    K2OS_STORAGE_VOLUME *   apRetVolumeInfo
+    K2OS_VOLUME_TOKEN   aTokVol,
+    K2_STORAGE_VOLUME * apRetVolumeInfo
 )
 {
     K2OS_Thread_SetLastStatus(K2STAT_ERROR_NOT_IMPL);

@@ -31,32 +31,19 @@
 //
 
 #include "k2osexec.h"
+#include <lib/k2rofshelp.h>
 
-typedef struct _ROFSHANDLE      ROFSHANDLE;
-typedef struct _ROFSUSER_PROC   ROFSPROC;
-typedef struct _ROFSUSER        ROFSUSER;
-typedef struct _ROFSEXEC        ROFSEXEC;
+typedef struct _ROFSEXEC ROFSEXEC;
+typedef struct _ROFSNODE ROFSNODE;
 
-struct _ROFSHANDLE
+struct _ROFSNODE
 {
-    ROFSPROC * mpProc;
-    K2TREE_NODE     HandleTreeNode;
-    K2LIST_LINK     ProcHandleListLink;
-};
-
-struct _ROFSUSER_PROC
-{
-    UINT32          mProcessId;
-    K2LIST_LINK     ProcListLink;
-
-    K2LIST_ANCHOR   UserList;
-    K2LIST_ANCHOR   HandleList;
-};
-
-struct _ROFSUSER
-{
-    ROFSPROC * mpProc;
-    K2LIST_LINK     ProcUserListLink;
+    K2OSKERN_FSNODE     KernFsNode;
+    union
+    {
+        K2ROFS_DIR const *  mpDir;
+        K2ROFS_FILE const * mpFile;
+    };
 };
 
 struct _ROFSEXEC
@@ -68,14 +55,351 @@ struct _ROFSEXEC
 
     K2OS_CRITSEC        Sec;
 
-    K2LIST_ANCHOR       ProcList;
-    K2TREE_ANCHOR       HandleTree;
-    UINT32 volatile     mNextHandleId;
+    K2ROFS const *      mpRofs;
+    UINT32              mPageCount;
+
+    K2OSKERN_FSPROV     KernFsProv;
+    K2OSKERN_FILESYS *  mpFileSys;
+    K2OSKERN_FSNODE *   mpRootFsNode;
 };
-static ROFSEXEC sgExecRofs;
+static ROFSEXEC     sgExecRofs;
+K2OSKERN_FSPROV *   gpRofsProv = NULL;
 
 K2STAT
-K2OSEXEC_RofsRpc_Create(
+RofsNode_GetSizeBytes(
+    K2OSKERN_FSNODE *   apFsNode,
+    UINT64 *            apRetSizeBytes
+)
+{
+    ROFSNODE * pRofsNode;
+
+    pRofsNode = K2_GET_CONTAINER(ROFSNODE, apFsNode, KernFsNode);
+
+    if (!pRofsNode->KernFsNode.Static.mIsDir)
+    {
+        *apRetSizeBytes = pRofsNode->mpFile->mSizeBytes;
+    }
+    else
+    {
+        *apRetSizeBytes = 0;
+    }
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT
+RofsNode_GetTime(
+    K2OSKERN_FSNODE *   apFsNode,
+    UINT64 *            apRetTime
+)
+{
+    ROFSNODE * pRofsNode;
+
+    pRofsNode = K2_GET_CONTAINER(ROFSNODE, apFsNode, KernFsNode);
+
+    if (!pRofsNode->KernFsNode.Static.mIsDir)
+    {
+        *apRetTime = pRofsNode->mpFile->mTime;
+    }
+    else
+    {
+        *apRetTime = 0;
+    }
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT
+RofsNode_Read(
+    K2OSKERN_FSNODE *   apFsNode,
+    void *              apBuffer,
+    UINT64 const *      apOffset,
+    UINT32              aBytes,
+    UINT32 *            apRetBytesRed
+)
+{
+    ROFSNODE *          pRofsNode;
+    UINT32              offset;
+    K2ROFS_FILE const * pFile;
+
+    pRofsNode = K2_GET_CONTAINER(ROFSNODE, apFsNode, KernFsNode);
+
+#if 0
+    K2OSKERN_Debug("ROFS - read file %08X %08X%08X %d\n",
+        apBuffer,
+        (UINT32)((*apOffset) >> 32), (UINT32)((*apOffset) & 0xFFFFFFFFull),
+        aBytes);
+#endif
+
+    if (pRofsNode->KernFsNode.Static.mIsDir)
+    {
+        return K2STAT_ERROR_NOT_SUPPORTED;
+    }
+
+    if (0 == aBytes)
+    {
+        if (NULL != apRetBytesRed)
+            *apRetBytesRed = 0;
+        return K2STAT_NO_ERROR;
+    }
+
+    pFile = pRofsNode->mpFile;
+
+    offset = (UINT32)(*apOffset);
+
+    if ((offset >= pFile->mSizeBytes) ||
+        ((pFile->mSizeBytes - offset) < aBytes))
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    K2MEM_Copy(apBuffer, K2ROFS_FILEDATA(sgExecRofs.mpRofs, pFile) + offset, aBytes);
+
+    if (NULL != apRetBytesRed)
+    {
+        *apRetBytesRed = aBytes;
+    }
+
+    return K2STAT_NO_ERROR;
+}
+
+typedef struct _ROFSLOCK ROFSLOCK;
+struct _ROFSLOCK
+{
+    K2OSKERN_FSFILE_LOCK FsLock;
+};
+
+K2STAT
+RofsNode_LockData(
+    K2OSKERN_FSNODE *       apFsNode,
+    UINT64 const *          apOffset,
+    UINT32                  aByteCount,
+    BOOL                    aWriteable,
+    K2OSKERN_FSFILE_LOCK ** appRetFileLock
+)
+{
+    ROFSNODE *          pRofsNode;
+    UINT32              offset;
+    UINT32              dataLeft;
+    K2ROFS_FILE const * pFile;
+    ROFSLOCK *          pLock;
+    K2STAT              stat;
+
+    if (aWriteable)
+    {
+        return K2STAT_ERROR_READ_ONLY;
+    }
+
+    K2_ASSERT(NULL != appRetFileLock);
+    K2_ASSERT(NULL != apOffset);
+
+    pRofsNode = K2_GET_CONTAINER(ROFSNODE, apFsNode, KernFsNode);
+
+    if (pRofsNode->KernFsNode.Static.mIsDir)
+    {
+        return K2STAT_ERROR_NOT_SUPPORTED;
+    }
+
+    pFile = pRofsNode->mpFile;
+
+    if (*apOffset >= ((UINT64)pFile->mSizeBytes))
+    {
+        return K2STAT_ERROR_END_OF_FILE;
+    }
+
+    pLock = (ROFSLOCK *)K2OS_Heap_Alloc(sizeof(ROFSLOCK));
+    if (NULL == pLock)
+    {
+        stat = K2OS_Thread_GetLastStatus();
+        K2_ASSERT(K2STAT_IS_ERROR(stat));
+        return stat;
+    }
+
+    K2MEM_Zero(pLock, sizeof(ROFSLOCK));
+
+    pLock->FsLock.mpFsNode = apFsNode;
+
+    if (0 == aByteCount)
+    {
+        pLock->FsLock.mpData = NULL;
+        pLock->FsLock.mLockedByteCount = 0;
+    }
+    else
+    {
+        offset = (UINT32)(*apOffset & 0xFFFFFFFFull);
+
+        dataLeft = pFile->mSizeBytes - offset;
+        if (aByteCount > dataLeft)
+            aByteCount = dataLeft;
+
+        pLock->FsLock.mpData = (UINT8 *)(K2ROFS_FILEDATA(sgExecRofs.mpRofs, pFile) + offset);
+        pLock->FsLock.mLockedByteCount = aByteCount;
+    }
+
+    *appRetFileLock = &pLock->FsLock;
+
+    return K2STAT_NO_ERROR;
+}
+
+void    
+RofsNode_UnlockData(
+    K2OSKERN_FSFILE_LOCK *apLock
+)
+{
+    K2OS_Heap_Free(apLock);
+}
+
+K2STAT
+Rofs_AcquireChild(
+    K2OSKERN_FILESYS *  apFileSys,
+    K2OSKERN_FSNODE *   apFsNode,
+    char const *        apChildName,
+    K2OS_FileOpenType   aOpenType,
+    UINT32              aAccess,
+    UINT32              aNewFileAttrib,
+    K2OSKERN_FSNODE **  appRetFsNode
+)
+{
+    ROFSNODE *          pRofsNode;
+    K2ROFS_DIR const *  pBaseDir;
+    K2ROFS_DIR const *  pDir;
+    K2ROFS_FILE const * pFile;
+    K2STAT              stat;
+    BOOL                disp;
+    K2OSKERN_FSNODE *   pResult;
+    K2TREE_NODE *       pTreeNode;
+
+    stat = K2STAT_ERROR_UNKNOWN;
+
+//    K2OSKERN_Debug("Rofs_AcquireChild(%s,%s)\n", apFsNode->Static.mName, apChildName);
+
+    K2_ASSERT(apFileSys == sgExecRofs.mpFileSys);
+
+    if (0 != (aAccess & K2OS_ACCESS_W))
+    {
+        return K2STAT_ERROR_READ_ONLY;
+    }
+
+    K2OS_CritSec_Enter(&sgExecRofs.Sec);
+
+    do
+    {
+        if (apFsNode == sgExecRofs.mpRootFsNode)
+        {
+            pBaseDir = K2ROFS_ROOTDIR(sgExecRofs.mpRofs);
+        }
+        else
+        {
+            pRofsNode = K2_GET_CONTAINER(ROFSNODE, apFsNode, KernFsNode);
+            if (!pRofsNode->KernFsNode.Static.mIsDir)
+            {
+                stat = K2STAT_ERROR_NO_INTERFACE;
+                break;
+            }
+            pBaseDir = pRofsNode->mpDir;
+        }
+
+        pDir = K2ROFSHELP_SubDir(sgExecRofs.mpRofs, pBaseDir, apChildName);
+        if (NULL == pDir)
+        {
+            pFile = K2ROFSHELP_SubFile(sgExecRofs.mpRofs, pBaseDir, apChildName);
+            if (NULL == pFile)
+            {
+                stat = K2STAT_ERROR_NOT_FOUND;
+                break;
+            }
+        }
+        else
+        {
+            pFile = NULL;
+        }
+
+        pRofsNode = (ROFSNODE *)K2OS_Heap_Alloc(sizeof(ROFSNODE));
+        if (NULL == pRofsNode)
+        {
+            stat = K2STAT_ERROR_OUT_OF_MEMORY;
+            break;
+        }
+        
+        K2MEM_Zero(pRofsNode, sizeof(ROFSNODE));
+        apFileSys->Ops.Kern.FsNodeInit(apFileSys, &pRofsNode->KernFsNode);
+        K2ASC_CopyLen(pRofsNode->KernFsNode.Static.mName, apChildName, K2OS_FSITEM_MAX_COMPONENT_NAME_LENGTH - 1);
+        pRofsNode->KernFsNode.Static.mName[K2OS_FSITEM_MAX_COMPONENT_NAME_LENGTH] = 0;
+        if (NULL != pDir)
+        {
+            pRofsNode->mpDir = pDir;
+            pRofsNode->KernFsNode.Static.mIsDir = TRUE;
+            pRofsNode->KernFsNode.Locked.mFsAttrib = K2_FSATTRIB_DIR;
+        }
+        else
+        {
+            // files must start on a page align boundary
+            K2_ASSERT(0 == ((pFile->mStartSectorOffset * K2ROFS_SECTOR_BYTES) & K2_VA_MEMPAGE_OFFSET_MASK));
+            pRofsNode->mpFile = pFile;
+            pRofsNode->KernFsNode.Static.Ops.Fs.GetSizeBytes = RofsNode_GetSizeBytes;
+            pRofsNode->KernFsNode.Static.Ops.Fs.GetTime = RofsNode_GetTime;
+            pRofsNode->KernFsNode.Static.Ops.Fs.LockData = RofsNode_LockData;
+            pRofsNode->KernFsNode.Static.Ops.Fs.UnlockData = RofsNode_UnlockData;
+        }
+
+        disp = K2OSKERN_SeqLock(&apFsNode->ChangeSeqLock);
+
+        pTreeNode = K2TREE_Find(&apFsNode->Locked.ChildTree, (UINT_PTR)apChildName);
+        if (NULL == pTreeNode)
+        {
+            pRofsNode->KernFsNode.Static.mpParentDir = apFsNode;
+            apFsNode->Static.Ops.Kern.AddRef(apFsNode);
+            K2TREE_Insert(&apFsNode->Locked.ChildTree, (UINT_PTR)apChildName, &pRofsNode->KernFsNode.ParentLocked.ParentsChildTreeNode);
+        }
+        else
+        {
+            pResult = K2_GET_CONTAINER(K2OSKERN_FSNODE, pTreeNode, ParentLocked.ParentsChildTreeNode);
+            K2_ASSERT(pResult->Static.mpParentDir == apFsNode);
+            K2ATOMIC_Inc(&pResult->mRefCount);
+        }
+
+        K2OSKERN_SeqUnlock(&apFsNode->ChangeSeqLock, disp);
+
+        if (NULL != pTreeNode)
+        {
+            // was already found when we went to add it
+            K2OS_Heap_Free(pRofsNode);
+            *appRetFsNode = pResult;
+        }
+        else
+        {
+            *appRetFsNode = &pRofsNode->KernFsNode;
+        }
+
+        stat = K2STAT_NO_ERROR;
+
+    } while (0);
+
+    K2OS_CritSec_Leave(&sgExecRofs.Sec);
+
+    return stat;
+}
+
+void    
+Rofs_FreeClosedNode(
+    K2OSKERN_FILESYS *  apFileSys,
+    K2OSKERN_FSNODE *   apFsNode
+)
+{
+    ROFSNODE * pRofsNode;
+
+    K2_ASSERT(apFileSys == sgExecRofs.mpFileSys);
+
+    // 
+    // node has already been removed from parent
+    //
+
+    pRofsNode = K2_GET_CONTAINER(ROFSNODE, apFsNode, KernFsNode);
+    K2OS_Heap_Free(pRofsNode);
+}
+
+K2STAT
+Rofs_RpcObj_Create(
     K2OS_RPC_OBJ                aObject,
     K2OS_RPC_OBJ_CREATE const * apCreate,
     UINT32 *                    apRetContext
@@ -91,198 +415,93 @@ K2OSEXEC_RofsRpc_Create(
 
     sgExecRofs.mRpcObj = aObject;
 
-    K2OSKERN_Debug("%s() ok\n", __FUNCTION__);
-
     return K2STAT_NO_ERROR;
 }
 
 K2STAT
-K2OSEXEC_RofsRpc_OnAttach(
+Rofs_RpcObj_OnAttach(
     K2OS_RPC_OBJ    aObject,
     UINT32          aObjContext,
     UINT32          aProcessId,
     UINT32 *        apRetUseContext
 )
 {
-    ROFSPROC * pNewProc;
-    ROFSPROC * pProc;
-    ROFSUSER *      pUser;
-    K2LIST_LINK *   pListLink;
-
-    K2OSKERN_Debug("%s()\n", __FUNCTION__);
-
-    pUser = (ROFSUSER *)K2OS_Heap_Alloc(sizeof(ROFSUSER));
-    if (NULL == pUser)
-    {
-        return K2OS_Thread_GetLastStatus();
-    }
-    K2MEM_Zero(pUser, sizeof(ROFSUSER));
-    
-    K2OS_CritSec_Enter(&sgExecRofs.Sec);
-
-    pListLink = sgExecRofs.ProcList.mpHead;
-    if (NULL != pListLink)
-    {
-        do {
-            pProc = K2_GET_CONTAINER(ROFSPROC, pListLink, ProcListLink);
-            if (pProc->mProcessId == aProcessId)
-            {
-                pUser->mpProc = pProc;
-                K2LIST_AddAtTail(&pProc->UserList, &pUser->ProcUserListLink);
-                break;
-            }
-            pListLink = pListLink->mpNext;
-        } while (NULL != pListLink);
-    }
-
-    K2OS_CritSec_Leave(&sgExecRofs.Sec);
-
-    if (NULL != pListLink)
-    {
-        *apRetUseContext = (UINT32)pUser;
-        return K2STAT_NO_ERROR;
-    }
-
-    pNewProc = (ROFSPROC *)K2OS_Heap_Alloc(sizeof(ROFSPROC));
-    if (NULL == pNewProc)
-    {
-        K2OS_Heap_Free(pUser);
-        return K2STAT_ERROR_OUT_OF_MEMORY;
-    }
-
-    K2MEM_Zero(pNewProc, sizeof(ROFSPROC));
-    K2LIST_Init(&pNewProc->HandleList);
-    K2LIST_Init(&pNewProc->UserList);
-    pNewProc->mProcessId = aProcessId;
-    
-    K2OS_CritSec_Enter(&sgExecRofs.Sec);
-
-    pListLink = sgExecRofs.ProcList.mpHead;
-    if (NULL != pListLink)
-    {
-        do {
-            pProc = K2_GET_CONTAINER(ROFSPROC, pListLink, ProcListLink);
-            if (pProc->mProcessId == aProcessId)
-            {
-                pUser->mpProc = pProc;
-                K2LIST_AddAtTail(&pProc->UserList, &pUser->ProcUserListLink);
-                break;
-            }
-            pListLink = pListLink->mpNext;
-        } while (NULL != pListLink);
-    }
-
-    if (NULL == pListLink)
-    {
-        pUser->mpProc = pNewProc;
-        K2LIST_AddAtTail(&pNewProc->UserList, &pUser->ProcUserListLink);
-        K2LIST_AddAtTail(&sgExecRofs.ProcList, &pNewProc->ProcListLink);
-        pNewProc = NULL;
-    }
-
-    K2OS_CritSec_Leave(&sgExecRofs.Sec);
-
-    if (NULL != pNewProc)
-    {
-        K2OS_Heap_Free(pNewProc);
-    }
-
-    *apRetUseContext = (UINT32)pUser;
-
+    if (0 != aProcessId)
+        return K2STAT_ERROR_NOT_ALLOWED;
     return K2STAT_NO_ERROR;
 }
 
 K2STAT
-K2OSEXEC_RofsRpc_OnDetach(
+Rofs_RpcObj_OnDetach(
     K2OS_RPC_OBJ    aObject,
     UINT32          aObjContext,
     UINT32          aUseContext
 )
 {
-    ROFSUSER *      pUser;
-    ROFSPROC * pProc;
-    K2LIST_LINK *   pListLink;
-    ROFSHANDLE *    pHandle;
-
-    K2OSKERN_Debug("%s()\n", __FUNCTION__);
-
-    pUser = (ROFSUSER *)aUseContext;
-    pProc = pUser->mpProc;
-
-    K2OS_CritSec_Enter(&sgExecRofs.Sec);
-
-    K2LIST_Remove(&pProc->UserList, &pUser->ProcUserListLink);
-    if (0 == pProc->UserList.mNodeCount)
-    {
-        //
-        // last user in process is detaching
-        //
-        K2LIST_Remove(&sgExecRofs.ProcList, &pProc->ProcListLink);
-        pListLink = pProc->HandleList.mpHead;
-        if (NULL != pListLink)
-        {
-            //
-            // process has open handles when last user from process is detaching
-            //
-            do {
-                pHandle = K2_GET_CONTAINER(ROFSHANDLE, pListLink, ProcHandleListLink);
-                pListLink = pListLink->mpNext;
-                K2TREE_Remove(&sgExecRofs.HandleTree, &pHandle->HandleTreeNode);
-                K2LIST_Remove(&pProc->HandleList, &pHandle->ProcHandleListLink);
-                // dec refcount on target of handle
-                K2_ASSERT(0);
-                K2OS_Heap_Free(pHandle);
-            } while (NULL != pListLink);
-        }
-    }
-    else
-    {
-        pProc = NULL;
-    }
-
-    K2OS_CritSec_Leave(&sgExecRofs.Sec);
-
-    K2OS_Heap_Free(pUser);
-
-    if (NULL != pProc)
-    {
-        K2_ASSERT(0 == pProc->HandleList.mNodeCount);
-        K2_ASSERT(0 == pProc->UserList.mNodeCount);
-        K2OS_Heap_Free(pProc);
-    }
-
     return K2STAT_NO_ERROR;
 }
 
 K2STAT
-K2OSEXEC_RofsRpc_Call(
+Rofs_RpcObj_Call(
     K2OS_RPC_OBJ_CALL const *   apCall,
     UINT32 *                    apRetUsedOutBytes
 )
 {
-    K2OS_FILESYS_OPENROOT_OUT   openOut;
-    K2OSKERN_Debug("%s(%d)\n", __FUNCTION__, apCall->Args.mMethodId);
+    K2STAT  stat;
+    UINT32  u32;
 
-    if (K2OS_FILESYS_METHOD_OPEN_ROOT != apCall->Args.mMethodId)
+    stat = K2STAT_ERROR_UNKNOWN;
+
+    switch (apCall->Args.mMethodId)
     {
-        return K2STAT_ERROR_NOT_IMPL;
-    }
+    case K2OS_FsProv_Method_GetCount:
+        if ((apCall->Args.mInBufByteCount > 0) ||
+            (apCall->Args.mOutBufByteCount < sizeof(UINT32)))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else
+        {
+            u32 = 1;
+            K2MEM_Copy(apCall->Args.mpOutBuf, &u32, sizeof(u32));
+            *apRetUsedOutBytes = sizeof(UINT32);
+            stat = K2STAT_NO_ERROR;
+        }
+        break;
 
-    if ((apCall->Args.mInBufByteCount > 0) ||
-        (apCall->Args.mOutBufByteCount < sizeof(K2OS_FILESYS_OPENROOT_OUT)))
-    {
-        return K2STAT_ERROR_BAD_ARGUMENT;
-    }
+    case K2OS_FsProv_Method_GetEntry:
+        if ((apCall->Args.mInBufByteCount < sizeof(UINT32)) ||
+            (apCall->Args.mOutBufByteCount < sizeof(void *)))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else
+        {
+            K2MEM_Copy(&u32, apCall->Args.mpInBuf, sizeof(UINT32));
+            if (u32 > 0)
+            {
+                stat = K2STAT_ERROR_OUT_OF_BOUNDS;
+            }
+            else
+            {
+                u32 = (UINT32)&sgExecRofs.KernFsProv;
+                K2MEM_Copy(apCall->Args.mpOutBuf, &u32, sizeof(void *));
+                *apRetUsedOutBytes = sizeof(void *);
+                stat = K2STAT_NO_ERROR;
+            }
+        }
+        break;
 
-    K2MEM_Zero(&openOut, sizeof(openOut));
+    default:
+        stat = K2STAT_ERROR_NOT_IMPL;
+        break;
+    };
 
-
-    K2MEM_Copy(apCall->Args.mpOutBuf, &openOut, sizeof(openOut));
-    return K2STAT_ERROR_NOT_IMPL;
+    return stat;
 }
 
 K2STAT
-K2OSEXEC_RofsRpc_Delete(
+Rofs_RpcObj_Delete(
     K2OS_RPC_OBJ    aObject,
     UINT32          aObjContext
 )
@@ -291,34 +510,78 @@ K2OSEXEC_RofsRpc_Delete(
     return K2STAT_ERROR_UNKNOWN;
 }
 
+K2STAT
+Rofs_Probe(
+    K2OSKERN_FSPROV *   apProv,
+    void *              apContext,
+    BOOL *              apRetMatched
+)
+{
+    if ((apProv != &sgExecRofs.KernFsProv) ||
+        (apContext != &sgExecRofs.KernFsProv))
+        return K2STAT_ERROR_NOT_FOUND;
+
+    *apRetMatched = TRUE;
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT
+Rofs_Attach(
+    K2OSKERN_FSPROV *   apProv,
+    K2OSKERN_FILESYS *  apFileSys,
+    K2OSKERN_FSNODE *   apRootFsNode
+)
+{
+    if ((apProv != &sgExecRofs.KernFsProv) ||
+        (apFileSys->Kern.mpAttachContext != &sgExecRofs.KernFsProv))
+        return K2STAT_ERROR_BAD_ARGUMENT;
+
+    sgExecRofs.mpFileSys = apFileSys;
+    apFileSys->Ops.Fs.AcquireChild = Rofs_AcquireChild;
+    apFileSys->Ops.Fs.FreeClosedNode = Rofs_FreeClosedNode;
+    apFileSys->Fs.mReadOnly = TRUE;
+    apFileSys->Fs.mCaseSensitive = FALSE;
+    apFileSys->Fs.mProvInstanceContext = (UINT32)&sgExecRofs;
+    apFileSys->Fs.mDoNotUseForPaging = TRUE;
+
+    sgExecRofs.mpRootFsNode = apRootFsNode;
+
+    return K2STAT_NO_ERROR;
+}
+
 void
 Rofs_Init(
-    void
+    K2ROFS const *apRofs
 )
 {
     // {411A183D-7D95-4126-867C-8B0F1A918927}
     static const K2OS_RPC_OBJ_CLASSDEF sExecRofsClassDef =
     {
         { 0x411a183d, 0x7d95, 0x4126, { 0x86, 0x7c, 0x8b, 0xf, 0x1a, 0x91, 0x89, 0x27 } },
-        K2OSEXEC_RofsRpc_Create,
-        K2OSEXEC_RofsRpc_OnAttach,
-        K2OSEXEC_RofsRpc_OnDetach,
-        K2OSEXEC_RofsRpc_Call,
-        K2OSEXEC_RofsRpc_Delete
+        Rofs_RpcObj_Create,
+        Rofs_RpcObj_OnAttach,
+        Rofs_RpcObj_OnDetach,
+        Rofs_RpcObj_Call,
+        Rofs_RpcObj_Delete
     };
-    static const K2_GUID128 sFileSysIfaceId = K2OS_IFACE_FILESYS;
+    static const K2_GUID128 sFsProvIfaceId = K2OS_IFACE_FSPROV;
 
     K2OS_RPC_CLASS      rofsClass;
     K2OS_RPC_OBJ_HANDLE hRpcObj;
 
     K2MEM_Zero(&sgExecRofs, sizeof(sgExecRofs));
-    K2LIST_Init(&sgExecRofs.ProcList);
-    K2TREE_Init(&sgExecRofs.HandleTree, NULL);
-    sgExecRofs.mNextHandleId = 1;
     if (!K2OS_CritSec_Init(&sgExecRofs.Sec))
     {
         K2OSKERN_Panic("ROFS: Critsec init failed\n");
     }
+    K2ASC_Copy(sgExecRofs.KernFsProv.mName, "builtin");
+    sgExecRofs.KernFsProv.mFlags = 0;
+    sgExecRofs.KernFsProv.Ops.Probe = Rofs_Probe;
+    sgExecRofs.KernFsProv.Ops.Attach = Rofs_Attach;
+    sgExecRofs.mpRofs = apRofs;
+    sgExecRofs.mPageCount = ((sgExecRofs.mpRofs->mSectorCount * K2ROFS_SECTOR_BYTES) + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES;
+    gpRofsProv = &sgExecRofs.KernFsProv;
 
     rofsClass = K2OS_RpcServer_Register(&sExecRofsClassDef, 0);
     if (NULL == rofsClass)
@@ -334,8 +597,8 @@ Rofs_Init(
 
     sgExecRofs.mRpcIfInst = K2OS_RpcObj_AddIfInst(
         sgExecRofs.mRpcObj,
-        K2OS_IFACE_CLASSCODE_FILESYS,
-        &sFileSysIfaceId,
+        K2OS_IFACE_CLASSCODE_FSPROV,
+        &sFsProvIfaceId,
         &sgExecRofs.mIfInstId,
         TRUE
     );
@@ -343,5 +606,6 @@ Rofs_Init(
     {
         K2OSKERN_Panic("ROFS: Could not publish rofs ifinst\n");
     }
-}
 
+    //    Rofs_LoadAllKernelBuiltIn();
+}

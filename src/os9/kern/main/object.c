@@ -74,12 +74,158 @@ ValidateList(
 #define ValidateList(x)
 #endif
 
+static UINT_PTR const sgObjSizes[] =
+{
+    0,                                       //KernObjType_Invalid = 0,
+    sizeof(K2OSKERN_OBJ_PROCESS),            //KernObj_Process,        // 1
+    sizeof(K2OSKERN_OBJ_THREAD),             //KernObj_Thread,         // 2
+    sizeof(K2OSKERN_OBJ_PAGEARRAY),          //KernObj_PageArray,      // 3
+    sizeof(K2OSKERN_OBJ_VIRTMAP),            //KernObj_VirtMap,        // 4
+    sizeof(K2OSKERN_OBJ_NOTIFY),             //KernObj_Notify,         // 5
+    sizeof(K2OSKERN_OBJ_GATE),               //KernObj_Gate,           // 6
+    sizeof(K2OSKERN_OBJ_ALARM),              //KernObj_Alarm,          // 7
+    sizeof(K2OSKERN_OBJ_SEM),                //KernObj_Sem,            // 8
+    sizeof(K2OSKERN_OBJ_SEMUSER),            //KernObj_SemUser,        // 9 
+    sizeof(K2OSKERN_OBJ_INTERRUPT),          //KernObj_Interrupt,      // 10
+    sizeof(K2OSKERN_OBJ_MAILBOX),            //KernObj_Mailbox,        // 11
+    sizeof(K2OSKERN_OBJ_MAILBOXOWNER),       //KernObj_MailboxOwner,   // 12
+    sizeof(K2OSKERN_OBJ_MAILSLOT),           //KernObj_Mailslot,       // 13
+    sizeof(K2OSKERN_OBJ_IFINST),             //KernObj_IfInst,         // 14
+    sizeof(K2OSKERN_OBJ_IFENUM),             //KernObj_IfEnum,         // 15
+    sizeof(K2OSKERN_OBJ_IFSUBS),             //KernObj_IfSubs,         // 16
+    sizeof(K2OSKERN_OBJ_IPCEND),             //KernObj_IpcEnd,         // 17
+    sizeof(K2OSKERN_OBJ_NOTIFYPROXY)         //KernObj_NotifyProxy,    // 18
+};
+K2_STATIC_ASSERT(sizeof(sgObjSizes) == (sizeof(UINT_PTR) * KernObjType_Count));
+
 void    
 KernObj_Init(
     void
 )
 {
+    UINT_PTR ix;
+
     K2OSKERN_SeqInit(&gData.Obj.SeqLock);
+
+    for (ix = 0; ix < KernObjType_Count; ix++)
+    {
+        K2LIST_Init(&gData.Obj.Cache[ix]);
+    }
+}
+
+K2OSKERN_OBJ_HEADER *
+KernObj_Alloc(
+    KernObjType aObjType
+)
+{
+    K2LIST_ANCHOR *         pList;
+    K2LIST_LINK *           pListLink;
+    BOOL                    disp;
+    K2OSKERN_OBJ_HEADER *   pObjHdr;
+    UINT32                  virtAddr;
+    UINT32                  physAddr;
+    K2OSKERN_PHYSRES        res;
+    K2LIST_ANCHOR           physTrack;
+    K2STAT                  stat;
+    UINT32                  objSize;
+
+    K2_ASSERT((aObjType > KernObjType_Invalid) && (aObjType < KernObjType_Count));
+
+    pObjHdr = NULL;
+    pList = &gData.Obj.Cache[aObjType];
+    objSize = (sgObjSizes[aObjType] + 4) & ~3;
+
+    disp = K2OSKERN_SeqLock(&gData.Obj.SeqLock);
+
+    pListLink = pList->mpHead;
+
+    if (NULL == pListLink)
+    {
+        if (KernPhys_Reserve_Init(&res, 1))
+        {
+            virtAddr = KernVirt_Reserve(1);
+            if (0 != virtAddr)
+            {
+                stat = KernPhys_AllocSparsePages(&res, 1, &physTrack);
+                K2_ASSERT(!K2STAT_IS_ERROR(stat));
+                physAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)physTrack.mpHead);
+                KernPte_MakePageMap(NULL, virtAddr, physAddr, K2OS_MAPTYPE_KERN_DATA);
+
+                physAddr = K2_VA_MEMPAGE_BYTES / objSize;
+                do
+                {
+                    K2LIST_AddAtTail(pList, (K2LIST_LINK *)virtAddr);
+                    virtAddr += objSize;
+                } while (--physAddr);
+
+                // take the first one
+                pListLink = pList->mpHead;
+                K2_ASSERT(NULL != pListLink);
+            }
+            else
+            {
+                KernPhys_Reserve_Release(&res);
+            }
+        }
+    }
+
+    if (NULL != pListLink)
+    {
+        K2LIST_Remove(pList, pListLink);
+    }
+
+    K2OSKERN_SeqUnlock(&gData.Obj.SeqLock, disp);
+
+    if (NULL == pListLink)
+        return NULL;
+
+    pObjHdr = (K2OSKERN_OBJ_HEADER *)pListLink;
+
+    K2MEM_Zero(pObjHdr, sgObjSizes[aObjType]);
+    pObjHdr->mObjType = aObjType;
+    K2LIST_Init(&pObjHdr->RefObjList);
+
+    return pObjHdr;
+}
+
+void
+KernObj_Free(
+    K2OSKERN_OBJ_HEADER *apObjHdr
+)
+{
+    KernObjType objType;
+    BOOL        disp;
+
+    objType = apObjHdr->mObjType;
+
+    K2_ASSERT((objType > KernObjType_Invalid) && (objType < KernObjType_Count));
+    K2_ASSERT(0 == apObjHdr->RefObjList.mNodeCount);
+    K2_ASSERT(0 == apObjHdr->mTokenCount);
+
+    if (KernObj_PageArray == apObjHdr->mObjType)
+    {
+        disp = (KernPageArray_Sparse == ((K2OSKERN_OBJ_PAGEARRAY *)apObjHdr)->mPageArrayType) ? TRUE : FALSE;
+    }
+    else
+    {
+        disp = FALSE;
+    }
+
+    K2MEM_Zero(apObjHdr, sgObjSizes[objType]);
+
+    if (disp)
+    {
+        disp = KernHeap_Free(apObjHdr);
+        K2_ASSERT(disp);
+    }
+    else
+    {
+        disp = K2OSKERN_SeqLock(&gData.Obj.SeqLock);
+
+        K2LIST_AddAtTail(&gData.Obj.Cache[objType], (K2LIST_LINK *)apObjHdr);
+
+        K2OSKERN_SeqUnlock(&gData.Obj.SeqLock, disp);
+    }
 }
 
 #if DEBUG_REF
@@ -115,6 +261,7 @@ KernObj_CreateRef(
 #if DEBUG_REF
     apRef->mpFile = apFile;
     apRef->mLine = aLine;
+    K2OSKERN_Debug("o %08X %s %08X %d->%d %s:%d\n", apTarget, KernObj_Name(apTarget->mObjType), apRef, apTarget->RefObjList.mNodeCount, apTarget->RefObjList.mNodeCount + 1, apFile, aLine);
 #endif
 
     ValidateList(&apTarget->RefObjList);
@@ -138,10 +285,19 @@ KernObj_CleanupDpc(
     void *                      apArg
 );
 
+#if DEBUG_REF
+UINT32 
+KernObj_DebugReleaseRef(
+    K2OSKERN_OBJREF *   apRef, 
+    char const *        apFile, 
+    int                 aLine
+)
+#else
 UINT32 
 KernObj_ReleaseRef(
     K2OSKERN_OBJREF * apRef
 )
+#endif
 {
     K2OSKERN_CPUCORE volatile * pThisCore;
     BOOL                        disp;
@@ -191,6 +347,10 @@ KernObj_ReleaseRef(
     }
 #endif
 
+#if DEBUG_REF
+    K2OSKERN_Debug("o %08X %s %08X %d->%d %s:%d\n", pHdr, KernObj_Name(pHdr->mObjType), apRef, pHdr->RefObjList.mNodeCount, pHdr->RefObjList.mNodeCount - 1, apFile, aLine);
+#endif
+
     K2_ASSERT(pHdr->RefObjList.mNodeCount != 0);
     ValidateList(&pHdr->RefObjList);
     K2LIST_Remove(&pHdr->RefObjList, &apRef->RefObjListLink);
@@ -224,13 +384,35 @@ KernObj_ReleaseRef(
                 // interrupts stay off when we exit the seqlock below
                 // otherwise the core may change as this is a thread
                 //
-                disp = FALSE;   
+                disp = FALSE;
                 doEnterMonitor = TRUE;
             }
 
             pHdr->mObjFlags |= K2OSKERN_OBJ_FLAG_REFS_DEC_TO_ZERO;
             K2_CpuWriteBarrier();
         }
+#if 0
+        else
+        {
+            if (KernObj_Process == pHdr->mObjType)
+            {
+                K2LIST_LINK *pListLink;
+                K2OSKERN_OBJREF *pRef;
+
+                K2OSKERN_Debug("    PROCESS\n");
+
+                pListLink = pHdr->RefObjList.mpHead;
+                do
+                {
+                    pRef = K2_GET_CONTAINER(K2OSKERN_OBJREF, pListLink, RefObjListLink);
+                    pListLink = pListLink->mpNext;
+                    K2OSKERN_Debug("    r %08X %s:%d\n", pRef, pRef->mpFile, pRef->mLine);
+                } while (NULL != pListLink);
+
+
+            }
+        }
+#endif
     }
     else
     {
@@ -254,7 +436,7 @@ KernObj_ReleaseRef(
             pThisThread = pThisCore->mpActiveThread;
             K2_ASSERT(pThisThread->mIsKernelThread);
 
-            KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
+            KernArch_IntsOff_SaveKernelThreadStateAndEnterMonitor(pThisCore, pThisThread);
 
             //
             // interrupts will be on when we return
@@ -268,7 +450,7 @@ KernObj_ReleaseRef(
 
 typedef void (*K2OSKERN_pf_Cleanup)(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_HEADER *apHdr);
 
-static const K2OSKERN_pf_Cleanup sgCleanupFunc[] =// KernObj_Count
+static const K2OSKERN_pf_Cleanup sgCleanupFunc[] =
 {
     NULL,                   // Error
     (K2OSKERN_pf_Cleanup)KernProc_Cleanup,          // KernObj_Process,        // 1
@@ -290,7 +472,7 @@ static const K2OSKERN_pf_Cleanup sgCleanupFunc[] =// KernObj_Count
     (K2OSKERN_pf_Cleanup)KernIpcEnd_Cleanup,        // KernObj_IpcEnd,         // 17
     (K2OSKERN_pf_Cleanup)KernNotifyProxy_Cleanup,   // KernObj_NotifyProxy     // 18
 };
-K2_STATIC_ASSERT(sizeof(sgCleanupFunc) == (KernObj_Count * sizeof(K2OSKERN_pf_Cleanup)));
+K2_STATIC_ASSERT(sizeof(sgCleanupFunc) == (KernObjType_Count * sizeof(K2OSKERN_pf_Cleanup)));
 
 void
 KernObj_CleanupDpc(
@@ -339,8 +521,8 @@ KernObj_Name(
     KernObjType aType
 )
 {
-    if ((aType == KernObj_Error) ||
-        (aType >= KernObj_Count))
+    if ((aType == KernObjType_Invalid) ||
+        (aType >= KernObjType_Count))
         return sgpNoName;
     return sgNames[aType];
 }

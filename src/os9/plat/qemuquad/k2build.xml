@@ -34,5 +34,5 @@
 -->
 <k2build arch="a32" type="img">
     <plat>~plat/qemuquad/kern/k2osplat</plat>    
-    <builtin>~user/driver/fsusdhc</builtin>
+    <kern_builtin>~kern/driver/storerun</kern_builtin>
 </k2build>

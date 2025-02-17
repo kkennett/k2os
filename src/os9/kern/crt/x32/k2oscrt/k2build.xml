@@ -38,6 +38,7 @@
     <source>x32entry_asm.s</source>
     <source>x32entry.c</source>
     <source>x32cache.c</source>
+    <source>@shared/k2time.c</source>
     <lib>@shared/lib/k2archx32</lib>
     <lib>@shared/lib/k2mem</lib>
     <lib>@shared/lib/k2asc</lib>

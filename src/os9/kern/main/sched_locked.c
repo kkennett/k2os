@@ -228,7 +228,7 @@ KernSched_Locked_MakeThreadRun(
     //
     // put this thread onto the selected core
     //
-    KTRACE(gData.Sched.mpSchedulingCore, 4, KTRACE_THREAD_MIGRATE, apThread->mIsKernelThread ? 0 : apThread->User.ProcRef.AsProc->mId, apThread->mGlobalIx, pTargetCore->mCoreIx);
+    KTRACE(gData.Sched.mpSchedulingCore, 4, KTRACE_THREAD_MIGRATE, apThread->mIsKernelThread ? 0 : apThread->RefProc.AsProc->mId, apThread->mGlobalIx, pTargetCore->mCoreIx);
     KernCpu_MigrateThreadToCore(apThread, pTargetCore);
 
     //
@@ -414,7 +414,7 @@ KernSched_Locked_MacroWaitTimeoutExpired(
 
     pWaitingThread = apMacroWait->mpWaitingThread;
 
-    K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);
+    K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);   // waitio not possible
 
     KernSched_Locked_DismountWait(apMacroWait, !pWaitingThread->mIsKernelThread);
 
@@ -477,7 +477,7 @@ KernSched_Locked_AlarmFired(
                 }
                 pWaitingThread->mpKernRwViewOfThreadPage->mSysCall_Arg7_Result0 = K2OS_Wait_Signalled_0 + pWaitEntry->mMacroIndex;
 
-                K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);
+                K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState); // waitio not possible
 
                 KernSched_Locked_DismountWait(pMacroWait, !pWaitingThread->mIsKernelThread);
 
@@ -601,7 +601,7 @@ KernSched_Locked_AbortNotify(
         pWaitingThread->mpKernRwViewOfThreadPage->mSysCall_Arg7_Result0 = K2OS_Wait_Abandoned_0 + pWaitEntry->mMacroIndex;
         pWaitingThread->mpKernRwViewOfThreadPage->mLastStatus = aStatus;
 
-        K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);
+        K2_ASSERT((KernThreadState_Waiting == pWaitingThread->mState) || ((pWaitingThread->mIsKernelThread) && (KernThreadState_WaitIo == pWaitingThread->mState)));
 
         KernSched_Locked_DismountWait(pMacroWait, !pWaitingThread->mIsKernelThread);
 
@@ -613,14 +613,14 @@ KernSched_Locked_AbortNotify(
             // notify may being aborted due to process exiting.
             // do not make the thread run if the process is in its exit code
             //
-            if (KernProcState_Stopping > pWaitingThread->User.ProcRef.AsProc->mState)
+            if (KernProcState_Stopping > pWaitingThread->RefProc.AsProc->mState)
             {
                 KernSched_Locked_MakeThreadRun(pWaitingThread);
             }
             else
             {
-                K2_ASSERT(apProcess == pWaitingThread->User.ProcRef.AsProc);
-                KernSched_Locked_ExitThread(pWaitingThread, pWaitingThread->User.ProcRef.AsProc->mExitCode);
+                K2_ASSERT(apProcess == pWaitingThread->RefProc.AsProc);
+                KernSched_Locked_ExitThread(pWaitingThread, pWaitingThread->RefProc.AsProc->mExitCode);
             }
         }
         else
@@ -685,7 +685,7 @@ KernSched_Locked_SignalNotify(
             }
             pWaitingThread->mpKernRwViewOfThreadPage->mSysCall_Arg7_Result0 = K2OS_Wait_Signalled_0 + pWaitEntry->mMacroIndex;
 
-            K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);
+            K2_ASSERT((KernThreadState_Waiting == pWaitingThread->mState) || ((pWaitingThread->mIsKernelThread) && (KernThreadState_WaitIo == pWaitingThread->mState)));
 
             KernSched_Locked_DismountWait(pMacroWait, !pWaitingThread->mIsKernelThread);
 
@@ -740,7 +740,7 @@ KernSched_Locked_AbortGate(
         pWaitingThread->mpKernRwViewOfThreadPage->mSysCall_Arg7_Result0 = K2OS_Wait_Abandoned_0 + pWaitEntry->mMacroIndex;
         pWaitingThread->mpKernRwViewOfThreadPage->mLastStatus = aStatus;
 
-        K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);
+        K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);   // waitio not possible
 
         KernSched_Locked_DismountWait(pMacroWait, !pWaitingThread->mIsKernelThread);
 
@@ -752,14 +752,14 @@ KernSched_Locked_AbortGate(
             // notify may being aborted due to process exiting.
             // do not make the thread run if the process is in its exit code
             //
-            if (KernProcState_Stopping > pWaitingThread->User.ProcRef.AsProc->mState)
+            if (KernProcState_Stopping > pWaitingThread->RefProc.AsProc->mState)
             {
                 KernSched_Locked_MakeThreadRun(pWaitingThread);
             }
             else
             {
-                K2_ASSERT(apProcess == pWaitingThread->User.ProcRef.AsProc);
-                KernSched_Locked_ExitThread(pWaitingThread, pWaitingThread->User.ProcRef.AsProc->mExitCode);
+                K2_ASSERT(apProcess == pWaitingThread->RefProc.AsProc);
+                KernSched_Locked_ExitThread(pWaitingThread, pWaitingThread->RefProc.AsProc->mExitCode);
             }
         }
         else
@@ -834,7 +834,7 @@ KernSched_Locked_GateChange(
             }
             pWaitingThread->mpKernRwViewOfThreadPage->mSysCall_Arg7_Result0 = K2OS_Wait_Signalled_0 + pWaitEntry->mMacroIndex;
 
-            K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);
+            K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);   // waitio not possible
 
             KernSched_Locked_DismountWait(pMacroWait, !pWaitingThread->mIsKernelThread);
 
@@ -869,7 +869,7 @@ KernSched_Locked_Mailbox_DeliverFromReserve(
 
 BOOL
 KernSched_Locked_IpcEnd_Disconnect(
-    K2OSKERN_OBJ_IPCEND *apLocal
+    K2OSKERN_OBJ_IPCEND *   apLocal
 )
 {
     BOOL                    disp;
@@ -879,7 +879,7 @@ KernSched_Locked_IpcEnd_Disconnect(
     K2OSKERN_OBJ_PROCESS *  pProc;
 
     K2MEM_Zero(&disconnectMsg, sizeof(disconnectMsg));
-    disconnectMsg.mType = K2OS_SYSTEM_MSGTYPE_IPCEND;
+    disconnectMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_IPCEND;
     disconnectMsg.mShort = K2OS_SYSTEM_MSG_IPCEND_SHORT_DISCONNECTED;
 
     disp = K2OSKERN_SeqLock(&apLocal->Connection.SeqLock);
@@ -1014,7 +1014,7 @@ KernSched_Locked_AllProcThreadsExitedAndDpcRan(
     UINT32                  ixToken;
     UINT32                  tokValue;
     K2OSKERN_OBJ_IPCEND *   pIpcEnd;
-    K2OSKERN_OBJREF         refIpcEnd;
+    K2OSKERN_OBJREF         refObj;
     K2OS_MSG                sysProcMsg;
 
     K2_ASSERT(apProc->mState == KernProcState_Stopping);
@@ -1055,7 +1055,7 @@ KernSched_Locked_AllProcThreadsExitedAndDpcRan(
                 }
                 pThread->mpKernRwViewOfThreadPage->mSysCall_Arg7_Result0 = K2OS_Wait_Signalled_0 + pWaitEntry->mMacroIndex;
 
-                K2_ASSERT(KernThreadState_Waiting == pThread->mState);
+                K2_ASSERT(KernThreadState_Waiting == pThread->mState);   // waitio not possible
 
                 KernSched_Locked_DismountWait(pMacroWait, !pThread->mIsKernelThread);
 
@@ -1064,14 +1064,14 @@ KernSched_Locked_AllProcThreadsExitedAndDpcRan(
                 //
                 // theads cannot wait on their own process
                 //
-                K2_ASSERT((pThread->mIsKernelThread) || (pThread->User.ProcRef.AsProc != apProc));
+                K2_ASSERT((pThread->mIsKernelThread) || (pThread->RefProc.AsProc != apProc));
 
                 KernSched_Locked_MakeThreadRun(pThread);
             }
         } while (pListLink != NULL);
     }
 
-    sysProcMsg.mType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
+    sysProcMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
     sysProcMsg.mShort = K2OS_SYSTEM_MSG_SYSPROC_SHORT_PROCESS_STOPPED;
     sysProcMsg.mPayload[0] = apProc->mId;
     sysProcMsg.mPayload[1] = apProc->mExitCode;
@@ -1083,7 +1083,7 @@ KernSched_Locked_AllProcThreadsExitedAndDpcRan(
     // independently of token close because otherwise it
     // will remain connected even though one side is gone.
     //
-    refIpcEnd.AsAny = NULL;
+    refObj.AsAny = NULL;
 
     do {
         disp = K2OSKERN_SeqLock(&apProc->IpcEnd.SeqLock);
@@ -1104,12 +1104,12 @@ KernSched_Locked_AllProcThreadsExitedAndDpcRan(
                     // and when we try to disconnect it outside the locks
                     // below
                     //
-                    KernObj_CreateRef(&refIpcEnd, &pIpcEnd->Hdr);
+                    KernObj_CreateRef(&refObj, &pIpcEnd->Hdr);
                 }
 
                 K2OSKERN_SeqUnlock(&pIpcEnd->Connection.SeqLock, FALSE);
 
-                if (NULL != refIpcEnd.AsAny)
+                if (NULL != refObj.AsAny)
                     break;
 
                 pListLink = pListLink->mpNext;
@@ -1119,10 +1119,10 @@ KernSched_Locked_AllProcThreadsExitedAndDpcRan(
 
         K2OSKERN_SeqUnlock(&apProc->IpcEnd.SeqLock, disp);
 
-        if (NULL != refIpcEnd.AsAny)
+        if (NULL != refObj.AsAny)
         {
-            KernSched_Locked_IpcEnd_Disconnect(refIpcEnd.AsIpcEnd);
-            KernObj_ReleaseRef(&refIpcEnd);
+            KernSched_Locked_IpcEnd_Disconnect(refObj.AsIpcEnd);
+            KernObj_ReleaseRef(&refObj);
         }
 
     } while (NULL != pListLink);
@@ -1221,7 +1221,7 @@ KernSched_Locked_StopProcess(
             pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, pListLink, SchedListLink);
             K2_ASSERT(KernThreadState_InScheduler_ResumeDeferred == pThread->mState);
             pListLink = pListLink->mpNext;
-            if ((!pThread->mIsKernelThread) && (pThread->User.ProcRef.AsProc == apProc))
+            if ((!pThread->mIsKernelThread) && (pThread->RefProc.AsProc == apProc))
             {
                 K2LIST_Remove(&gData.Sched.Locked.DefferedResumeList, &pThread->SchedListLink);
                 KernSched_Locked_ExitThread(pThread, aExitCode);
@@ -1241,7 +1241,7 @@ KernSched_Locked_StopProcess(
             pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, pListLink, OwnerThreadListLink);
             pListLink = pListLink->mpNext;
 
-            if (pThread->mState == KernThreadState_Waiting)
+            if (pThread->mState == KernThreadState_Waiting)   // waitio not possible
             {
                 //
                 // abort the thread wait and remove macrowait from lists it is on
@@ -1287,9 +1287,9 @@ KernSched_Locked_ExitThread(
     apThread->mState = KernThreadState_Exited;
     apThread->mExitCode = aExitCode;
     K2_CpuWriteBarrier();
-    KTRACE(gData.Sched.mpSchedulingCore, 4, KTRACE_THREAD_EXIT, apThread->mIsKernelThread ? 0 : apThread->User.ProcRef.AsProc->mId, apThread->mGlobalIx, aExitCode);
+    KTRACE(gData.Sched.mpSchedulingCore, 4, KTRACE_THREAD_EXIT, apThread->mIsKernelThread ? 0 : apThread->RefProc.AsProc->mId, apThread->mGlobalIx, aExitCode);
 #if K2OSKERN_TRACE_THREAD_LIFE
-    K2OSKERN_Debug("-- Proc %d Thread %d exited with code %08X\n", apThread->mIsKernelThread ? 0 : apThread->User.ProcRef.AsProc->mId, apThread->mGlobalIx, aExitCode);
+    K2OSKERN_Debug("-- Proc %d Thread %d exited with code %08X\n", apThread->mIsKernelThread ? 0 : apThread->RefProc.AsProc->mId, apThread->mGlobalIx, aExitCode);
 #endif
 
     if (apThread->SchedLocked.MacroWaitEntryList.mNodeCount > 0)
@@ -1316,7 +1316,7 @@ KernSched_Locked_ExitThread(
                 }
                 pWaitingThread->mpKernRwViewOfThreadPage->mSysCall_Arg7_Result0 = K2OS_Wait_Signalled_0 + pWaitEntry->mMacroIndex;
 
-                K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);
+                K2_ASSERT((KernThreadState_Waiting == pWaitingThread->mState) || ((pWaitingThread->mIsKernelThread) && (KernThreadState_WaitIo == pWaitingThread->mState)));
 
                 KernSched_Locked_DismountWait(pMacroWait, !pWaitingThread->mIsKernelThread);
 
@@ -1340,7 +1340,7 @@ KernSched_Locked_ExitThread(
     }
     else
     {
-        pProc = apThread->User.ProcRef.AsProc;
+        pProc = apThread->RefProc.AsProc;
         disp = K2OSKERN_SeqLock(&pProc->Thread.SeqLock);
         K2LIST_Remove(&pProc->Thread.SchedLocked.ActiveList, &apThread->OwnerThreadListLink);
         K2LIST_AddAtTail(&pProc->Thread.Locked.DeadList, &apThread->OwnerThreadListLink);
@@ -1351,14 +1351,14 @@ KernSched_Locked_ExitThread(
 
     K2ATOMIC_Dec(&gData.mSystemWideThreadCount);
 
-    sysProcMsg.mType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
+    sysProcMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
     sysProcMsg.mShort = K2OS_SYSTEM_MSG_SYSPROC_SHORT_THREAD_EXITED;
-    sysProcMsg.mPayload[0] = pProc->mId;
+    sysProcMsg.mPayload[0] = (NULL == pProc) ? 0 : pProc->mId;
     sysProcMsg.mPayload[1] = apThread->mGlobalIx;
     sysProcMsg.mPayload[2] = apThread->mExitCode;
     KernSched_Locked_NotifySysProc(&sysProcMsg);
 
-    if ((apThread->mIsKernelThread) || 
+    if ((apThread->mIsKernelThread) ||
         (pProc->Thread.SchedLocked.ActiveList.mNodeCount > 0))
     {
         //
@@ -1428,7 +1428,7 @@ KernSched_Locked_Thread_SysCall_ProcessExit(
 {
     KernSched_Locked_ExitThread(apCallerThread, apCallerThread->User.mSysCall_Arg0);
 
-    KernSched_Locked_StopProcess(apCallerThread->User.ProcRef.AsProc, apCallerThread->User.mSysCall_Arg0);
+    KernSched_Locked_StopProcess(apCallerThread->RefProc.AsProc, apCallerThread->User.mSysCall_Arg0);
 }
 
 void 
@@ -1453,7 +1453,7 @@ KernSched_Locked_Thread_SysCall_ThreadCreate(
     K2_ASSERT(NULL != pNewThread);
     K2_ASSERT(pNewThread->mState == KernThreadState_Created);
     
-    pCallerProc = apCallerThread->User.ProcRef.AsProc;
+    pCallerProc = apCallerThread->RefProc.AsProc;
 
     disp = K2OSKERN_SeqLock(&pCallerProc->Thread.SeqLock);
     K2LIST_Remove(&pCallerProc->Thread.Locked.CreateList, &pNewThread->OwnerThreadListLink);
@@ -1480,7 +1480,7 @@ KernSched_Locked_Thread_SysCall_ThreadCreate(
     KernObj_CreateRef(&pNewThread->Running_SelfRef, &pNewThread->Hdr);
     
     K2ATOMIC_Inc(&gData.mSystemWideThreadCount);
-    sysProcMsg.mType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
+    sysProcMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
     sysProcMsg.mShort = K2OS_SYSTEM_MSG_SYSPROC_SHORT_THREAD_CREATED;
     sysProcMsg.mPayload[0] = pCallerProc->mId;
     sysProcMsg.mPayload[1] = pNewThread->mGlobalIx;
@@ -1522,18 +1522,18 @@ KernSched_Locked_Thread_SysCall_ProcessCreate(
     //
     // now resume new thread
     //
-    KTRACE(gData.Sched.mpSchedulingCore, 3, KTRACE_PROC_START, apNewThread->User.ProcRef.AsProc->mId, apNewThread->mGlobalIx);
+    KTRACE(gData.Sched.mpSchedulingCore, 3, KTRACE_PROC_START, apNewThread->RefProc.AsProc->mId, apNewThread->mGlobalIx);
 #if K2OSKERN_TRACE_THREAD_LIFE
-    K2OSKERN_Debug("-- Proc %d Starting, Thread %d\n", apNewThread->User.ProcRef.AsProc->mId, apNewThread->mGlobalIx);
+    K2OSKERN_Debug("-- Proc %d Starting, Thread %d\n", apNewThread->RefProc.AsProc->mId, apNewThread->mGlobalIx);
 #endif
     KernObj_CreateRef(&apNewThread->Running_SelfRef, &apNewThread->Hdr);
     apNewThread->mState = KernThreadState_InScheduler;
 
     K2ATOMIC_Inc(&gData.mSystemWideProcessCount);
-    sysProcMsg.mType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
+    sysProcMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
     sysProcMsg.mShort = K2OS_SYSTEM_MSG_SYSPROC_SHORT_PROCESS_CREATED;
     sysProcMsg.mPayload[0] = apNewProc->mId;
-    sysProcMsg.mPayload[1] = apCallerThread->User.ProcRef.AsProc->mId;  // process that started it
+    sysProcMsg.mPayload[1] = apCallerThread->RefProc.AsProc->mId;  // process that started it
     sysProcMsg.mPayload[2] = apCallerThread->mGlobalIx;                 // thread that started it
     KernSched_Locked_NotifySysProc(&sysProcMsg);
 
@@ -1626,7 +1626,8 @@ KernSched_Locked_EarlySatisfyWaitEntry(
 
 BOOL
 KernSched_Locked_Thread_Wait(
-    K2OSKERN_OBJ_THREAD *   apCallerThread
+    K2OSKERN_OBJ_THREAD *   apCallerThread,
+    BOOL                    aWaitIo
 )
 {
     K2OSKERN_MACROWAIT *    pMacroWait;
@@ -1829,7 +1830,15 @@ KernSched_Locked_Thread_Wait(
     //
     // at this point, we know that the thread is going to wait
     //
-    apCallerThread->mState = KernThreadState_Waiting;
+    if (aWaitIo)
+    {
+        K2_ASSERT(apCallerThread->mIsKernelThread);
+        apCallerThread->mState = KernThreadState_WaitIo;
+    }
+    else
+    {
+        apCallerThread->mState = KernThreadState_Waiting;
+    }
 
     KernSched_Locked_MountUnsatisfiedWait(pMacroWait);
 
@@ -2105,7 +2114,7 @@ KernSched_Locked_Sem_Inc(
                 }
                 pWaitingThread->mpKernRwViewOfThreadPage->mSysCall_Arg7_Result0 = K2OS_Wait_Signalled_0 + pWaitEntry->mMacroIndex;
 
-                K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);
+                K2_ASSERT(KernThreadState_Waiting == pWaitingThread->mState);   // waitio not possible
 
                 KernSched_Locked_DismountWait(pMacroWait, !pWaitingThread->mIsKernelThread);
 
@@ -2264,7 +2273,7 @@ KernSched_Locked_IpcRejectRequest(
         // send rejection message to the requestors mailbox.
         // sender never knows its own request id so don't bother sending it
         //
-        rejectMsg.mType = K2OS_SYSTEM_MSGTYPE_IPCEND;
+        rejectMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_IPCEND;
         rejectMsg.mShort = K2OS_SYSTEM_MSG_IPCEND_SHORT_REJECTED;
         rejectMsg.mPayload[0] = (UINT32)apIpcEnd->mpUserKey;
         rejectMsg.mPayload[1] = aReasonCode;
@@ -2346,7 +2355,7 @@ KernSched_Locked_LastToken_Destroyed(
             // now for each matching subscriber try to send a notification that
             // the interface instance has departed
             //
-            msg.mType = K2OS_SYSTEM_MSGTYPE_IFINST;
+            msg.mMsgType = K2OS_SYSTEM_MSGTYPE_IFINST;
             msg.mShort = K2OS_SYSTEM_MSG_IFINST_SHORT_DEPART;
             msg.mPayload[1] = pIfInst->IdTreeNode.mUserVal;
 
@@ -2439,9 +2448,10 @@ KernSched_Locked_IfInstPublish(
             pListLink = gData.Iface.SubsList.mpHead;
             if (NULL != pListLink)
             {
-                msg.mType = K2OS_SYSTEM_MSGTYPE_IFINST;
+                msg.mMsgType = K2OS_SYSTEM_MSGTYPE_IFINST;
                 msg.mShort = K2OS_SYSTEM_MSG_IFINST_SHORT_ARRIVE;
                 msg.mPayload[1] = apIfInst->IdTreeNode.mUserVal;
+                msg.mPayload[2] = (NULL == apIfInst->RefProc.AsProc) ? 0 : apIfInst->RefProc.AsProc->mId;
 
                 do {
                     pSubs = K2_GET_CONTAINER(K2OSKERN_OBJ_IFSUBS, pListLink, ListLink);
@@ -2715,10 +2725,12 @@ KernSched_Locked_IpcAccept(
                     //
                     stat = K2STAT_NO_ERROR;
 
+                    // local is the acceptor
                     apLocalIpcEnd->Connection.Locked.mState = KernIpcEndState_Connected;
                     KernObj_CreateRef(&apLocalIpcEnd->Connection.Locked.Connected.PartnerIpcEndRef, &pRemoteIpcEnd->Hdr);
                     KernObj_CreateRef(&apLocalIpcEnd->Connection.Locked.Connected.WriteMapRef, pSchedItem->Args.Ipc_Accept.LocalMapOfRemoteBufferRef.AsAny);
 
+                    // remote is the requestor
                     pRemoteIpcEnd->Connection.Locked.mState = KernIpcEndState_Connected;
                     KernObj_CreateRef(&pRemoteIpcEnd->Connection.Locked.Connected.PartnerIpcEndRef, &apLocalIpcEnd->Hdr);
                     KernObj_CreateRef(&pRemoteIpcEnd->Connection.Locked.Connected.WriteMapRef, pSchedItem->Args.Ipc_Accept.RemoteMapOfLocalBufferRef.AsAny);
@@ -2759,7 +2771,7 @@ KernSched_Locked_IpcAccept(
     if (!K2STAT_IS_ERROR(stat))
     {
 //        K2OSKERN_Debug("\nCONNECT\n\n");
-        connectMsg.mType = K2OS_SYSTEM_MSGTYPE_IPCEND;
+        connectMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_IPCEND;
         connectMsg.mShort = K2OS_SYSTEM_MSG_IPCEND_SHORT_CONNECTED;
         connectMsg.mPayload[0] = (UINT32)apLocalIpcEnd->mpUserKey;
         connectMsg.mPayload[1] = (pRemoteIpcEnd->mMaxMsgCount << 16) | pRemoteIpcEnd->mMaxMsgBytes;
@@ -2794,7 +2806,7 @@ KernSched_Locked_IpcAccept(
         else
         {
             // local is a process
-            KernSched_Locked_ProcTokenLocked_Token_Destroy(apCallerThread->User.ProcRef.AsProc, pSchedItem->Args.Ipc_Accept.mTokLocalMapOfRemote);
+            KernSched_Locked_ProcTokenLocked_Token_Destroy(apCallerThread->RefProc.AsProc, pSchedItem->Args.Ipc_Accept.mTokLocalMapOfRemote);
         }
 
         if (NULL == pRemoteProc)
@@ -2866,7 +2878,7 @@ KernSched_Locked_Thread_SysCall(
     K2_ASSERT(pCallerThread->mState == KernThreadState_InScheduler);
     K2_ASSERT(apItem == &pCallerThread->SchedItem);
 
-    pCallerProc = pCallerThread->User.ProcRef.AsProc;
+    pCallerProc = pCallerThread->RefProc.AsProc;
     
     KTRACE(gData.Sched.mpSchedulingCore, 4, KTRACE_SCHED_EXEC_SYSCALL, pCallerProc->mId, pCallerThread->mGlobalIx, pCallerThread->User.mSysCall_Id);
 
@@ -2952,7 +2964,7 @@ KernSched_Locked_Thread_SysCall(
             KernSched_Locked_ExitThread(pCallerThread, pCallerProc->mExitCode);
             return;
         }
-        if (KernSched_Locked_Thread_Wait(pCallerThread))
+        if (KernSched_Locked_Thread_Wait(pCallerThread, FALSE))
         {
             // succeeded to wait
             return;
@@ -3116,32 +3128,6 @@ KernSched_Locked_Aborted_Running_Thread(
 }
 
 void
-KernSched_Locked_Thread_Crash_Process(
-    K2OSKERN_SCHED_ITEM *apItem
-)
-{
-    K2OSKERN_OBJ_THREAD *   pCrashThread;
-    K2OSKERN_OBJ_PROCESS *  pCrashProc;
-
-    pCrashThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, apItem, SchedItem);
-    K2_ASSERT(pCrashThread->mState == KernThreadState_InScheduler);
-    K2_ASSERT(apItem == &pCrashThread->SchedItem);
-
-    pCrashProc = pCrashThread->User.ProcRef.AsProc;
-    K2_ASSERT(apItem->ObjRef.AsAny == NULL);
-
-//    K2OSKERN_Debug(
-//        "Sched: Unhandled Thread %d exception crashes process %d\n", 
-//        pCrashThread->mGlobalIx, 
-//        pCrashProc->mId
-//    );
-
-    KernSched_Locked_ExitThread(pCrashThread, pCrashThread->User.LastEx.mExCode);
-
-    KernSched_Locked_StopProcess(pCrashProc, pCrashThread->User.LastEx.mExCode);
-}
-
-void
 KernSched_Locked_ResumeDeferral_Completed(
     K2OSKERN_SCHED_ITEM *   apItem
 )
@@ -3289,7 +3275,7 @@ KernSched_Locked_KernThread_StartProc(
     pNewThread->mState = KernThreadState_InScheduler;
 
     K2ATOMIC_Inc(&gData.mSystemWideProcessCount);
-    sysProcMsg.mType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
+    sysProcMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
     sysProcMsg.mShort = K2OS_SYSTEM_MSG_SYSPROC_SHORT_PROCESS_CREATED;
     sysProcMsg.mPayload[0] = pNewProc->mId;
     sysProcMsg.mPayload[1] = 0;                                 // process that started it
@@ -3316,7 +3302,23 @@ KernSched_Locked_KernThread_Wait(
     pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, apItem, SchedItem);
     K2_ASSERT(pThread->mIsKernelThread);
 
-    if (!KernSched_Locked_Thread_Wait(pThread))
+    if (!KernSched_Locked_Thread_Wait(pThread, FALSE))
+    {
+        KernSched_Locked_MakeThreadRun(pThread);
+    }
+}
+
+void
+KernSched_Locked_KernThread_WaitIo(
+    K2OSKERN_SCHED_ITEM *apItem
+)
+{
+    K2OSKERN_OBJ_THREAD *   pThread;
+
+    pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, apItem, SchedItem);
+    K2_ASSERT(pThread->mIsKernelThread);
+
+    if (!KernSched_Locked_Thread_Wait(pThread, TRUE))
     {
         KernSched_Locked_MakeThreadRun(pThread);
     }
@@ -3460,7 +3462,7 @@ KernSched_Locked_KernThread_StartThread(
     KernObj_CreateRef(&pNewThread->Running_SelfRef, &pNewThread->Hdr);
 
     K2ATOMIC_Inc(&gData.mSystemWideThreadCount);
-    sysProcMsg.mType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
+    sysProcMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
     sysProcMsg.mShort = K2OS_SYSTEM_MSG_SYSPROC_SHORT_THREAD_CREATED;
     sysProcMsg.mPayload[0] = 0;
     sysProcMsg.mPayload[1] = pNewThread->mGlobalIx;             // process that started it
@@ -3687,6 +3689,103 @@ KernSched_Locked_NotifyProxy(
 }
 
 void 
+KernSched_Locked_Thread_Exception(
+    K2OSKERN_SCHED_ITEM *   apItem
+)
+{
+    K2OSKERN_OBJ_THREAD *   pThread;
+    K2OS_THREAD_PAGE *      pThreadPage;
+    K2OSKERN_OBJ_PROCESS *  pProc;
+    K2OSKERN_OBJ_VIRTMAP *  pMap;
+    BOOL                    procIsAlive;
+    UINT32                  v;
+
+    pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, apItem, SchedItem);
+
+    pProc = pThread->RefProc.AsProc;
+
+    if (!pThread->mIsKernelThread)
+    {
+        K2OSKERN_Debug("****************User Thread %d Exception\n", pThread->mGlobalIx);
+        K2_ASSERT(NULL != pProc);
+        procIsAlive = (pProc->mState < KernProcState_Stopping) ? TRUE : FALSE;
+        if (!procIsAlive)
+        {
+            KernSched_Locked_ExitThread(pThread, pProc->mExitCode);
+            return;
+        }
+    }
+    else
+    {
+        K2OSKERN_Debug("**************Kernel Thread %d Exception\n", pThread->mGlobalIx);
+    }
+
+    pMap = pThread->LastEx.VirtMapRef.AsVirtMap;
+
+    if (pThread->LastEx.mExCode == K2STAT_EX_ACCESS)
+    {
+        if ((NULL != pMap) && (pMap->mIsDemandPaged))
+        {
+            pThread->mState = KernThreadState_InException;
+
+            do
+            {
+                v = gData.Paging.mListHead;
+                pThread->Paging.mIngressNext = v;
+            } while (v != K2ATOMIC_CompareExchange(&gData.Paging.mListHead, (UINT32)pThread, v));
+
+            KernSched_Locked_SignalNotify(gData.Paging.NotifyRef.AsNotify);
+
+            return;
+        }
+    }
+
+    // if we get here exception is not a page fault
+
+    if (NULL != pMap)
+    {
+        KernObj_ReleaseRef(&pThread->LastEx.VirtMapRef);
+    }
+
+    pThreadPage = pThread->mpKernRwViewOfThreadPage;
+    if (0 != pThreadPage->mTrapStackTop)
+    {
+        K2OSKERN_Debug("<Exception Trapped>\n");
+        if (pThread->mIsKernelThread)
+        {
+            // kernel thread trap
+            KernArch_PopKernelTrap(pThread);
+        }
+        else
+        {
+            // user thread trap
+            KernArch_PopUserTrap(pThread);
+        }
+
+        KernSched_Locked_MakeThreadRun(pThread);
+        return;
+    }
+
+    pThread->mState = KernThreadState_InException;
+
+    if (pThread->mIsKernelThread)
+    {
+        // kernel thread crashes system
+        K2OSKERN_Panic("Kernel Thread %d Crashed\n", pThread->mGlobalIx);
+    }
+
+    // user thread crashes process
+//    K2OSKERN_Debug(
+//        "Sched: Unhandled Thread %d exception crashes process %d\n", 
+//        pThread->mGlobalIx, 
+//        pProc->mId
+//    );
+
+    KernSched_Locked_ExitThread(pThread, pThread->LastEx.mExCode);
+    KernSched_Locked_StopProcess(pProc, pThread->LastEx.mExCode);
+}
+
+void 
 KernSched_Locked_ExecOneItem(
     K2OSKERN_SCHED_ITEM *apItem
 )
@@ -3695,8 +3794,8 @@ KernSched_Locked_ExecOneItem(
 
     KernSched_Locked_TimePassedUntil(&apItem->mHfTick);
 
-    itemType = apItem->mType;
-    apItem->mType = KernSchedItem_Invalid;
+    itemType = apItem->mSchedItemType;
+    apItem->mSchedItemType = KernSchedItemType_Invalid;
 
     if (itemType != KernSchedItem_Thread_SysCall)
     {
@@ -3717,12 +3816,12 @@ KernSched_Locked_ExecOneItem(
         // no-op.  this exists to get into the "TimePassedUntil" above.
         break;
 
-    case KernSchedItem_Thread_Crash_Process:
-        KernSched_Locked_Thread_Crash_Process(apItem);
-        break;
-
     case KernSchedItem_Thread_ResumeDeferral_Completed:
         KernSched_Locked_ResumeDeferral_Completed(apItem);
+        break;
+
+    case KernSchedItem_Thread_Exception:
+        KernSched_Locked_Thread_Exception(apItem);
         break;
 
     case KernSchedItem_Alarm_Cleanup:
@@ -3759,6 +3858,10 @@ KernSched_Locked_ExecOneItem(
 
     case KernSchedItem_KernThread_Wait:
         KernSched_Locked_KernThread_Wait(apItem);
+        break;
+
+    case KernSchedItem_KernThread_WaitIo:
+        KernSched_Locked_KernThread_WaitIo(apItem);
         break;
 
     case KernSchedItem_KernThread_SignalNotify:

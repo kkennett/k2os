@@ -41,16 +41,11 @@ KernSem_Create(
 {
     K2OSKERN_OBJ_SEM *pSem;
 
-    pSem = (K2OSKERN_OBJ_SEM *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_SEM));
+    pSem = (K2OSKERN_OBJ_SEM *)KernObj_Alloc(KernObj_Sem);
     if (NULL == pSem)
     {
         return K2STAT_ERROR_OUT_OF_MEMORY;
     }
-
-    K2MEM_Zero(pSem, sizeof(K2OSKERN_OBJ_SEM));
-
-    pSem->Hdr.mObjType = KernObj_Sem;
-    K2LIST_Init(&pSem->Hdr.RefObjList);
     
     pSem->mMaxCount = aMaxCount;
     pSem->SchedLocked.mCount = aInitCount;
@@ -67,10 +62,8 @@ KernSem_Cleanup(
     K2OSKERN_OBJ_SEM *          apSem
 )
 {
-    K2_ASSERT(0 == apSem->Hdr.RefObjList.mNodeCount);
     K2_ASSERT(0 == apSem->SchedLocked.MacroWaitEntryList.mNodeCount);
-    K2MEM_Zero(apSem, sizeof(K2OSKERN_OBJ_SEM));
-    KernHeap_Free(apSem);
+    KernObj_Free(&apSem->Hdr);
 }
 
 K2STAT
@@ -82,16 +75,11 @@ KernSemUser_Create(
 {
     K2OSKERN_OBJ_SEMUSER *pSemUser;
 
-    pSemUser = (K2OSKERN_OBJ_SEMUSER *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_SEMUSER));
+    pSemUser = (K2OSKERN_OBJ_SEMUSER *)KernObj_Alloc(KernObj_SemUser);
     if (NULL == pSemUser)
     {
         return K2STAT_ERROR_OUT_OF_MEMORY;
     }
-
-    K2MEM_Zero(pSemUser, sizeof(K2OSKERN_OBJ_SEMUSER));
-
-    pSemUser->Hdr.mObjType = KernObj_SemUser;
-    K2LIST_Init(&pSemUser->Hdr.RefObjList);
 
     KernObj_CreateRef(&pSemUser->SemRef, &apSem->Hdr);
 
@@ -108,13 +96,10 @@ KernSemUser_Cleanup(
     K2OSKERN_OBJ_SEMUSER *      apSemUser
 )
 {
-    K2_ASSERT(0 == apSemUser->Hdr.RefObjList.mNodeCount);
-
     if (apSemUser->SchedLocked.mHeldCount == 0)
     {
         KernObj_ReleaseRef(&apSemUser->SemRef);
-        K2MEM_Zero(apSemUser, sizeof(K2OSKERN_OBJ_SEMUSER));
-        KernHeap_Free(apSemUser);
+        KernObj_Free(&apSemUser->Hdr);
         return;
     }
 
@@ -123,7 +108,7 @@ KernSemUser_Cleanup(
     // need to increment sem through scheduler or held count is lost.  
     // release of sem will be through post-cleanup dpc
     //
-    apSemUser->CleanupSchedItem.mType = KernSchedItem_SemUser_Cleanup;
+    apSemUser->CleanupSchedItem.mSchedItemType = KernSchedItem_SemUser_Cleanup;
     KernArch_GetHfTimerTick(&apSemUser->CleanupSchedItem.mHfTick);
     KernSched_QueueItem(&apSemUser->CleanupSchedItem);
 }
@@ -143,8 +128,7 @@ KernSemUser_PostCleanupDpc(
 
     KernObj_ReleaseRef(&pSemUser->SemRef);
 
-    K2MEM_Zero(pSemUser, sizeof(K2OSKERN_OBJ_SEMUSER));
-    KernHeap_Free(pSemUser);
+    KernObj_Free(&pSemUser->Hdr);
 }
 
 void
@@ -176,7 +160,7 @@ KernSemUser_SysCall_Create(
         stat = KernSemUser_Create(semRef.AsSem, apCurThread->User.mSysCall_Arg0 - pThreadPage->mSysCall_Arg1, &semUserRef);
         if (!K2STAT_IS_ERROR(stat))
         {
-            stat = KernProc_TokenCreate(apCurThread->User.ProcRef.AsProc, semUserRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
+            stat = KernProc_TokenCreate(apCurThread->RefProc.AsProc, semUserRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
             KernObj_ReleaseRef(&semUserRef);
         }
         KernObj_ReleaseRef(&semRef);
@@ -210,7 +194,7 @@ KernSemUser_SysCall_Inc(
     {
         semUserRef.AsAny = NULL;
         stat = KernProc_TokenTranslate(
-            apCurThread->User.ProcRef.AsProc,
+            apCurThread->RefProc.AsProc,
             (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0,
             &semUserRef
         );
@@ -231,7 +215,7 @@ KernSemUser_SysCall_Inc(
                     // thread has to not exec again until after the sem is processed
                     //
                     pSchedItem = &apCurThread->SchedItem;
-                    pSchedItem->mType = KernSchedItem_Thread_SysCall;
+                    pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
                     KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
                     pSchedItem->Args.Sem_Inc.mCount = pThreadPage->mSysCall_Arg1;
                     KernObj_CreateRef(&pSchedItem->ObjRef, semUserRef.AsAny);

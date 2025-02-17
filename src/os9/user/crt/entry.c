@@ -101,12 +101,12 @@ __k2oscrt_user_entry(
     //
     CrtMail_Init();
     CrtIpcEnd_Init();
-
     K2OSRPC_Init();
+
+    CrtRpc_Init();
 
     //
     // launch this process
     //
     CrtLaunch();
 }
-

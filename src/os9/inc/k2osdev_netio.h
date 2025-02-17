@@ -47,11 +47,33 @@ extern "C" {
 // {85B09727-B29A-4F27-95AD-075C47A9E1F0}
 #define K2OS_IFACE_NETIO_DEVICE   { 0x85b09727, 0xb29a, 0x4f27, { 0x95, 0xad, 0x7, 0x5c, 0x47, 0xa9, 0xe1, 0xf0 } }
 
-#define K2OS_NETIO_NOTIFY_PHYS_CONNECTED_CHANGED   1
+typedef enum _K2OS_NetIo_Method K2OS_NetIo_Method;
+enum _K2OS_NetIo_Method
+{
+    K2OS_NetIo_Method_Invalid = 0,
 
-//
-//------------------------------------------------------------------------
-//
+    K2OS_NetIo_Method_Config,
+    K2OS_NetIo_Method_GetDesc,
+    K2OS_NetIo_Method_GetState,
+    K2OS_NetIo_Method_BufStats,
+    K2OS_NetIo_Method_AcqBuffer,
+    K2OS_NetIo_Method_Send,
+    K2OS_NetIo_Method_RelBuffer,
+    K2OS_NetIo_Method_SetEnable,
+    K2OS_NetIo_Method_GetEnable,
+
+    K2OS_NetIo_Method_Count
+};
+
+typedef enum _K2OS_NetIo_Notify K2OS_NetIo_Notify;
+enum _K2OS_NetIo_Notify
+{
+    K2OS_NetIo_Notify_Invalid = 0,
+
+    K2OS_NetIo_Notify_PhysConnChanged,
+
+    K2OS_NetIo_Notify_Count
+};
 
 #define K2OS_NETIO_MSGTYPE  0x1AA1
 
@@ -59,6 +81,7 @@ typedef enum _K2OS_NetIoMsgShortType K2OS_NetIoMsgShortType;
 enum _K2OS_NetIoMsgShortType
 {
     K2OS_NetIoMsgShort_Invalid = 0,
+
     K2OS_NetIoMsgShort_Up,  
     K2OS_NetIoMsgShort_Down,
     K2OS_NetIoMsgShort_Recv,
@@ -76,7 +99,7 @@ typedef K2OS_NETIO_OPAQUE * K2OS_NETIO;
 K2_PACKED_PUSH
 struct _K2OS_NETIO_MSG
 {
-    UINT16      mType;          // K2OS_NETIO_MSGTYPE
+    UINT16      mMsgType;       // K2OS_NETIO_MSGTYPE
     UINT16      mShort;         // K2OS_NetIoMsgShortType
     void *      mpContext;      // value passed to Attach()
     UINT32      mPayload[2];    // for Recv this is virt addr of received buffer and bytes in that buffer
@@ -95,6 +118,27 @@ struct _K2OS_NETIO_BUFCOUNTS
     UINT32  mRecv;
 };
 
+typedef struct _K2OS_NETIO_CONFIG_IN K2OS_NETIO_CONFIG_IN;
+struct _K2OS_NETIO_CONFIG_IN
+{
+    void *              mpContext;
+    K2OS_MAILBOX_TOKEN  mTokMailbox;
+};
+
+typedef struct _K2OS_NETIO_ACQBUFFER_OUT K2OS_NETIO_ACQBUFFER_OUT;
+struct _K2OS_NETIO_ACQBUFFER_OUT
+{
+    UINT32  mBufVirtAddr;
+    UINT32  mMTU;
+};
+
+typedef struct _K2OS_NETIO_SEND_IN K2OS_NETIO_SEND_IN;
+struct _K2OS_NETIO_SEND_IN
+{
+    UINT32  mBufVirtAddr;
+    UINT32  mSendBytes;
+};
+
 K2OS_NETIO  K2OS_NetIo_Attach(K2OS_IFINST_ID aIfInstId, void *apContext, K2OS_MAILBOX_TOKEN aTokMailbox);
 BOOL        K2OS_NetIo_Detach(K2OS_NETIO aNetIo);
 
@@ -110,63 +154,6 @@ BOOL        K2OS_NetIo_RelBuffer(K2OS_NETIO aNetIo, UINT32 aBufVirtAddr);
 BOOL        K2OS_NetIo_SetEnable(K2OS_NETIO aNetIo, BOOL aSetEnable);
 BOOL        K2OS_NetIo_GetEnable(K2OS_NETIO aNetIo, BOOL *apRetEnable);
 
-//
-//------------------------------------------------------------------------
-//
-
-#define K2OS_NETIO_METHOD_CONFIG        1
-// input
-typedef struct _K2OS_NETIO_CONFIG_IN K2OS_NETIO_CONFIG_IN;
-struct _K2OS_NETIO_CONFIG_IN
-{
-    void *              mpContext;
-    K2OS_MAILBOX_TOKEN  mTokMailbox;
-};
-// output nothing
-
-#define K2OS_NETIO_METHOD_GET_DESC      2
-// input nothing
-// output K2_NET_ADAPTER_DESC
-
-#define K2OS_NETIO_METHOD_GET_STATE     3
-// input nothing
-// output K2OS_NETIO_ADAPTER_STATE 
-
-#define K2OS_NETIO_METHOD_BUFSTATS      4
-// input nothing
-// output 2 x K2OS_NETIO_BUFCOUNTS, first is total second is available (not owned by user)
-
-#define K2OS_NETIO_METHOD_ACQBUFFER     5
-// input nothing
-// output
-typedef struct _K2OS_NETIO_ACQBUFFER_OUT K2OS_NETIO_ACQBUFFER_OUT;
-struct _K2OS_NETIO_ACQBUFFER_OUT
-{
-    UINT32  mBufVirtAddr;
-    UINT32  mMTU;
-};
-
-#define K2OS_NETIO_METHOD_SEND          6
-// input
-typedef struct _K2OS_NETIO_SEND_IN K2OS_NETIO_SEND_IN;
-struct _K2OS_NETIO_SEND_IN
-{
-    UINT32  mBufVirtAddr;
-    UINT32  mSendBytes;
-};
-// output nothing
-
-#define K2OS_NETIO_METHOD_RELBUFFER     7
-// input one UINT32 virtual buffer address
-// output nothing
-
-#define K2OS_NETIO_METHOD_SETENABLE     8
-// input one BOOL enable state to set
-// output nothing
-
-#define K2OS_NETIO_METHOD_GETENABLE     9
-// input nothing
-// output one BOOL current enable state 
 
 //
 //------------------------------------------------------------------------

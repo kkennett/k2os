@@ -47,7 +47,7 @@ SysProc_SetupNotify(
 {
     K2OS_THREAD_PAGE * pThreadPage;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
 
     sgTokReadyGate = K2OS_Gate_Create(FALSE);
     if (NULL == sgTokReadyGate)
@@ -68,7 +68,7 @@ SysProc_ProcessOneMsgFromKernel(
     K2OS_MSG const * apMsg
 )
 {
-    if (apMsg->mType == K2OS_SYSTEM_MSGTYPE_SYSPROC)
+    if (apMsg->mMsgType == K2OS_SYSTEM_MSGTYPE_SYSPROC)
     {
         switch (apMsg->mShort)
         {
@@ -102,13 +102,17 @@ SysProc_ProcessOneMsgFromKernel(
 #endif
             break;
 
+        case K2OS_SYSTEM_MSG_SYSPROC_SHORT_RUN:
+            Debug_Printf("SYSPROC: System Started\n");
+            break;
+
         default:
             Debug_Printf("SYSPROC: Recv unknown <%d> Msg from Kernel\n", apMsg->mShort);
         }
     }
     else
     {
-        Debug_Printf("SYSPROC: Recv <%d.%d> Msg from Kernel\n", apMsg->mType, apMsg->mShort);
+        Debug_Printf("SYSPROC: Recv <%d.%d> Msg from Kernel\n", apMsg->mMsgType, apMsg->mShort);
     }
 }
 
@@ -238,6 +242,12 @@ MainThread(
 {
     K2OS_WaitResult waitResult;
     BOOL            ok;
+    K2OS_TIME       time;
+
+    K2OS_System_GetTime(&time);
+    Debug_Printf("\n------------------\nSysProc Start at %04d-%02-%02d %02d:%02d:%02d.%03d\n------------------\n",
+        time.mYear, time.mMonth, time.mDay, 
+        time.mHour, time.mMinute, time.mSecond, time.mMillisecond);
 
     SysProc_SetupNotify();
 

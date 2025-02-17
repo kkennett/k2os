@@ -69,10 +69,10 @@ FindSetAnchor32(
         do
         {
             symBinding = ELF32_ST_BIND(pSym->st_info);
-            if (symBinding = STB_GLOBAL)
+            if (STB_GLOBAL == symBinding)
             {
                 symType = ELF32_ST_TYPE(pSym->st_info);
-                if (symType == STT_OBJECT)
+                if (STT_OBJECT == symType)
                 {
                     if ((pSym->st_size == sizeof(XDL_ELF_ANCHOR)) &&
                         (0 == K2ASC_Comp("gpXdlAnchor", pStr + pSym->st_name)))

@@ -67,6 +67,7 @@ typedef UINTN   K2EFI_STATUS;
 typedef UINT64  K2EFI_PHYSICAL_ADDRESS;
 typedef UINT64  K2EFI_VIRTUAL_ADDRESS;
 typedef UINT16  CHAR16;
+typedef UINT64  K2EFI_LBA;
 
 typedef enum _K2EFI_MEMORY_TYPE K2EFI_MEMORY_TYPE;
 enum _K2EFI_MEMORY_TYPE
@@ -419,6 +420,155 @@ typedef struct {
     UINT32  PixelReservedMask;
     UINT32  PixelsPerScanLine;
 } K2EFI_GRAPHICS_OUTPUT_MODE_INFORMATION;
+
+//
+//------------------------------------------------------------------------
+//
+
+#define K2EFI_BLOCK_IO_PROTOCOL_GUID \
+  { \
+    0x964e5b21, 0x6459, 0x11d2, {0x8e, 0x39, 0x0, 0xa0, 0xc9, 0x69, 0x72, 0x3b } \
+  }
+
+typedef struct _K2EFI_BLOCK_IO_PROTOCOL K2EFI_BLOCK_IO_PROTOCOL;
+
+typedef
+K2EFI_STATUS
+(K2EFIAPI *K2EFI_BLOCK_RESET)(
+    IN K2EFI_BLOCK_IO_PROTOCOL *    This,
+    IN K2EFIBOOL                    ExtendedVerification
+    );
+
+typedef
+K2EFI_STATUS
+(K2EFIAPI *K2EFI_BLOCK_READ)(
+    IN K2EFI_BLOCK_IO_PROTOCOL *    This,
+    IN UINT32                       MediaId,
+    IN K2EFI_LBA                    Lba,
+    IN UINTN                        BufferSize,
+    OUT void *                      Buffer
+    );
+
+typedef
+K2EFI_STATUS
+(K2EFIAPI *K2EFI_BLOCK_WRITE)(
+    IN K2EFI_BLOCK_IO_PROTOCOL *    This,
+    IN UINT32                       MediaId,
+    IN K2EFI_LBA                    Lba,
+    IN UINTN                        BufferSize,
+    IN void *                       Buffer
+    );
+
+typedef
+K2EFI_STATUS
+(K2EFIAPI *K2EFI_BLOCK_FLUSH)(
+    IN K2EFI_BLOCK_IO_PROTOCOL  *   This
+    );
+
+typedef struct
+{
+    ///
+    /// The curent media Id. If the media changes, this value is changed.
+    ///
+    UINT32  MediaId;
+
+    ///
+    /// TRUE if the media is removable; otherwise, FALSE.
+    ///
+    K2EFIBOOL RemovableMedia;
+
+    ///
+    /// TRUE if there is a media currently present in the device;
+    /// othersise, FALSE. THis field shows the media present status
+    /// as of the most recent ReadBlocks() or WriteBlocks() call.
+    ///
+    K2EFIBOOL MediaPresent;
+
+    ///
+    /// TRUE if LBA 0 is the first block of a partition; otherwise
+    /// FALSE. For media with only one partition this would be TRUE.
+    ///
+    K2EFIBOOL LogicalPartition;
+
+    ///
+    /// TRUE if the media is marked read-only otherwise, FALSE.
+    /// This field shows the read-only status as of the most recent WriteBlocks () call.
+    ///
+    K2EFIBOOL ReadOnly;
+
+    ///
+    /// TRUE if the WriteBlock () function caches write data.
+    ///
+    K2EFIBOOL WriteCaching;
+
+    ///
+    /// The intrinsic block size of the device. If the media changes, then
+    /// this field is updated.
+    ///
+    UINT32  BlockSize;
+
+    ///
+    /// Supplies the alignment requirement for any buffer to read or write block(s).
+    ///
+    UINT32  IoAlign;
+
+    ///
+    /// The last logical block address on the device.
+    /// If the media changes, then this field is updated.
+    ///
+    K2EFI_LBA LastBlock;
+
+    ///
+    /// Only present if K2EFI_BLOCK_IO_PROTOCOL.Revision is greater than or equal to
+    /// EFI_BLOCK_IO_PROTOCOL_REVISION2. Returns the first LBA is aligned to
+    /// a physical block boundary.
+    ///
+    K2EFI_LBA LowestAlignedLba;
+
+    ///
+    /// Only present if K2EFI_BLOCK_IO_PROTOCOL.Revision is greater than or equal to
+    /// EFI_BLOCK_IO_PROTOCOL_REVISION2. Returns the number of logical blocks
+    /// per physical block.
+    ///
+    UINT32 LogicalBlocksPerPhysicalBlock;
+
+    ///
+    /// Only present if K2EFI_BLOCK_IO_PROTOCOL.Revision is greater than or equal to
+    /// EFI_BLOCK_IO_PROTOCOL_REVISION3. Returns the optimal transfer length
+    /// granularity as a number of logical blocks.
+    ///
+    UINT32 OptimalTransferLengthGranularity;
+} K2EFI_BLOCK_IO_MEDIA;
+
+#define K2EFI_BLOCK_IO_PROTOCOL_REVISION  0x00010000
+#define K2EFI_BLOCK_IO_PROTOCOL_REVISION2 0x00020001
+#define K2EFI_BLOCK_IO_PROTOCOL_REVISION3 0x00020031
+
+///
+/// Revision defined in EFI1.1.
+///
+#define K2EFI_BLOCK_IO_INTERFACE_REVISION   K2EFI_BLOCK_IO_PROTOCOL_REVISION
+
+///
+///  This protocol provides control over block devices.
+///
+struct _K2EFI_BLOCK_IO_PROTOCOL
+{
+    ///
+    /// The revision to which the block IO interface adheres. All future
+    /// revisions must be backwards compatible. If a future version is not
+    /// back wards compatible, it is not the same GUID.
+    ///
+    UINT64                  Revision;
+    ///
+    /// Pointer to the EFI_BLOCK_IO_MEDIA data for this device.
+    ///
+    K2EFI_BLOCK_IO_MEDIA *  Media;
+    K2EFI_BLOCK_RESET       Reset;
+    K2EFI_BLOCK_READ        ReadBlocks;
+    K2EFI_BLOCK_WRITE       WriteBlocks;
+    K2EFI_BLOCK_FLUSH       FlushBlocks;
+};
 
 //
 //------------------------------------------------------------------------

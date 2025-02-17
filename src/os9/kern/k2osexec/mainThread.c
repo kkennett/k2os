@@ -101,6 +101,16 @@ MainThread(
 
     K2MEM_Copy(&gKernDdk, &apInit->DdkInit, sizeof(K2OSKERN_DDK));
 
+    //
+    // bring up fsmgr so we can bring up the built-in filesystem
+    //
+    FsMgr_Init(apInit->mpRootFsNode, apInit->mpFsRootFsNode, apInit->mfFsNodeInit);
+
+    // this installs the rofs bulit-in file system
+    Rofs_Init(apInit->mpRofs);
+
+    // xdl loads and file accesses to the built-in filesystem should work now
+
     SysProc_Start(apInit);
 
     Plat_Init();
@@ -112,10 +122,6 @@ MainThread(
     DevMgr_Init();
 
     VolMgr_Init();
-
-    FsMgr_Init();
-
-    Rofs_Init();
 
     ACPI_Enable();
 

@@ -48,7 +48,7 @@ K2OS_Signal_Set(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
@@ -91,7 +91,7 @@ K2OS_Signal_Reset(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
@@ -130,7 +130,7 @@ K2OS_Signal_Pulse(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 

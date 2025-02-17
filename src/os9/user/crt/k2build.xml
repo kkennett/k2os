@@ -58,11 +58,12 @@
     <source>alarm.c</source>
     <source>sem.c</source>
     <source>segment.c</source>
-    <source>touch.c</source>
     <source>mail.c</source>
     <source>ifinst.c</source>
     <source>ifenum.c</source>
     <source>ifsubs.c</source>
     <source>ipcend.c</source>
+    <source>fsmap.c</source>
+    <source>rpc.c</source>
     
 </k2build>

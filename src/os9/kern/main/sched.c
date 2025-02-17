@@ -53,7 +53,7 @@ KernSched_QueueItem(
     K2OSKERN_SCHED_ITEM * pHead;
     K2OSKERN_SCHED_ITEM * pOld;
 
-    K2_ASSERT(0 != apItem->mType);
+    K2_ASSERT(0 != apItem->mSchedItemType);
 
     //
     // lockless add to sched item list
@@ -291,8 +291,8 @@ KernSched_CpuEvent_TimerFired(
     // to enter the scheduler (no items queued)
     //
     KTRACE(apThisCore, 1, KTRACE_TIMER_FIRED);
-    K2_ASSERT(gData.Sched.TimerSchedItem.mType == KernSchedItem_Invalid);
-    gData.Sched.TimerSchedItem.mType = KernSchedItem_SchedTimer_Fired;
+    K2_ASSERT(gData.Sched.TimerSchedItem.mSchedItemType == KernSchedItemType_Invalid);
+    gData.Sched.TimerSchedItem.mSchedItemType = KernSchedItem_SchedTimer_Fired;
     gData.Sched.TimerSchedItem.mHfTick = *apHfTick;
     KernSched_QueueItem(&gData.Sched.TimerSchedItem);
 }

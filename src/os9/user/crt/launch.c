@@ -74,31 +74,35 @@ CrtLaunch_Startup(
     void
 )
 {
-    K2STAT      stat;
-    UINT32      val32;
-    UINT32 *    pVal;
-    BOOL        ok;
-    UINT32      result;
+    K2STAT                          stat;
+    UINT32                          val32;
+    UINT32 *                        pVal;
+    UINT32                          result;
+    K2OS_RPC_CALLARGS               args;
+    K2OS_KERNELRPC_GETLAUNCHINFO_IN inParam;
+    UINT32                          actualOut;
 
     if (sgFirstTime)
     {
         sgFirstTime = FALSE;
 
-        // 
-        // make sure no CoW in kernel since we are targeting the 
-        // crt's data segment which is CoW for all pages by default
-        //
-        CrtMem_Touch(&sgLaunchInfo, sizeof(sgLaunchInfo));
+        inParam.TargetBufDesc.mAddress = (UINT32)&sgLaunchInfo;
+        inParam.TargetBufDesc.mAttrib = 0;
+        inParam.TargetBufDesc.mBytesLength = sizeof(sgLaunchInfo);
 
-        ok = (BOOL)CrtKern_SysCall2(K2OS_SYSCALL_ID_GET_LAUNCH_INFO, gProcessId, (UINT32)&sgLaunchInfo);
-        K2_ASSERT(ok);
-        if (!ok)
+        args.mMethodId = K2OS_KernelRpc_Method_GetLaunchInfo;
+        args.mpInBuf = (UINT8 const *)&inParam;
+        args.mInBufByteCount = sizeof(inParam);
+        args.mpOutBuf = NULL;
+        args.mOutBufByteCount = 0;
+
+        actualOut = 0;
+        stat = K2OS_Rpc_Call(CrtRpc_Obj(), &args, &actualOut);
+        if (K2STAT_IS_ERROR(stat))
         {
             CrtDbg_Printf("***Process %d failed to get its launch info\n", gProcessId);
             K2OS_Process_Exit(K2OS_Thread_GetLastStatus());
         }
-
-//        CrtDbg_Printf("Start of \"%s\" with arg \"%s\"\n", gpLaunchInfo->mPath, gpLaunchInfo->mArgStr);
 
         val32 = 0;
         sgpClientXdl = NULL;

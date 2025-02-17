@@ -203,6 +203,10 @@ X32Kern_CpuLaunch(
         K2_CpuWriteBarrier();
     }
 
+    // make sure local timer is not running
+    X32Kern_MaskDevIrq(X32_DEVIRQ_LVT_TIMER);
+    MMREG_WRITE32(K2OS_KVA_X32_LOCAPIC, X32_LOCAPIC_OFFSET_TIMER_INIT, 0);
+
 //    K2OSKERN_Debug("Core %d starts\n", aThisCpuCoreIndex);
     pCoreMem->CpuCore.mIsInMonitor = TRUE;
     X32KernAsm_EnterMonitor(stackPtr);
@@ -380,5 +384,48 @@ KernArch_LaunchCpuCores(
     // should never return
 
     K2OSKERN_Panic("CpuLaunch entry returned\n");
+}
+
+void
+KernArch_SetCoreToProcess(
+    K2OSKERN_CPUCORE volatile * apThisCore,
+    K2OSKERN_OBJ_PROCESS *      apNewProc
+)
+{
+    BOOL                    disp;
+    K2OSKERN_OBJ_PROCESS *  pCurProc;
+
+    pCurProc = apThisCore->MappedProcRef.AsProc;
+    if (apNewProc == pCurProc)
+        return;
+
+    disp = K2OSKERN_SetIntr(FALSE);
+
+    if (NULL == apNewProc)
+    {
+        //
+        // cannot have an active thread because FS target (holding current thread global ix)
+        // lives in user space.  Any interrupt with current thread set will cause a check
+        // whether the global ix is set correclty.  If this is set non-null it will cause
+        // a recursive segment fault inside the interrupt handler.
+        //
+        K2_ASSERT(apThisCore->mpActiveThread == NULL);
+        X32_LoadCR3(gData.mpShared->LoadInfo.mTransBasePhys);
+    }
+    else
+    {
+        X32_LoadCR3(apNewProc->mPhysTransBase);
+    }
+
+    K2OSKERN_SetIntr(disp);
+
+    if (NULL != pCurProc)
+    {
+        KernObj_ReleaseRef((K2OSKERN_OBJREF *)&apThisCore->MappedProcRef);
+    }
+    if (NULL != apNewProc)
+    {
+        KernObj_CreateRef((K2OSKERN_OBJREF *)&apThisCore->MappedProcRef, &apNewProc->Hdr);
+    }
 }
 

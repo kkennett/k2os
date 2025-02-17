@@ -39,6 +39,7 @@
     <source>a32entry.c</source>
     <source>a32divzero.c</source>
     <source>a32cache.c</source>
+    <source>@shared/k2time.c</source>
     <lib>@shared/lib/k2archa32</lib>
     <lib>@shared/lib/k2mem</lib>
     <lib>@shared/lib/k2asc</lib>

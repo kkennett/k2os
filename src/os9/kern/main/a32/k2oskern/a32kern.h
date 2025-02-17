@@ -35,6 +35,7 @@
 
 #include "..\..\kern.h"
 #include "a32kerndef.inc"
+#include <lib/k2dis.h>
 
 /* --------------------------------------------------------------------------------- */
 
@@ -42,11 +43,15 @@ void A32KernAsm_LaunchEntryPoint(UINT32 aCoreIx);
 void A32KernAsm_ResumeInMonitor(UINT32 aStackPtr);
 void A32KernAsm_ResumeThread(UINT32 aKernModeStackPtr, UINT32 aSvcScratch);
 void A32Kern_InitTiming(void);
-void A32Kern_DumpStackTrace(K2OSKERN_OBJ_PROCESS *apProc, UINT32 aPC, UINT32 aSP, UINT32* apBackPtr, UINT32 aLR, char *apBuffer);
+void A32Kern_DumpExecContext(K2OSKERN_ARCH_EXEC_CONTEXT * apExContext);
+void A32Kern_DumpExceptionContext(K2OSKERN_CPUCORE volatile* apCore, UINT32 aReason, K2OSKERN_ARCH_EXEC_CONTEXT* pEx);
+void A32Kern_DumpStackTrace(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_PROCESS *apProc, UINT32 aPC, UINT32 aSP, UINT32* apBackPtr, UINT32 aLR);
 
 void A32Kern_StartTime(void);
 void A32Kern_TimerInterrupt(K2OSKERN_CPUCORE volatile * apThisCore);
+void A32Kern_SetCoreTimer(K2OSKERN_CPUCORE volatile * apThisCore, UINT32 aCpuTickDelay);
 BOOL A32Kern_CoreTimerInterrupt(K2OSKERN_CPUCORE volatile *apThisCore);
+void A32Kern_StopCoreTimer(K2OSKERN_CPUCORE volatile *apThisCore);
 
 void    A32Kern_IntrInitGicDist(void);
 void    A32Kern_IntrInitGicPerCore(void);
@@ -56,6 +61,8 @@ void    A32Kern_IntrSetEnable(UINT32 aIntrId, BOOL aSetEnable);
 BOOL    A32Kern_IntrGetEnable(UINT32 aIntrId);
 void    A32Kern_IntrClearPending(UINT32 aIntrId, BOOL aAlsoDisable);
 void    A32Kern_IntrConfig(UINT32 aIntrId, K2OS_IRQ_CONFIG const * apConfig);
+
+void A32KernAsm_SaveKernelThreadStateAndEnterMonitor(UINT32 aNewStackPtr, K2OSKERN_ARCH_EXEC_CONTEXT *apSaveContext);
 
 #define A32_SYM_NAME_MAX_LEN            80
 

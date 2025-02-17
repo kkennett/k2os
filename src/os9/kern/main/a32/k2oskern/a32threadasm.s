@@ -34,8 +34,9 @@
 
 // void A32KernAsm_ResumeThread(UINT32 aKernModeStackPtr, UINT32 aSvcScratch);
 BEGIN_A32_PROC(A32KernAsm_ResumeThread)
+
     // in system mode on core SYS stack
-    // r0 points to saved context for thread in its thread structure
+    // r0 points to saved context for thread
     // r1 poinst to SVC stack work area
     
     // move saved r12 and r15 to svc mode stack scratch
@@ -58,8 +59,8 @@ BEGIN_A32_PROC(A32KernAsm_ResumeThread)
     mov r12, r0         // svc mode r12 is the saved context base
 
     // start to consume exception context - set SVC mode SPSR for resume
-    ldmia r12!, {r0}    // restore user mode SPSR (first thing in struct) to svc r0 
-    msr spsr_cxsf, r0   // put user mode PSR into svc mode spsr
+    ldmia r12!, {r0}    // restore target mode SPSR (first thing in struct) to svc r0 
+    msr spsr_cxsf, r0   // put target mode PSR into svc mode spsr
 
     // now eat main chunk of registers
     ldmia r12!, {r0-r11}    // load r0-r11 to svc mode registers from the saved stack 
@@ -68,6 +69,28 @@ BEGIN_A32_PROC(A32KernAsm_ResumeThread)
     ldmib r13!, {r12, pc}^  // slots 0 and 1 contain user r12 and user pc respectively. svc stack left in proper order
 
 END_A32_PROC(A32KernAsm_ResumeThread)
+
+// void A32KernAsm_SaveKernelThreadStateAndEnterMonitor(UINT32 aNewStackPtr, K2OSKERN_ARCH_EXEC_CONTEXT *apSaveContext);
+BEGIN_A32_PROC(A32KernAsm_SaveKernelThreadStateAndEnterMonitor)
+
+    // in SYS mode on thread stack
+    // r0 points to new r13 to set after save
+    // r1 points to threads kernel context save area in thread struct 
+
+    // save general registers to context
+    stmib r1, {r0-r14}
+    // set return address as pc
+    str r14, [r1, #64]
+
+    // turn interrupts back on in context we are saving and save psr
+    mrs r12, cpsr
+    bic r12, r12, #A32_PSR_I_BIT
+    str r12, [r1]
+
+    // r0 already has stack pointer, which is arg to this func
+    b A32KernAsm_ResumeInMonitor
+
+END_A32_PROC(A32KernAsm_SaveKernelThreadStateAndEnterMonitor)
 
     .end
 

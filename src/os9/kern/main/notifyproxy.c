@@ -44,7 +44,7 @@ KernNotifyProxy_Cleanup(
 
     K2MEM_Zero(apNotifyProxy, sizeof(K2OSKERN_OBJ_NOTIFYPROXY));
 
-    KernHeap_Free(apNotifyProxy);
+    KernObj_Free(&apNotifyProxy->Hdr);
 }
 
 BOOL    
@@ -54,20 +54,16 @@ KernNotifyProxy_Fire(
 {
     K2OSKERN_OBJ_NOTIFYPROXY *  pNotifyProxy;
 
-    pNotifyProxy = (K2OSKERN_OBJ_NOTIFYPROXY *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_NOTIFYPROXY));
+    pNotifyProxy = (K2OSKERN_OBJ_NOTIFYPROXY *)KernObj_Alloc(KernObj_NotifyProxy);
     if (NULL == pNotifyProxy)
     {
         return FALSE;
     }
 
-    K2MEM_Zero(pNotifyProxy, sizeof(K2OSKERN_OBJ_NOTIFYPROXY));
-    pNotifyProxy->Hdr.mObjType = KernObj_NotifyProxy;
-    K2LIST_Init(&pNotifyProxy->Hdr.RefObjList);
-
     KernObj_CreateRef(&pNotifyProxy->RefNotify, &apNotify->Hdr);
     KernObj_CreateRef(&pNotifyProxy->RefSelf, &pNotifyProxy->Hdr);
 
-    pNotifyProxy->SchedItem.mType = KernSchedItem_NotifyProxy;
+    pNotifyProxy->SchedItem.mSchedItemType = KernSchedItem_NotifyProxy;
     K2OS_System_GetHfTick(&pNotifyProxy->SchedItem.mHfTick);
     KernSched_QueueItem(&pNotifyProxy->SchedItem);
 

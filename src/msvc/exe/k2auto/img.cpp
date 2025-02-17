@@ -118,7 +118,36 @@ BuildFileUser_Img::Construct(
         if (NULL != pListLink)
         {
             ok = false;
-            pEnd = gStrBuf + K2ASC_Copy(gStrBuf, "builtin\\");
+            pEnd = gStrBuf + K2ASC_Copy(gStrBuf, "builtin\\user\\");
+            do {
+                pProjDep = K2_GET_CONTAINER(ProjDep, pListLink, OwnerListLink);
+                K2ASC_Printf(pEnd, "%s.xdl", pProjDep->mpDependOn->mpVfsFile->mpParentFolder->mpNameZ);
+                pImgDstXdlVfsFile = (VfsFile *)apSrcXml->Proj.Img.mpImgFolder->AcquireOrCreateSub(gStrBuf, false);
+                if (NULL == pImgDstXdlVfsFile)
+                {
+                    break;
+                }
+                pImgDstXdl = new BuildFileUser_ImgDstXdl(pImgDstXdlVfsFile, pResult, pProjDep->mpDependOn);
+                pImgDstXdlVfsFile->Release();
+                if (NULL == pImgDstXdl)
+                {
+                    break;
+                }
+                pListLink = pListLink->mpNext;
+            } while (NULL != pListLink);
+            if (NULL == pListLink)
+            {
+                ok = true;
+            }
+        }
+        if (!ok)
+            break;
+
+        pListLink = apSrcXml->Proj.Img.BuiltInKernXdlProjList.mpHead;
+        if (NULL != pListLink)
+        {
+            ok = false;
+            pEnd = gStrBuf + K2ASC_Copy(gStrBuf, "builtin\\kern\\");
             do {
                 pProjDep = K2_GET_CONTAINER(ProjDep, pListLink, OwnerListLink);
                 K2ASC_Printf(pEnd, "%s.xdl", pProjDep->mpDependOn->mpVfsFile->mpParentFolder->mpNameZ);
@@ -341,6 +370,16 @@ BuildFileUser_Img::TryRepair(
                 return false;
         } while (NULL != pListLink);
     }
+    pListLink = mpParentSrcXml->Proj.Img.BuiltInKernXdlProjList.mpHead;
+    if (NULL != pListLink)
+    {
+        do {
+            pProjDep = K2_GET_CONTAINER(ProjDep, pListLink, OwnerListLink);
+            pListLink = pListLink->mpNext;
+            if (pProjDep->mpDependOn->IsDamaged())
+                return false;
+        } while (NULL != pListLink);
+    }
     pListLink = mpParentSrcXml->Proj.Img.RawXdlProjList.mpHead;
     if (NULL != pListLink)
     {
@@ -478,6 +517,18 @@ BuildFileUser_Img::CheckIfDamaged(
         return true;
 
     pListLink = mpParentSrcXml->Proj.Img.BuiltInXdlProjList.mpHead;
+    if (NULL != pListLink)
+    {
+        do {
+            pProjDep = K2_GET_CONTAINER(ProjDep, pListLink, OwnerListLink);
+            pListLink = pListLink->mpNext;
+            if (pProjDep->mpDependOn->IsDamaged())
+                return true;
+            if (mpVfsFile->IsOlderThan(pProjDep->mpDependOn->Proj.Xdl.mpOutXdl->mpVfsFile))
+                return true;
+        } while (NULL != pListLink);
+    }
+    pListLink = mpParentSrcXml->Proj.Img.BuiltInKernXdlProjList.mpHead;
     if (NULL != pListLink)
     {
         do {

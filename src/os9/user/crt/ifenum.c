@@ -72,34 +72,45 @@ K2OS_IfEnum_Next(
     UINT32 *            apIoEntryBufferCount
 )
 {
-    UINT32              entryCountIn;
-    BOOL                result;
-    K2OS_THREAD_PAGE *  pThreadPage;
+    K2OS_RPC_CALLARGS               callArgs;
+    K2OS_KERNELRPC_IFENUMNEXT_IN    inParam;
+    K2OS_KERNELRPC_IFENUMNEXT_OUT   outResult;
+    UINT32                          actualOut;
+    K2STAT                          stat;
 
-    if ((aIfEnumToken == NULL) ||
-        (NULL == apEntryBuffer) ||
-        (NULL == apIoEntryBufferCount) ||
-        (0 == (*apIoEntryBufferCount)))
+    inParam.mCount = *apIoEntryBufferCount;
+    if (0 == inParam.mCount)
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
         return FALSE;
     }
 
-    entryCountIn = *apIoEntryBufferCount;
+    inParam.TargetBufDesc.mBytesLength = inParam.mCount * sizeof(K2OS_IFINST_DETAIL);
 
-    CrtMem_Touch(apEntryBuffer, entryCountIn * sizeof(K2OS_IFINST_DETAIL));
+    // fault here if buffer is bad
+    K2MEM_Touch(apEntryBuffer, inParam.TargetBufDesc.mBytesLength);
 
-    result = CrtKern_SysCall3(K2OS_SYSCALL_ID_IFENUM_NEXT,
-        (UINT32)aIfEnumToken,
-        (UINT32)apEntryBuffer,
-        entryCountIn);
+    inParam.TargetBufDesc.mAddress = (UINT32)apEntryBuffer;
+    inParam.mTokEnum = aIfEnumToken;
+    inParam.TargetBufDesc.mAttrib = 0;
 
-    if (!result)
+    callArgs.mMethodId = K2OS_KernelRpc_Method_IfEnumNext;
+    callArgs.mpInBuf = (UINT8 const *)&inParam;
+    callArgs.mInBufByteCount = sizeof(inParam);
+    callArgs.mpOutBuf = (UINT8 *)&outResult;
+    callArgs.mOutBufByteCount = sizeof(outResult);
+
+    actualOut = 0;
+    stat = K2OS_Rpc_Call(CrtRpc_Obj(), &callArgs, &actualOut);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OS_Thread_SetLastStatus(stat);
         return FALSE;
+    }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    K2_ASSERT(actualOut == sizeof(outResult));
 
-    *apIoEntryBufferCount = pThreadPage->mSysCall_Arg7_Result0;
+    *apIoEntryBufferCount = outResult.mCountGot;
 
     return TRUE;
 }

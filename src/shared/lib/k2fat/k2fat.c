@@ -32,33 +32,305 @@
 
 #include <lib/k2fat.h>
 
+typedef struct _K2FAT_TOTSEC_TO_SEC_PER_CLUS K2FAT_TOTSEC_TO_SEC_PER_CLUS;
+struct _K2FAT_TOTSEC_TO_SEC_PER_CLUS
+{
+    UINT32  mSectorCount;
+    UINT8   mSectorsPerCluster;
+};
+
+static K2FAT_TOTSEC_TO_SEC_PER_CLUS ConvTableFAT16[] = {
+    {8400, 0}, /* disks up to 4.1 MB, the 0 value for SecPerClusVal trips an error */
+    {32680, 2}, /* disks up to 16 MB, 1k cluster */
+    {262144, 4}, /* disks up to 128 MB, 2k cluster */
+    {524288, 8}, /* disks up to 256 MB, 4k cluster */
+    {1048576, 16}, /* disks up to 512 MB, 8k cluster */
+    /* The entries after this point are not used unless FAT16 is forced */
+    {2097152, 32}, /* disks up to 1 GB, 16k cluster */
+    {4194304, 64}, /* disks up to 2 GB, 32k cluster */
+    {0xFFFFFFFF, 0} /*any disk greater than 2GB, 0 value for SecPerClusVal trips an error */
+};
+
+static K2FAT_TOTSEC_TO_SEC_PER_CLUS ConvTableFAT32[] = {
+    {66600, 0}, /* disks up to 32.5 MB, the 0 value for SecPerClusVal trips an error */
+    {532480, 1}, /* disks up to 260 MB, .5k cluster */
+    {16777216, 8}, /* disks up to 8 GB, 4k cluster */
+    {33554432, 16}, /* disks up to 16 GB, 8k cluster */
+    {67108864, 32}, /* disks up to 32 GB, 16k cluster */
+    {0xFFFFFFFF, 64}/* disks greater than 32GB, 32k cluster */
+};
+
+K2STAT
+K2FAT_CreateBootSector(
+    UINT32                  aBytesPerSector,
+    UINT32                  aMediaType,
+    UINT32                  aSectorCount,
+    UINT32                  aFatDateTime,
+    FAT_GENERIC_BOOTSECTOR *apRetBootSector
+)
+{
+    UINT64      totSizeBytes;
+    K2FAT_Type  fatType;
+    UINT_PTR    ix;
+    UINT_PTR    clusterCount;
+    UINT64      clusterCount64;
+    UINT_PTR    rootDirSectors;
+    UINT_PTR    fatSectors;
+    UINT_PTR    resSectors;
+
+    if ((NULL == apRetBootSector) ||
+        (0 == aSectorCount))
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    // these are the only allowed FAT bytes per sector values 
+    if ((512 != aBytesPerSector) &&
+        (1024 != aBytesPerSector) &&
+        (2048 != aBytesPerSector) &&
+        (4096 != aBytesPerSector))
+    {
+        return K2STAT_ERROR_BAD_ARGUMENT;
+    }
+
+    K2MEM_Zero(apRetBootSector, aBytesPerSector);
+
+    apRetBootSector->BS_jmpBoot[0] = 0xEB;
+    apRetBootSector->BS_jmpBoot[1] = 0x3C;
+    apRetBootSector->BS_jmpBoot[2] = 0x90;
+    K2ASC_Copy((char *)apRetBootSector->BS_OEMName, "K2OS");
+    apRetBootSector->BPB_Media = (UINT8)aMediaType;
+    K2MEM_WriteAsBytes_UINT16(&apRetBootSector->BS_Signature, 0xAA55);
+
+    K2MEM_WriteAsBytes_UINT16(&apRetBootSector->BPB_BytesPerSec, (UINT16)aBytesPerSector);
+
+    totSizeBytes = ((UINT64)aSectorCount) * ((UINT64)aBytesPerSector);
+
+    if (aMediaType == FAT_MEDIATYPE_FLOPPY)
+    {
+        if (aBytesPerSector != 512)
+        {
+            return K2STAT_ERROR_NOT_SUPPORTED;
+        }
+        if (aSectorCount >= 0xFF5)
+        {
+            //
+            // floppies must be FAT12, and FAT12 cannot
+            // handle >= 4MB
+            //
+            return K2STAT_ERROR_TOO_BIG;
+        }
+        fatType = K2FAT_Type12;
+        clusterCount = aSectorCount;
+        apRetBootSector->BPB_SecPerClus = 1;
+        K2MEM_WriteAsBytes_UINT16(&apRetBootSector->BPB_SecPerTrk, 18);
+        K2MEM_WriteAsBytes_UINT16(&apRetBootSector->BPB_NumHeads, 2);
+    }
+    else
+    {
+        //
+        // not a floppy disk media
+        //
+        if (512 == aBytesPerSector)
+        {
+            if (aSectorCount < 0xFF0)
+            {
+                fatType = K2FAT_Type12;
+                apRetBootSector->BPB_SecPerClus = 1;
+            }
+            else
+            {
+                //
+                // 512-byte sector media uses fixed tables to determine sectors per cluster
+                //
+                ix = 0;
+                if (totSizeBytes < (512 * 1024 * 1024))
+                {
+                    fatType = K2FAT_Type16;
+                    do
+                    {
+                        if (aSectorCount <= ((UINT64)ConvTableFAT16[ix].mSectorCount))
+                        {
+                            apRetBootSector->BPB_SecPerClus = ConvTableFAT16[ix].mSectorsPerCluster;
+                            break;
+                        }
+                        ix++;
+                    } while (1);
+                }
+                else
+                {
+                    // FAT32 - these two settings are forced. check above prevents overrun of table
+                    fatType = K2FAT_Type32;
+                    do
+                    {
+                        if (aSectorCount <= ((UINT64)ConvTableFAT32[ix].mSectorCount))
+                        {
+                            apRetBootSector->BPB_SecPerClus = ConvTableFAT32[ix].mSectorsPerCluster;
+                            break;
+                        }
+                        ix++;
+                    } while (1);
+                }
+            }
+        }
+        else
+        {
+            //
+            // not a 512-byte sector media
+            //
+            clusterCount64 = totSizeBytes / (UINT64)aBytesPerSector;
+            if (clusterCount64 < 0xFF5)
+            {
+                fatType = K2FAT_Type12;
+                apRetBootSector->BPB_SecPerClus = 1;
+            }
+            else if (clusterCount64 < 65525ull)
+            {
+                fatType = K2FAT_Type16;
+                apRetBootSector->BPB_SecPerClus = 1;
+            }
+            else
+            {
+                fatType = K2FAT_Type32;
+                ix = 1;
+                while (clusterCount64 >= 0x0FFFFFF5)
+                {
+                    ix++;
+                    clusterCount64 >>= 1;
+                }
+                if (ix > 7)
+                {
+                    // volume is too big for FAT32 so clip it to the max based on the sector size and max cluster size
+                    totSizeBytes = 0x0FFFFFF5ull * 128ull * ((UINT64)aBytesPerSector);
+                    aSectorCount = (UINT32)(totSizeBytes / ((UINT64)aBytesPerSector));
+                    ix = 7;
+                }
+                apRetBootSector->BPB_SecPerClus = (UINT8)(1 << ix);
+            }
+        }
+    }
+
+    //
+    // fat type and sectors per cluster are set now
+    // 
+    // calculate number of fats and sectors per fat
+    //
+
+    clusterCount = (UINT32)(totSizeBytes / (((UINT64)aBytesPerSector) / ((UINT64)apRetBootSector->BPB_SecPerClus)));
+
+    if (K2FAT_Type12 == fatType)
+    {
+        apRetBootSector->BPB_NumFATs = 2;
+        K2MEM_WriteAsBytes_UINT16(&apRetBootSector->BPB_RootEntCnt, 224);
+        fatSectors = (((clusterCount * 3) / 2) + (aBytesPerSector - 1)) / aBytesPerSector;
+        resSectors = 1;
+    }
+    else
+    {
+        apRetBootSector->BPB_NumFATs = 2;
+        if (K2FAT_Type16 == fatType)
+        {
+            fatSectors = ((clusterCount * 2) + (aBytesPerSector - 1)) / aBytesPerSector;
+            K2MEM_WriteAsBytes_UINT16(&apRetBootSector->BPB_RootEntCnt, 512);
+            resSectors = 1;
+        }
+        else
+        {
+            K2_ASSERT(K2FAT_Type32 == fatType);
+            fatSectors = ((clusterCount * 4) + (aBytesPerSector - 1)) / aBytesPerSector;
+            resSectors = 32;
+        }
+    }
+
+    rootDirSectors = ((K2MEM_ReadAsBytes_UINT16(&apRetBootSector->BPB_RootEntCnt) * 32) + (aBytesPerSector - 1)) / aBytesPerSector;
+
+    //
+    // align data area using number of reserved sectors, which will always be > 1
+    // and always be at least 32 for a FAT32 volume
+    //
+    ix = apRetBootSector->BPB_SecPerClus;
+    while (0 != ((rootDirSectors + (fatSectors * apRetBootSector->BPB_NumFATs) + resSectors) % ix))
+        resSectors++;
+
+    K2MEM_WriteAsBytes_UINT16(&apRetBootSector->BPB_ResvdSecCnt, resSectors);
+
+    if (K2FAT_Type32 != fatType)
+    {
+        if (FAT_MEDIATYPE_FLOPPY != aMediaType)
+        {
+            ((FAT_BOOTSECTOR12OR16 *)apRetBootSector)->BS_DrvNum = 0x80;
+        }
+
+        K2ASC_Copy((char *)((FAT_BOOTSECTOR12OR16 *)apRetBootSector)->BS_VolLab, "NO NAME    ");
+
+        ((FAT_BOOTSECTOR12OR16 *)apRetBootSector)->BS_BootSig = 0x29;
+
+        if (K2FAT_Type12 == fatType)
+        {
+            K2ASC_Copy((char *)((FAT_BOOTSECTOR12OR16 *)apRetBootSector)->BS_FilSysType, "FAT12   ");
+        }
+        else
+        {
+            K2ASC_Copy((char *)((FAT_BOOTSECTOR12OR16 *)apRetBootSector)->BS_FilSysType, "FAT16   ");
+        }
+
+        K2MEM_WriteAsBytes_UINT32(&((FAT_BOOTSECTOR12OR16 *)apRetBootSector)->BS_VolID, aFatDateTime);
+
+        K2MEM_WriteAsBytes_UINT16(&apRetBootSector->BPB_FATSz16, (UINT16)fatSectors);
+        if (aSectorCount > 0xFFFF)
+        {
+            K2MEM_WriteAsBytes_UINT32(&apRetBootSector->BPB_TotSec32, aSectorCount);
+        }
+        else
+        {
+            K2MEM_WriteAsBytes_UINT16(&apRetBootSector->BPB_TotSec16, (UINT16)aSectorCount);
+        }
+    }
+    else
+    {
+        K2MEM_WriteAsBytes_UINT32(&((FAT_BOOTSECTOR32 *)apRetBootSector)->BPB_RootClus, 2);
+        K2MEM_WriteAsBytes_UINT32(&((FAT_BOOTSECTOR32 *)apRetBootSector)->BS_VolID, aFatDateTime);
+        ((FAT_BOOTSECTOR32 *)apRetBootSector)->BS_BootSig = 0x29;
+        K2ASC_Copy((char *)((FAT_BOOTSECTOR32 *)apRetBootSector)->BS_VolLab, "NO NAME    ");
+        K2ASC_Copy((char *)((FAT_BOOTSECTOR32 *)apRetBootSector)->BS_FilSysType, "FAT32   ");
+        K2MEM_WriteAsBytes_UINT32(&((FAT_BOOTSECTOR32 *)apRetBootSector)->BPB_FATSz32, fatSectors);
+        K2MEM_WriteAsBytes_UINT32(&apRetBootSector->BPB_TotSec32, aSectorCount);
+    }
+
+    return K2STAT_NO_ERROR;
+}
+
 K2STAT 
-K2FAT_DetermineFromBootSector(
+K2FAT_ParseBootSector(
     FAT_GENERIC_BOOTSECTOR const *  apBootSector,
     K2FAT_PART *                    apRetPart
 )
 {
+    UINT16 bytesPerSector;
+
     if (0 == K2MEM_Compare(apBootSector->BS_OEMName, "EXFAT", 5))
         return K2STAT_ERROR_UNSUPPORTED;
 
-    if ((0 == apBootSector->BPB_BytesPerSec) || (0 == apBootSector->BPB_SecPerClus))
+    bytesPerSector = K2MEM_ReadAsBytes_UINT16(&apBootSector->BPB_BytesPerSec);
+
+    if ((0 == bytesPerSector) || (0 == apBootSector->BPB_SecPerClus))
         return K2STAT_ERROR_BAD_FORMAT;
 
     K2MEM_Zero((UINT8 *)apRetPart, sizeof(K2FAT_PART));
 
-    apRetPart->mBytesPerSector = apBootSector->BPB_BytesPerSec;
+    apRetPart->mBytesPerSector = bytesPerSector;
 
     if (apBootSector->BPB_FATSz16 != 0)
-        apRetPart->mNumSectorsPerFAT = apBootSector->BPB_FATSz16;
+        apRetPart->mNumSectorsPerFAT = K2MEM_ReadAsBytes_UINT16(&apBootSector->BPB_FATSz16);
     else
-        apRetPart->mNumSectorsPerFAT = ((FAT_BOOTSECTOR32 const *)apBootSector)->BPB_FATSz32;
+        apRetPart->mNumSectorsPerFAT = K2MEM_ReadAsBytes_UINT32(&((FAT_BOOTSECTOR32 const *)apBootSector)->BPB_FATSz32);
 
     if (apBootSector->BPB_TotSec16 != 0)
-        apRetPart->mNumTotalSectors64 = apBootSector->BPB_TotSec16;
+        apRetPart->mNumTotalSectors = K2MEM_ReadAsBytes_UINT16(&apBootSector->BPB_TotSec16);
     else
-        apRetPart->mNumTotalSectors64 = apBootSector->BPB_TotSec32;
+        apRetPart->mNumTotalSectors = K2MEM_ReadAsBytes_UINT32(&apBootSector->BPB_TotSec32);
 
-    apRetPart->mFirstFATSector64 = apBootSector->BPB_ResvdSecCnt;
+    apRetPart->mNumReservedSectors = K2MEM_ReadAsBytes_UINT16(&apBootSector->BPB_ResvdSecCnt);
 
     apRetPart->mNumFATs = apBootSector->BPB_NumFATs;
 
@@ -68,50 +340,119 @@ K2FAT_DetermineFromBootSector(
     }
 
     apRetPart->mMediaType = apBootSector->BPB_Media;
-    apRetPart->mNumHeads = apBootSector->BPB_NumHeads;
-    apRetPart->mSectorsPerTrack = apBootSector->BPB_SecPerTrk;
+    apRetPart->mNumHeads = K2MEM_ReadAsBytes_UINT16(&apBootSector->BPB_NumHeads);
+    apRetPart->mSectorsPerTrack = K2MEM_ReadAsBytes_UINT16(&apBootSector->BPB_SecPerTrk);
     apRetPart->mSectorsPerCluster = apBootSector->BPB_SecPerClus;
 
     /* these are fat12/fat16 calcs */
-    apRetPart->mNumRootDirEntries = apBootSector->BPB_RootEntCnt;
+    apRetPart->mNumRootDirEntries = K2MEM_ReadAsBytes_UINT16(&apBootSector->BPB_RootEntCnt);
     apRetPart->mNumRootDirSectors = ((apRetPart->mNumRootDirEntries * 32) + (apRetPart->mBytesPerSector - 1)) / apRetPart->mBytesPerSector;
-    apRetPart->mFirstRootDirSector64 = apRetPart->mFirstFATSector64 + (apRetPart->mNumFATs * apRetPart->mNumSectorsPerFAT);
-    apRetPart->mFirstDataSector64 = apRetPart->mFirstRootDirSector64 + apRetPart->mNumRootDirSectors;
-    apRetPart->mNumDataSectors64 = apRetPart->mNumTotalSectors64 - apRetPart->mFirstDataSector64;
-    apRetPart->mCountOfClusters = (UINT32)(apRetPart->mNumDataSectors64 / apRetPart->mSectorsPerCluster);
+    apRetPart->mFirstRootDirSector = apRetPart->mNumReservedSectors + (apRetPart->mNumFATs * apRetPart->mNumSectorsPerFAT);
+    apRetPart->mDataAreaStartSector = apRetPart->mFirstRootDirSector + apRetPart->mNumRootDirSectors;
+    apRetPart->mNumDataSectors = apRetPart->mNumTotalSectors - apRetPart->mDataAreaStartSector;
+    apRetPart->mLastValidClusterIndex = (UINT32)(apRetPart->mNumDataSectors / apRetPart->mSectorsPerCluster) + 2;
 
     /* only at this point can we determine if we are fat32, in which case we need to recalculate some of the
        above values to fit that model */
 
-    if (apRetPart->mCountOfClusters >= 65525)
+    if (apRetPart->mLastValidClusterIndex >= 65525)
     {
         /* recalc layout */
-        apRetPart->mFirstDataSector64 = apRetPart->mFirstFATSector64 + (apRetPart->mNumFATs * apRetPart->mNumSectorsPerFAT);
-        apRetPart->mNumDataSectors64 = apRetPart->mNumTotalSectors64 - apRetPart->mFirstDataSector64;
-        apRetPart->mCountOfClusters = (UINT32)(apRetPart->mNumDataSectors64 / apRetPart->mSectorsPerCluster);
+        apRetPart->mDataAreaStartSector = apRetPart->mNumReservedSectors + (apRetPart->mNumFATs * apRetPart->mNumSectorsPerFAT);
+        apRetPart->mNumDataSectors = apRetPart->mNumTotalSectors - apRetPart->mDataAreaStartSector;
+        apRetPart->mLastValidClusterIndex = (UINT32)(apRetPart->mNumDataSectors / apRetPart->mSectorsPerCluster) + 2;
 
         apRetPart->mNumRootDirEntries = 0;
         apRetPart->mNumRootDirSectors = 0;
-        apRetPart->mFirstRootDirSector64 = FAT_CLUSTER_TO_SECTOR(apRetPart->mFirstDataSector64, apRetPart->mSectorsPerCluster, ((FAT_BOOTSECTOR32 *)apBootSector)->BPB_RootClus);
+        apRetPart->mFirstRootDirSector = FAT_CLUSTER_TO_SECTOR(apRetPart->mDataAreaStartSector, apRetPart->mSectorsPerCluster, K2MEM_ReadAsBytes_UINT32(&((FAT_BOOTSECTOR32 *)apBootSector)->BPB_RootClus));
 
         apRetPart->mFATType = K2FAT_Type32; 
         apRetPart->mDriveNumber = ((FAT_BOOTSECTOR32 *)apBootSector)->BS_DrvNum;
     }
     else
     {
-        if (apRetPart->mCountOfClusters < 4085)
+        if ((apRetPart->mLastValidClusterIndex < 0xFF5) && 
+            (0 == K2ASC_CompLen(((FAT_BOOTSECTOR12OR16 const *)apBootSector)->BS_FilSysType,"FAT12 ",6)))
         {
             apRetPart->mFATType = K2FAT_Type12;
-            apRetPart->mDriveNumber = ((FAT_BOOTSECTOR12 *)apBootSector)->BS_DrvNum;
+            apRetPart->mDriveNumber = ((FAT_BOOTSECTOR12OR16 *)apBootSector)->BS_DrvNum;
         }
         else
         {
             apRetPart->mFATType = K2FAT_Type16;
-            apRetPart->mDriveNumber = ((FAT_BOOTSECTOR16 *)apBootSector)->BS_DrvNum;
+            apRetPart->mDriveNumber = ((FAT_BOOTSECTOR12OR16 *)apBootSector)->BS_DrvNum;
         }
     }
 
     return K2STAT_NO_ERROR;
+}
+
+UINT16
+K2FAT_MakeDate(
+    UINT_PTR aYear,
+    UINT_PTR aMonth,
+    UINT_PTR aDay
+)
+{
+    UINT16 ret;
+
+    ret = (((UINT16)(aYear - 1980)) << FAT_DATE_YEAR_SHL) & FAT_DATE_YEAR_MASK;
+    ret |= (((UINT16)aMonth) << FAT_DATE_MONTH_SHL) & FAT_DATE_MONTH_MASK;
+    return ret | ((UINT16)aDay) & FAT_DATE_DOM_MASK;
+}
+
+UINT16
+K2FAT_MakeTime(
+    UINT_PTR aHour,
+    UINT_PTR aMinute,
+    UINT_PTR aSecond
+)
+{
+    UINT16 ret;
+
+    ret = (((UINT16)aHour) << FAT_TIME_HOUR_SHL) & FAT_TIME_HOUR_MASK;
+    ret |= (((UINT16)aMinute) << FAT_TIME_MINUTE_SHL) & FAT_TIME_MINUTE_MASK;
+    return ret | ((((UINT16)aSecond) / 2) & FAT_TIME_SEC2);
+}
+
+UINT32
+K2FAT_OsTimeToDateTime(
+    K2_DATETIME const * apOsTime
+)
+{
+    UINT32 ret;
+
+    if ((NULL == apOsTime) ||
+        (!K2_IsOsTimeValid(apOsTime)))
+        return 0;
+
+    // time low date high
+    ret = K2FAT_MakeTime(apOsTime->mHour, apOsTime->mMinute, apOsTime->mSecond);
+    return ret | ((UINT32)K2FAT_MakeDate(apOsTime->mYear, apOsTime->mMonth, apOsTime->mDay)) << 16;
+}
+
+BOOL
+K2FAT_DateTimeToOsTime(
+    UINT32          aFatDateTime,
+    K2_DATETIME *   apRetOsTime
+)
+{
+    if (NULL == apRetOsTime)
+        return FALSE;
+
+    // time low date high.  always extract even if is bad
+
+    apRetOsTime->mYear = 1980 + (UINT16)(((aFatDateTime >> 16) & FAT_DATE_YEAR_MASK) >> FAT_DATE_YEAR_SHL);
+    apRetOsTime->mMonth = (UINT16)(((aFatDateTime >> 16) & FAT_DATE_MONTH_MASK) >> FAT_DATE_MONTH_SHL);
+    apRetOsTime->mDay = (UINT16)((aFatDateTime >> 16) & FAT_DATE_DOM_MASK);
+    apRetOsTime->mHour = (UINT16)((aFatDateTime & FAT_TIME_HOUR_MASK) >> FAT_TIME_HOUR_SHL);
+    apRetOsTime->mMinute = (UINT16)((aFatDateTime & FAT_TIME_MINUTE_MASK) >> FAT_TIME_MINUTE_SHL);
+    apRetOsTime->mSecond = (UINT16)(((aFatDateTime & FAT_TIME_SEC2)) * 2);
+    apRetOsTime->mMillisecond = 0;
+    apRetOsTime->mTimeZoneId = 0;
+
+    // user may not care
+    return K2_IsOsTimeValid(apRetOsTime);
 }
 
 UINT8  
@@ -168,10 +509,10 @@ K2FAT_FindDirEntry(
         if (inLongName)
         {
             pLong = (FAT_LONGENTRY const *)pEnt;
-            if (FAT_DIRENTRY_IS_LONGNAME(pLong->mAttribute & 0x0F))
+            if (FAT_DIRENTRY_IS_LONGNAME(pLong->LDIR_Attr & 0x0F))
             {
                 compare83 = 0;
-                if (pLong->mMustBeZero != 0)
+                if (pLong->LDIR_FstClusLO != 0)
                 {
                     /* error in chain */
                     pFirst = NULL;
@@ -186,19 +527,19 @@ K2FAT_FindDirEntry(
 
                 /* pLong should be last (first) entry in the long name now */
 
-                if (0 == (pLong->mCaseSpec & FAT_DIRENTRY_CASE_NO83NAME))
+                if (0 == (pLong->LDIR_Type & FAT_DIRENTRY_CASE_NO83NAME))
                 {
                     compare83 = 1;
-                    if ((pEnt->mFileName[0] != FAT_DIRENTRY_NAME0_AVAIL) &&
-                        (pEnt->mFileName[0] != FAT_DIRENTRY_NAME0_DOT) &&
-                        (pEnt->mFileName[0] != FAT_DIRENTRY_NAME0_ERASED))
+                    if ((pEnt->DIR_Name[0] != FAT_DIRENTRY_NAME0_AVAIL) &&
+                        (pEnt->DIR_Name[0] != FAT_DIRENTRY_NAME0_DOT) &&
+                        (pEnt->DIR_Name[0] != FAT_DIRENTRY_NAME0_ERASED))
                     {
                         /* calc the checksum and check the long name stuffs */
-                        chkSum = K2FAT_LFN_Checksum(pEnt->mFileName);
+                        chkSum = K2FAT_LFN_Checksum(pEnt->DIR_Name);
                         pLong++;
                         do {
                             pLong--;
-                            if (pLong->m83NameChecksum != chkSum)
+                            if (pLong->LDIR_Chksum != chkSum)
                             {
                                 pLong = NULL;
                                 break;
@@ -213,7 +554,7 @@ K2FAT_FindDirEntry(
                 else
                 {
                     compare83 = 0;
-                    if (0 == (pLong->mAttribute & FAT_DIRENTRY_ATTR_LONGEND))
+                    if (0 == (pLong->LDIR_Attr & FAT_DIRENTRY_ATTR_LONGEND))
                     {
                         //
                         // long file name with no 8.3 does not have longend bit set
@@ -236,11 +577,11 @@ K2FAT_FindDirEntry(
                         if (entryLen > aNameLen)
                             break;
                         pConstruct -= (2 * sizeof(UINT16));
-                        K2MEM_Copy(pConstruct, pFirst->mNameChars3, 2 * sizeof(UINT16));
+                        K2MEM_Copy(pConstruct, pFirst->LDIR_Name3, 2 * sizeof(UINT16));
                         pConstruct -= (6 * sizeof(UINT16));
-                        K2MEM_Copy(pConstruct, pFirst->mNameChars2, 6 * sizeof(UINT16));
+                        K2MEM_Copy(pConstruct, pFirst->LDIR_Name2, 6 * sizeof(UINT16));
                         pConstruct -= (5 * sizeof(UINT16));
-                        K2MEM_Copy(pConstruct, pFirst->mNameChars1, 5 * sizeof(UINT16));
+                        K2MEM_Copy(pConstruct, pFirst->LDIR_Name1, 5 * sizeof(UINT16));
                         entryLen += 13;
                         pFirst++;
                     } while (pFirst != ((FAT_LONGENTRY const *)pEnt));
@@ -275,10 +616,10 @@ K2FAT_FindDirEntry(
         }
         else
         {
-            if (FAT_DIRENTRY_IS_LONGNAME(pEnt->mAttribute))
+            if (FAT_DIRENTRY_IS_LONGNAME(pEnt->DIR_Attr))
             {
                 pLong = (FAT_LONGENTRY const *)pEnt;
-                if (pLong->mMustBeZero == 0)
+                if (pLong->LDIR_FstClusLO == 0)
                 {
                     pFirst = (FAT_LONGENTRY const *)pEnt;
                     inLongName = 1;
@@ -295,22 +636,22 @@ K2FAT_FindDirEntry(
         if (compare83)
         {
             compare83 = 0;
-            if ((pEnt->mFileName[0] != FAT_DIRENTRY_NAME0_AVAIL) &&
-                (pEnt->mFileName[0] != FAT_DIRENTRY_NAME0_DOT) &&
-                (pEnt->mFileName[0] != FAT_DIRENTRY_NAME0_ERASED) &&
-                (!(pEnt->mAttribute & (FAT_DIRENTRY_ATTR_LABEL | FAT_DIRENTRY_ATTR_DIR))))
+            if ((pEnt->DIR_Name[0] != FAT_DIRENTRY_NAME0_AVAIL) &&
+                (pEnt->DIR_Name[0] != FAT_DIRENTRY_NAME0_DOT) &&
+                (pEnt->DIR_Name[0] != FAT_DIRENTRY_NAME0_ERASED) &&
+                (!(pEnt->DIR_Attr & (FAT_DIRENTRY_ATTR_LABEL | FAT_DIRENTRY_ATTR_DIR))))
             {
                 /* remove any internal spaces in the 8.3 name before comparison */
                 pConstruct = constructedName;
                 entryLen = 0;
                 for (chkIx = 0; chkIx < 8; chkIx++)
                 {
-                    if ((!pEnt->mFileName[chkIx]) || (pEnt->mFileName[chkIx] == ' '))
+                    if ((!pEnt->DIR_Name[chkIx]) || (pEnt->DIR_Name[chkIx] == ' '))
                         break;
-                    *(pConstruct++) = pEnt->mFileName[chkIx];
+                    *(pConstruct++) = pEnt->DIR_Name[chkIx];
                     entryLen++;
                 }
-                if ((pEnt->mExtension[0]) && (pEnt->mExtension[0] != ' '))
+                if ((pEnt->DIR_Name[8]) && (pEnt->DIR_Name[8] != ' '))
                 {
                     *pConstruct = '.';
                     entryLen++;
@@ -319,9 +660,9 @@ K2FAT_FindDirEntry(
                 *pConstruct = 0;
                 for (chkIx = 0; chkIx < 3; chkIx++)
                 {
-                    if ((!pEnt->mExtension[chkIx]) || (pEnt->mExtension[chkIx] == ' '))
+                    if ((!pEnt->DIR_Name[8 + chkIx]) || (pEnt->DIR_Name[8 + chkIx] == ' '))
                         break;
-                    *(pConstruct++) = pEnt->mExtension[chkIx];
+                    *(pConstruct++) = pEnt->DIR_Name[8 + chkIx];
                     entryLen++;
                 }
                 *pConstruct = 0;
@@ -470,14 +811,14 @@ K2FAT_GetNextCluster(
         (0 == apRetNextCluster))
         return K2STAT_ERROR_BAD_ARGUMENT;
 
-    if ((apFatPart->mFATType == K2FAT_Invalid) ||
-        (apFatPart->mFATType >= K2FAT_TypeCount))
+    if ((apFatPart->mFATType == K2FAT_Type_Invalid) ||
+        (apFatPart->mFATType >= K2FAT_Type_Count))
     {
         return K2STAT_ERROR_BAD_ARGUMENT;
     }
 
     if ((aClusterNumber < 2) ||
-        (aClusterNumber >= (apFatPart->mCountOfClusters + 2)))
+        (aClusterNumber > apFatPart->mLastValidClusterIndex))
     {
         return K2STAT_ERROR_BAD_ARGUMENT;
     }

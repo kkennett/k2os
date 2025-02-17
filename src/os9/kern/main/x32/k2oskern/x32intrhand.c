@@ -37,61 +37,37 @@ static BOOL sgInIntr[K2OS_MAX_CPU_COUNT] = { 0, };
 static K2OSKERN_IRQ * sgpIrqObjByIrqIx[X32_NUM_IDT_ENTRIES] = { 0, };
 
 void
-sPopTrap(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    K2OSKERN_OBJ_THREAD *       apCurThread,
-    K2_EXCEPTION_TRAP *         apExTrap,
-    K2OSKERN_ARCH_EXEC_CONTEXT *apContext,
-    K2STAT                      aExCode
-)
-{
-    UINT32  targetESP;
-
-    /* The exception statuscode goes into the trap result, and the trap is dismounted */
-    apExTrap->mTrapResult = aExCode;
-
-    /* we overwrite the exception context with the values from the trap record.  */
-    K2MEM_Copy(&apContext->REGS, &apExTrap->SavedContext.EDI, sizeof(X32_PUSHA));
-
-    /* must tweak returned EAX to nonzero so the return value from the trap mount is not FALSE */
-    apContext->REGS.EAX = 0xFFFFFFFF;
-
-       /* dismount the kernel-mode trap */
-    apCurThread->mpTrapStack = apExTrap->mpNextTrap;
-
-    /* target ESP before pseudo-push of exception context is the ESP that
-       will be effective when we return from this exception */
-    targetESP = (apExTrap->SavedContext.ESP + 4) - X32_SIZEOF_KERN_EXCEPTION_CONTEXT;
-
-    /* overwrite stuff in the source context with the proper return values */
-    apContext->DS = X32_SEGMENT_SELECTOR_KERNEL_DATA | X32_SELECTOR_RPL_KERNEL;
-    apContext->EIP = apExTrap->SavedContext.EIP;
-    apContext->EFLAGS = apExTrap->SavedContext.EFLAGS;
-    apContext->CS = X32_SEGMENT_SELECTOR_KERNEL_CODE | X32_SELECTOR_RPL_KERNEL;
-
-    /* now do the assembly that copies the context down in the stack (up in memory)
-       to the new stack pointer to properly return and restore the original ESP.
-       The ESP in the context record will be ignored during the popa */
-    sgInIntr[apThisCore->mCoreIx] = FALSE;
-
-    X32KernAsm_KernelExTrapReturn(apContext, targetESP);
-
-    K2OSKERN_Panic("ExTrap returned\n");
-}
-
-
-void
 X32Kern_OnException(
     K2OSKERN_CPUCORE volatile *     apThisCore,
     K2OSKERN_ARCH_EXEC_CONTEXT *    apContext
 )
 {
-    K2OSKERN_OBJ_THREAD *       pCurThread;
-    K2OSKERN_CPUCORE_EVENT *    pEvent;
-    K2OSKERN_THREAD_EX  *       pEx;
-    UINT32                      exCode;
-    K2_EXCEPTION_TRAP *         pExTrap;
+    K2OSKERN_OBJ_THREAD *               pCurThread;
+    K2OSKERN_CPUCORE_EVENT volatile *   pEvent;
+    K2OSKERN_THREAD_EX  *               pEx;
+    UINT32                              exCode;
 
+    if (apThisCore->mIsInMonitor)
+    {
+        K2OSKERN_Debug("Core %d, Exception in monitor. Context @ %08X\n", apThisCore->mCoreIx, apContext);
+
+        K2OSKERN_Debug("Exception %d\n", apContext->Exception_Vector);
+        K2OSKERN_Debug("CR2 = %08X\n", X32_ReadCR2());
+
+        X32Kern_DumpKernelModeExceptionContext(apContext);
+        X32Kern_DumpStackTrace(
+            NULL,
+            apContext->EIP,
+            apContext->REGS.EBP,
+            ((UINT32)apContext) + X32_SIZEOF_KERN_EXCEPTION_CONTEXT,
+            &gX32Kern_SymDump[apThisCore->mCoreIx * X32_SYM_NAME_MAX_LEN]
+        );
+        K2OSKERN_Panic(NULL);
+    }
+
+    //
+    // thread caused exception
+    //
     exCode = apContext->Exception_Vector;
     if (exCode == X32_EX_PAGE_FAULT)
     {
@@ -114,61 +90,35 @@ X32Kern_OnException(
         exCode = K2STAT_EX_UNKNOWN;
     }
 
+    pCurThread = apThisCore->mpActiveThread;
+    K2_ASSERT(NULL != pCurThread);
+
+    pEx = &pCurThread->LastEx;
+    pEx->mFaultAddr = X32_ReadCR2();
+    pEx->mPageWasPresent = (apContext->Exception_ErrorCode & X32_EX_PAGE_FAULT_PRESENT) ? TRUE : FALSE;
+    pEx->mWasWrite = (apContext->Exception_ErrorCode & X32_EX_PAGE_FAULT_ON_WRITE) ? TRUE : FALSE;
+    pEx->mExCode = exCode;
+
     if ((X32_SEGMENT_SELECTOR_USER_CODE | X32_SELECTOR_RPL_USER) == apContext->CS)
     {
-        pCurThread = apThisCore->mpActiveThread;
-        K2_ASSERT(NULL != pCurThread);
+        //
+        // user mode thread
+        //
         K2_ASSERT(!pCurThread->mIsKernelThread);
-        pEx = &pCurThread->User.LastEx;
-        pEx->mFaultAddr = X32_ReadCR2();
-        pEx->mPageWasPresent = (apContext->Exception_ErrorCode & X32_EX_PAGE_FAULT_PRESENT) ? TRUE : FALSE;
-        pEx->mWasWrite = (apContext->Exception_ErrorCode & X32_EX_PAGE_FAULT_ON_WRITE) ? TRUE : FALSE;
-        pEx->mExCode = exCode;
-
-        pEvent = &pCurThread->CpuCoreEvent;
-        pEvent->mEventType = KernCpuCoreEvent_Thread_Exception;
-        pEvent->mSrcCoreIx = apThisCore->mCoreIx;
-        KernArch_GetHfTimerTick((UINT64 *)&pEvent->mEventHfTick);
-        KernCpu_QueueEvent(pEvent);
-        return;
-    }
-
-    if (!apThisCore->mIsInMonitor)
-    {
-        // check for trap
-        pCurThread = apThisCore->mpActiveThread;
-        K2_ASSERT(NULL != pCurThread);
-        K2_ASSERT(pCurThread->mIsKernelThread);
-        pExTrap = pCurThread->mpTrapStack;
-        if (NULL != pExTrap)
-        {
-            K2OSKERN_Debug("**** Trapping exception 0x%08X in Thread %d\n", exCode, pCurThread->mGlobalIx);
-            sPopTrap(apThisCore, pCurThread, pExTrap, apContext, exCode);
-            return;
-        }
-
-        K2OSKERN_Debug("Core %d, Untrapped Exception in Thread %d.  Context @ 0x%08X\n", apThisCore->mCoreIx, pCurThread->mGlobalIx, apContext);
     }
     else
     {
-        K2OSKERN_Debug("Core %d, Exception in monitor. Context @ %08X\n", apThisCore->mCoreIx, apContext);
+        //
+        // kernel mode thread
+        //
+        K2_ASSERT(pCurThread->mIsKernelThread);
     }
 
-    // 
-    // kernel mode exception = panic
-    //
-    K2OSKERN_Debug("Exception %d\n", apContext->Exception_Vector);
-    K2OSKERN_Debug("CR2 = %08X\n", X32_ReadCR2());
-
-    X32Kern_DumpKernelModeExceptionContext(apContext);
-    X32Kern_DumpStackTrace(
-        NULL,
-        apContext->EIP,
-        apContext->REGS.EBP,
-        ((UINT32)apContext) + X32_SIZEOF_KERN_EXCEPTION_CONTEXT,
-        &gX32Kern_SymDump[apThisCore->mCoreIx * X32_SYM_NAME_MAX_LEN]
-    );
-    K2OSKERN_Panic(NULL);
+    pEvent = &pCurThread->CpuCoreEvent;
+    pEvent->mEventType = KernCpuCoreEvent_Thread_Exception;
+    pEvent->mSrcCoreIx = apThisCore->mCoreIx;
+    KernArch_GetHfTimerTick((UINT64 *)&pEvent->mEventHfTick);
+    KernCpu_QueueEvent(pEvent);
 }
 
 void
@@ -198,10 +148,12 @@ X32Kern_InterruptHandler(
     //
     if (aContext.Exception_Vector < X32KERN_DEVVECTOR_BASE)
     {
+        KTRACE(pThisCore, 2, KTRACE_CORE_EXCEPTION, aContext.Exception_Vector);
         X32Kern_OnException(pThisCore, &aContext);
     }
     else if (aContext.Exception_Vector == 255)
     {
+        KTRACE(pThisCore, 2, KTRACE_CORE_SYSCALL, aContext.Exception_Vector);
         K2_ASSERT(NULL != pCurThread);
         K2_ASSERT(!pThisCore->mIsInMonitor);
         K2_ASSERT(!pCurThread->mIsKernelThread);
@@ -214,6 +166,7 @@ X32Kern_InterruptHandler(
     {
         if (aContext.Exception_Vector >= X32KERN_VECTOR_ICI_BASE)
         {
+            KTRACE(pThisCore, 2, KTRACE_CORE_ICI, aContext.Exception_Vector);
             K2_ASSERT(aContext.Exception_Vector <= X32KERN_VECTOR_ICI_LAST);
             KernIntr_OnIci(pThisCore, pCurThread, aContext.Exception_Vector - X32KERN_VECTOR_ICI_BASE);
         }
@@ -223,15 +176,18 @@ X32Kern_InterruptHandler(
             K2_ASSERT(devIrq < X32_DEVIRQ_MAX_COUNT);
             if (devIrq == 0)
             {
-                X32Kern_TimerInterrupt(pThisCore);
+                KTRACE(pThisCore, 2, KTRACE_CORE_SCHED_TIMER_FIRED, aContext.Exception_Vector);
+                X32Kern_SchedTimer_Interrupt(pThisCore);
                 forceEnterMonitor = TRUE;
             }
             else if (devIrq == X32_DEVIRQ_LVT_TIMER)
             {
+                KTRACE(pThisCore, 2, KTRACE_CORE_TIMER_FIRED, aContext.Exception_Vector);
                 forceEnterMonitor = X32Kern_CoreTimerInterrupt(pThisCore);
             }
             else
             {
+                KTRACE(pThisCore, 2, KTRACE_CORE_DEVICE_IRQ, aContext.Exception_Vector);
                 KernIntr_OnIrq(pThisCore, sgpIrqObjByIrqIx[devIrq]);
             }
         }

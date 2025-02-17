@@ -84,15 +84,10 @@
 #define K2OSKERN_PTE_NP_3                   (K2OSKERN_PTE_NP_TYPE_3 | K2OSKERN_PTE_NP_BIT)
 #define K2OSKERN_PTE_NP_4                   (K2OSKERN_PTE_NP_TYPE_4 | K2OSKERN_PTE_NP_BIT)
 
-#define K2OSKERN_PTE_ACTIVE_COW             K2OSKERN_PTE_NP_1
+#define K2OSKERN_PTE_UNUSED                 K2OSKERN_PTE_NP_1
 #define K2OSKERN_PTE_MAP_CREATE             K2OSKERN_PTE_NP_2
 #define K2OSKERN_PTE_HEAPMAP_PENDING        K2OSKERN_PTE_NP_3
-
-/* --------------------------------------------------------------------------------- */
-
-#define K2OS_NUM_THREAD_TLS_SLOTS           64
-#define K2OS_THREAD_DEFAULT_STACK_PAGES     3
-#define K2OS_THREAD_PAGE_BUFFER_BYTES       1024
+#define K2OSKERN_PTE_STACK_GUARD            K2OSKERN_PTE_NP_4
 
 /* --------------------------------------------------------------------------------- */
 

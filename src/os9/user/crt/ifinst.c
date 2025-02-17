@@ -46,7 +46,7 @@ K2OS_IfInst_Create(
 
     if (NULL != apRetId)
     {
-        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
         *apRetId = pThreadPage->mSysCall_Arg7_Result0;
     }
 
@@ -107,7 +107,7 @@ K2OS_IfInst_GetContext(
 
     if (result)
     {
-        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
         *apRetContext = pThreadPage->mSysCall_Arg7_Result0;
     }
 
@@ -152,7 +152,7 @@ K2OS_IfInst_Publish(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     K2MEM_Copy(pThreadPage->mMiscBuffer, apSpecific, sizeof(K2_GUID128));
 
@@ -178,7 +178,7 @@ K2OS_IfInstId_GetDetail(
     result = (BOOL)CrtKern_SysCall1(K2OS_SYSCALL_ID_IFINSTID_GETDETAIL, aIfInstId);
     if (result)
     {
-        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
         K2MEM_Copy(apRetDetail, pThreadPage->mMiscBuffer, sizeof(K2OS_IFINST_DETAIL));
     }
 

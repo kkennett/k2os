@@ -36,6 +36,9 @@
 // --------------------------------------------------------------------------------- 
 //
 
+#define FAT_MEDIATYPE_FLOPPY                0xF0
+#define FAT_MEDIATYPE_HARD_DISK             0xF8
+
 #define FAT_DIRENTRY_NAME0_AVAIL            0x00
 #define FAT_DIRENTRY_NAME0_E5               0x05
 #define FAT_DIRENTRY_NAME0_DOT              0x2E
@@ -48,11 +51,23 @@
 #define FAT_DIRENTRY_ATTR_READONLY          0x01
 #define FAT_DIRENTRY_ATTR_HIDDEN            0x02
 #define FAT_DIRENTRY_ATTR_SYSTEM            0x04
-#define FAT_DIRENTRY_ATTR_LABEL             0x08
+#define FAT_DIRENTRY_ATTR_LABEL             0x08    // only root dir is allowed to have an entry with this bit set 
 #define FAT_DIRENTRY_ATTR_DIR               0x10
 #define FAT_DIRENTRY_ATTR_ARCHIVE           0x20
 #define FAT_DIRENTRY_ATTR_LONGEND           0x40
 #define FAT_DIRENTRY_ATTR_LONGDEL           0x80
+
+#define FAT_DATE_DOM_MASK                   0x001F  // 0..31
+#define FAT_DATE_MONTH_MASK                 0x01E0  // 1..12
+#define FAT_DATE_MONTH_SHL                  5
+#define FAT_DATE_YEAR_MASK                  0xFE00  // 1980 based, 0..127 
+#define FAT_DATE_YEAR_SHL                   9
+
+#define FAT_TIME_SEC2                       0x001F  // 0..29 (corresponds to 0..58)
+#define FAT_TIME_MINUTE_MASK                0x07E0  // 0..59
+#define FAT_TIME_MINUTE_SHL                 5
+#define FAT_TIME_HOUR_MASK                  0xF800  // 0..23
+#define FAT_TIME_HOUR_SHL                   11
 
 #define FAT_DIRENTRY_IS_LONGNAME(x)         (((x)&0xFF)==0x0F)
 

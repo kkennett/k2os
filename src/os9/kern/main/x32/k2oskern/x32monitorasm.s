@@ -51,8 +51,8 @@ BEGIN_X32_PROC(X32KernAsm_EnterMonitor)
     jmp X32KernAsm_MonitorMainLoop
 END_X32_PROC(X32KernAsm_EnterMonitor)
 
-// void K2_CALLCONV_REGS X32KernAsm_EnterMonitorFromKernelThread(UINT32 aNewStackPtr, UINT32 *apStoreThreadStackPtr);
-BEGIN_X32_PROC(X32KernAsm_EnterMonitorFromKernelThread)
+// void K2_CALLCONV_REGS X32KernAsm_SaveKernelThreadStateAndEnterMonitor(UINT32 aNewStackPtr, UINT32 *apStoreThreadStackPtr);
+BEGIN_X32_PROC(X32KernAsm_SaveKernelThreadStateAndEnterMonitor)
     pop %eax                        // retrieve return address
     mov dword ptr [%esp-12], %eax   // store as EIP in saved context on thread stack under eflags and cs 
 
@@ -81,7 +81,7 @@ BEGIN_X32_PROC(X32KernAsm_EnterMonitorFromKernelThread)
 
     // ecx unchanged which is core stack address at which to enter monitor
     jmp X32KernAsm_EnterMonitor 
-END_X32_PROC(X32KernAsm_EnterMonitorFromKernelThread)
+END_X32_PROC(X32KernAsm_SaveKernelThreadStateAndEnterMonitor)
   
     .end
 

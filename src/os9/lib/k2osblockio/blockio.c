@@ -63,7 +63,7 @@ K2OS_BlockIo_Attach(
 
     args.mpInBuf = (UINT8 const *)&blockIoConfigIn;
     args.mInBufByteCount = sizeof(blockIoConfigIn);
-    args.mMethodId = K2OS_BLOCKIO_METHOD_CONFIG;
+    args.mMethodId = K2OS_BlockIo_Method_Config;
 
     blockIoConfigIn.mAccess = aAccess;
     blockIoConfigIn.mShare = aShare;
@@ -109,7 +109,7 @@ K2OS_BlockIo_GetMedia(
 
     args.mpOutBuf = (UINT8 *)apRetMedia;
     args.mOutBufByteCount = sizeof(K2OS_STORAGE_MEDIA);
-    args.mMethodId = K2OS_BLOCKIO_METHOD_GET_MEDIA;
+    args.mMethodId = K2OS_BlockIo_Method_GetMedia;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aStorBlockIo, &args, &actualOut);
@@ -154,7 +154,7 @@ K2OS_BlockIo_RangeCreate(
 
     K2MEM_Zero(&args, sizeof(args));
 
-    args.mMethodId = K2OS_BLOCKIO_METHOD_RANGE_CREATE;
+    args.mMethodId = K2OS_BlockIo_Method_RangeCreate;
     args.mpInBuf = (UINT8 const *)&argsIn;
     args.mInBufByteCount = sizeof(K2OS_BLOCKIO_RANGE_CREATE_IN);
     args.mpOutBuf = (UINT8 *)&argsOut;
@@ -197,7 +197,7 @@ K2OS_BlockIo_RangeDelete(
 
     K2MEM_Zero(&args, sizeof(args));
 
-    args.mMethodId = K2OS_BLOCKIO_METHOD_RANGE_DELETE;
+    args.mMethodId = K2OS_BlockIo_Method_RangeDelete;
     args.mpInBuf = (UINT8 const *)&argsIn;
     args.mInBufByteCount = sizeof(K2OS_BLOCKIO_RANGE_DELETE_IN);
 
@@ -247,7 +247,7 @@ K2OS_BlockIo_Transfer(
 
     K2MEM_Zero(&args, sizeof(args));
 
-    args.mMethodId = K2OS_BLOCKIO_METHOD_TRANSFER;
+    args.mMethodId = K2OS_BlockIo_Method_Transfer;
     args.mpInBuf = (UINT8 const *)&argsIn;
     args.mInBufByteCount = sizeof(K2OS_BLOCKIO_TRANSFER_IN);
 

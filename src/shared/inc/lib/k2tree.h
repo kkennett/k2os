@@ -143,6 +143,13 @@ K2TREE_FindOrAfter(
     UINT_PTR        aFindKey
     );
 
+void
+K2TREE_SwapNode(
+    K2TREE_ANCHOR * apAnchor,
+    K2TREE_NODE *   apInTree,
+    K2TREE_NODE *   apSwapWith
+);
+
 #ifdef __cplusplus
 };  // extern "C"
 #endif

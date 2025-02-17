@@ -49,11 +49,11 @@ NetDev_Init(
 
     K2_ASSERT(NULL == apNetDev->Proto.mpL2);
 
-    if (K2_NetAdapter_Ethernet == apNetDev->Desc.mType)
+    if (K2_NetAdapter_Ethernet == apNetDev->Desc.mNetAdapterType)
     {
         apNetDev->Proto.mpL2 = pL2 = NetDev_Ether_Create(apNetDev, apConfig);
     }
-    else if (K2_NetAdapter_PPP == apNetDev->Desc.mType)
+    else if (K2_NetAdapter_PPP == apNetDev->Desc.mNetAdapterType)
     {
         apNetDev->Proto.mpL2 = pL2 = NetDev_PPP_Create(apNetDev, apConfig);
     }

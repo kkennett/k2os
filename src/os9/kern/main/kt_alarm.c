@@ -72,7 +72,7 @@ K2OS_Alarm_Create(
     K2_ASSERT(pThisThread->mIsKernelThread);
 
     pSchedItem = &pThisThread->SchedItem;
-    pSchedItem->mType = KernSchedItem_KernThread_MountAlarm;
+    pSchedItem->mSchedItemType = KernSchedItem_KernThread_MountAlarm;
     KernObj_CreateRef(&pSchedItem->ObjRef, alarmRef.AsAny);
     KernObj_ReleaseRef(&alarmRef);
 

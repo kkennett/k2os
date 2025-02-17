@@ -167,7 +167,7 @@ KernPlat_IntrLocked_Queue(
     K2OSKERN_OBJ_INTERRUPT *apIntr
 )
 {
-    K2OSKERN_CPUCORE_EVENT *pEvent;
+    K2OSKERN_CPUCORE_EVENT volatile *pEvent;
 
     //
     // self-reference is held to the interrupt until the it is handled

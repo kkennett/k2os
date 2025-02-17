@@ -76,7 +76,6 @@ UINT32  CrtDbg_Printf(char const *apFormat, ...);
 void    CrtLaunch(void);
 
 void    CrtMem_Init(void);
-void    CrtMem_Touch(void *apData, UINT32 aBytes);
 UINT32  CrtMem_CreateRwSegment(UINT32 aPageCount);
 UINT32  CrtMem_CreateStackSegment(UINT32 aPageCount);
 BOOL    CrtMem_RemapSegment(UINT32 aSegAddr, K2OS_VirtToPhys_MapType aNewMapType);
@@ -87,6 +86,9 @@ void K2_CALLCONV_REGS CrtThread_EntryPoint(K2OS_pf_THREAD_ENTRY aUserEntry, void
 void    CrtMail_Init(void);
 BOOL    CrtMail_TokenDestroy(K2OS_TOKEN aToken);
 BOOL    CrtMail_Cloned(K2OS_TOKEN aTokOriginal, K2OS_TOKEN aTokClone);
+
+void                CrtRpc_Init(void);
+K2OS_RPC_OBJ_HANDLE CrtRpc_Obj(void);
 
 //
 //------------------------------------------------------------------------

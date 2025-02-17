@@ -48,7 +48,7 @@ KernSignal_SysCall_Change(
     objRef.AsAny = NULL;
 
     stat = KernProc_TokenTranslate(
-        apCurThread->User.ProcRef.AsProc,
+        apCurThread->RefProc.AsProc,
         (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0,
         &objRef
     );
@@ -65,7 +65,7 @@ KernSignal_SysCall_Change(
             //
             apCurThread->User.mSysCall_Result = TRUE;
             pSchedItem = &apCurThread->SchedItem;
-            pSchedItem->mType = KernSchedItem_Thread_SysCall;
+            pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
             KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
             if (KernObj_Gate == objRef.AsAny->mObjType)
             {

@@ -37,7 +37,11 @@ bool                gDebugMode;
 static char         sgArchModeBuf[12];
 char const *        gpArchMode = sgArchModeBuf;
 UINT_PTR const      gArchModeLen = 9;
+#if IS_OSA
+char const * const  gpOsVer = "osa";
+#else
 char const * const  gpOsVer = "os9";
+#endif
 
 char const * const gpBuildXmlFileName = "k2build.xml";
 
@@ -456,10 +460,40 @@ GetContentTarget(
     return true;
 }
 
+bool
+GetTargetArch(
+    char *apArg0
+)
+{
+    if (0 == K2ASC_CompIns(apArg0, "x32"))
+    {
+        gArch = K2_ARCH_X32;
+        return true;
+    }
+
+    if (0 == K2ASC_CompIns(apArg0, "a32"))
+    {
+        gArch = K2_ARCH_A32;
+        return true;
+    }
+
+    return false;
+}
+
 int main(int argc, char **argv)
 {
-//    gArch = K2_ARCH_A32;
-    gArch = K2_ARCH_X32;
+    if (argc < 2)
+    {
+        printf("need arch first arg\n");
+        return -1;
+    }
+
+    if (!GetTargetArch(argv[1]))
+    {
+        printf("Unknown or invalid arch \"%s\"\n", argv[1]);
+        return -2;
+    }
+
     gDebugMode = true;
 
     gpVfsRootSpec = "C:\\repo\\k2os";

@@ -37,8 +37,6 @@
 
 /* --------------------------------------------------------------------------------- */
 
-#define A32KERN_SIZEOF_KERNEL_EXCEPTION_CONTEXT             (18 * 4)
-
 #define A32KERN_CORE_IRQ_STACK_BYTES                        1152
 #define A32KERN_CORE_ABT_STACK_BYTES                        256
 #define A32KERN_CORE_UND_STACK_BYTES                        256

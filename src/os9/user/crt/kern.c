@@ -39,7 +39,7 @@ CrtKern_SysCall2(
 )
 {
     K2OS_THREAD_PAGE * pThreadPage;
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
     pThreadPage->mSysCall_Arg1 = aArg1;
     return K2OS_SYSCALL(aId, aArg0);
 }
@@ -53,7 +53,7 @@ CrtKern_SysCall3(
 )
 {
     K2OS_THREAD_PAGE * pThreadPage;
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
     pThreadPage->mSysCall_Arg1 = aArg1;
     pThreadPage->mSysCall_Arg2 = aArg2;
     return K2OS_SYSCALL(aId, aArg0);
@@ -69,7 +69,7 @@ CrtKern_SysCall4(
 )
 {
     K2OS_THREAD_PAGE * pThreadPage;
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
     pThreadPage->mSysCall_Arg3 = aArg3;
     pThreadPage->mSysCall_Arg1 = aArg1;
     pThreadPage->mSysCall_Arg2 = aArg2;
@@ -87,7 +87,7 @@ CrtKern_SysCall5(
 )
 {
     K2OS_THREAD_PAGE * pThreadPage;
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
     pThreadPage->mSysCall_Arg3 = aArg3;
     pThreadPage->mSysCall_Arg4_Result3 = aArg4;
     pThreadPage->mSysCall_Arg1 = aArg1;
@@ -107,7 +107,7 @@ CrtKern_SysCall6(
 )
 {
     K2OS_THREAD_PAGE * pThreadPage;
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
     pThreadPage->mSysCall_Arg3 = aArg3;
     pThreadPage->mSysCall_Arg4_Result3 = aArg4;
     pThreadPage->mSysCall_Arg5_Result2 = aArg5;
@@ -129,7 +129,7 @@ CrtKern_SysCall7(
 )
 {
     K2OS_THREAD_PAGE * pThreadPage;
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
     pThreadPage->mSysCall_Arg3 = aArg3;
     pThreadPage->mSysCall_Arg4_Result3 = aArg4;
     pThreadPage->mSysCall_Arg5_Result2 = aArg5;
@@ -153,7 +153,7 @@ CrtKern_SysCall8(
 )
 {
     K2OS_THREAD_PAGE * pThreadPage;
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
     pThreadPage->mSysCall_Arg3 = aArg3;
     pThreadPage->mSysCall_Arg4_Result3 = aArg4;
     pThreadPage->mSysCall_Arg5_Result2 = aArg5;

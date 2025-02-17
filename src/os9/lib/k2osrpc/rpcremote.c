@@ -811,19 +811,15 @@ K2OSRPC_ServerConnThread_DoWork(
         // message (amongst anything else) we will close the connection
         //
         do {
-            if (!K2OS_Mailbox_Recv(pThisConn->mTokMailbox, &msg, 0))
+            if (!K2OS_Mailbox_Recv(pThisConn->mTokMailbox, &msg))
+                break;
+
+            if (!K2OS_IpcEnd_ProcessMsg(&msg))
             {
-                K2OS_Thread_WaitOne(&waitResult, pThisConn->mTokMailbox, K2OS_TIMEOUT_INFINITE);
-            }
-            else
-            {
-                if (!K2OS_IpcEnd_ProcessMsg(&msg))
+                if ((msg.mMsgType == K2OS_SYSTEM_MSGTYPE_IPC) &&
+                    (msg.mShort == K2OS_SYSTEM_MSG_IPC_SHORT_REQUEST))
                 {
-                    if ((msg.mType == K2OS_SYSTEM_MSGTYPE_IPC) &&
-                        (msg.mShort == K2OS_SYSTEM_MSG_IPC_SHORT_REQUEST))
-                    {
-                        K2OS_Ipc_RejectRequest(msg.mPayload[2], K2STAT_ERROR_NOT_ALLOWED);
-                    }
+                    K2OS_Ipc_RejectRequest(msg.mPayload[2], K2STAT_ERROR_NOT_ALLOWED);
                 }
             }
         } while (1);
@@ -840,11 +836,11 @@ K2OSRPC_ServerConnThread_DoWork(
                     K2OSRPC_Debug("*** remote conn thread wait failed (%d), %08X\n", waitResult, K2OS_Thread_GetLastStatus());
                     break;
                 }
-                if (K2OS_Mailbox_Recv(pThisConn->mTokMailbox, &msg, 0))
+                if (K2OS_Mailbox_Recv(pThisConn->mTokMailbox, &msg))
                 {
                     if (!K2OS_IpcEnd_ProcessMsg(&msg))
                     {
-                        if ((msg.mType == K2OS_SYSTEM_MSGTYPE_IPC) &&
+                        if ((msg.mMsgType == K2OS_SYSTEM_MSGTYPE_IPC) &&
                             (msg.mShort == K2OS_SYSTEM_MSG_IPC_SHORT_REQUEST))
                         {
                             K2OS_Ipc_RejectRequest(msg.mPayload[2], K2STAT_ERROR_NOT_ALLOWED);

@@ -40,16 +40,11 @@ KernGate_Create(
 {
     K2OSKERN_OBJ_GATE *pGate;
 
-    pGate = (K2OSKERN_OBJ_GATE *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_GATE));
+    pGate = (K2OSKERN_OBJ_GATE *)KernObj_Alloc(KernObj_Gate);
     if (NULL == pGate)
     {
         return K2STAT_ERROR_OUT_OF_MEMORY;
     }
-
-    K2MEM_Zero(pGate, sizeof(K2OSKERN_OBJ_GATE));
-
-    pGate->Hdr.mObjType = KernObj_Gate;
-    K2LIST_Init(&pGate->Hdr.RefObjList);
 
     pGate->SchedLocked.mOpen = aInitOpen;
     K2LIST_Init(&pGate->SchedLocked.MacroWaitEntryList);
@@ -65,10 +60,8 @@ KernGate_Cleanup(
     K2OSKERN_OBJ_GATE *         apGate
 )
 {
-    K2_ASSERT(0 == apGate->Hdr.RefObjList.mNodeCount);
     K2_ASSERT(0 == apGate->SchedLocked.MacroWaitEntryList.mNodeCount);
-    K2MEM_Zero(apGate, sizeof(K2OSKERN_OBJ_GATE));
-    KernHeap_Free(apGate);
+    KernObj_Free(&apGate->Hdr);
 }
 
 void    
@@ -87,7 +80,7 @@ KernGate_SysCall_Create(
     stat = KernGate_Create((0 != apCurThread->User.mSysCall_Arg0) ? TRUE : FALSE, &gateRef);
     if (!K2STAT_IS_ERROR(stat))
     {
-        stat = KernProc_TokenCreate(apCurThread->User.ProcRef.AsProc, gateRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
+        stat = KernProc_TokenCreate(apCurThread->RefProc.AsProc, gateRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
         KernObj_ReleaseRef(&gateRef);
     }
     if (K2STAT_IS_ERROR(stat))

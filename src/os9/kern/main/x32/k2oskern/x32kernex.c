@@ -32,6 +32,57 @@
 
 #include "x32kern.h"
 
+void KernArch_PopKernelTrap(K2OSKERN_OBJ_THREAD *apThread)
+{
+    K2_EXCEPTION_TRAP *         pTrap;
+    K2OS_THREAD_PAGE *          pThreadPage;
+    K2OSKERN_ARCH_EXEC_CONTEXT *pExContext;
+
+    K2_ASSERT(apThread->mIsKernelThread);
+
+    pThreadPage = apThread->mpKernRwViewOfThreadPage;
+
+    pTrap = (K2_EXCEPTION_TRAP *)pThreadPage->mTrapStackTop;
+    pThreadPage->mTrapStackTop = (UINT32)pTrap->mpNextTrap;
+    pTrap->mTrapResult = apThread->LastEx.mExCode;
+
+    apThread->Kern.mStackPtr = (pTrap->SavedContext.ESP + 4) - X32_SIZEOF_KERN_EXCEPTION_CONTEXT;
+    pExContext = (K2OSKERN_ARCH_EXEC_CONTEXT *)apThread->Kern.mStackPtr;
+    K2MEM_Copy(&pExContext->REGS.EDI, &pTrap->SavedContext.EDI, sizeof(X32_PUSHA));
+    pExContext->REGS.EAX = 0xFFFFFFFF;
+    pExContext->DS = X32_SEGMENT_SELECTOR_KERNEL_DATA | X32_SELECTOR_RPL_KERNEL;
+    pExContext->EIP = pTrap->SavedContext.EIP;
+    pExContext->EFLAGS = pTrap->SavedContext.EFLAGS;
+    pExContext->CS = X32_SEGMENT_SELECTOR_KERNEL_CODE | X32_SELECTOR_RPL_KERNEL;
+
+    K2_ASSERT(apThread->LastEx.VirtMapRef.AsAny == NULL);
+    K2MEM_Zero(&apThread->LastEx, sizeof(K2OSKERN_THREAD_EX));
+}
+
+void
+KernArch_PopUserTrap(
+    K2OSKERN_OBJ_THREAD *apThread
+)
+{
+    K2OS_THREAD_PAGE *          pThreadPage;
+    K2OSKERN_ARCH_EXEC_CONTEXT *pExContext;
+
+    K2_ASSERT(!apThread->mIsKernelThread);
+
+    pThreadPage = apThread->mpKernRwViewOfThreadPage;
+
+    pExContext = &apThread->User.ArchExecContext;
+
+    pExContext->EIP = K2OS_UVA_PUBLICAPI_TRAP_RESTORE;
+    pExContext->REGS.ECX = pThreadPage->mTrapStackTop;
+    pExContext->REGS.EDX = apThread->LastEx.mExCode;
+
+    pThreadPage->mTrapStackTop = 0; // restored to proper next-trap by trap resume code, unless that code faults
+
+    K2_ASSERT(apThread->LastEx.VirtMapRef.AsAny == NULL);
+    K2MEM_Zero(&apThread->LastEx, sizeof(K2OSKERN_THREAD_EX));
+}
+
 void X32Kern_MountExceptionTrap(X32_CONTEXT aThreadContext)
 {
     K2OS_THREAD_PAGE *      pThreadPage;
@@ -41,6 +92,7 @@ void X32Kern_MountExceptionTrap(X32_CONTEXT aThreadContext)
     //
     // interrupts are off
     //
+    K2_ASSERT(!K2OSKERN_GetIntr());
 
     // get the trap and save goop to it
     pTrap = (K2_EXCEPTION_TRAP *)aThreadContext.ECX;
@@ -48,11 +100,11 @@ void X32Kern_MountExceptionTrap(X32_CONTEXT aThreadContext)
     K2MEM_Copy(&pTrap->SavedContext, &aThreadContext, sizeof(X32_CONTEXT));
 
     // push this trap onto the trap stack
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (KernThread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (KernThread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
-    pTrap->mpNextTrap = pThisThread->mpTrapStack;
-    pThisThread->mpTrapStack = pTrap;
+    pTrap->mpNextTrap = (K2_EXCEPTION_TRAP *)pThreadPage->mTrapStackTop;
+    pThreadPage->mTrapStackTop = (UINT32)pTrap;
 }
 

@@ -62,7 +62,7 @@ K2OS_NetIo_Attach(
 
     args.mpInBuf = (UINT8 const *)&configIn;
     args.mInBufByteCount = sizeof(configIn);
-    args.mMethodId = K2OS_NETIO_METHOD_CONFIG;
+    args.mMethodId = K2OS_NetIo_Method_Config;
 
     configIn.mpContext = apContext;
     configIn.mTokMailbox = aTokMailbox;
@@ -113,7 +113,7 @@ K2OS_NetIo_GetDesc(
 
     args.mpOutBuf = (UINT8 *)apRetDesc;
     args.mOutBufByteCount = sizeof(dummy);
-    args.mMethodId = K2OS_NETIO_METHOD_GET_DESC;
+    args.mMethodId = K2OS_NetIo_Method_GetDesc;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aNetIo, &args, &actualOut);
@@ -157,7 +157,7 @@ K2OS_NetIo_GetState(
 
     args.mpOutBuf = (UINT8 *)apRetState;
     args.mOutBufByteCount = sizeof(dummy);
-    args.mMethodId = K2OS_NETIO_METHOD_GET_STATE;
+    args.mMethodId = K2OS_NetIo_Method_GetState;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aNetIo, &args, &actualOut);
@@ -199,7 +199,7 @@ K2OS_NetIo_GetBufferStats(
 
     args.mpOutBuf = (UINT8 *)bufCounts;
     args.mOutBufByteCount = sizeof(K2OS_NETIO_BUFCOUNTS) * 2;
-    args.mMethodId = K2OS_NETIO_METHOD_BUFSTATS;
+    args.mMethodId = K2OS_NetIo_Method_BufStats;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aNetIo, &args, &actualOut);
@@ -250,7 +250,7 @@ K2OS_NetIo_AcqSendBuffer(
 
     args.mpOutBuf = (UINT8 *)&acqOut;
     args.mOutBufByteCount = sizeof(acqOut);
-    args.mMethodId = K2OS_NETIO_METHOD_ACQBUFFER;
+    args.mMethodId = K2OS_NetIo_Method_AcqBuffer;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aNetIo, &args, &actualOut);
@@ -299,7 +299,7 @@ K2OS_NetIo_Send(
 
     args.mpInBuf = (UINT8 *)&sendIn;
     args.mInBufByteCount = sizeof(sendIn);
-    args.mMethodId = K2OS_NETIO_METHOD_SEND;
+    args.mMethodId = K2OS_NetIo_Method_Send;
 
     sendIn.mBufVirtAddr = (UINT32)apBuffer;
     sendIn.mSendBytes = aSendBytes;
@@ -337,7 +337,7 @@ K2OS_NetIo_RelBuffer(
 
     args.mpInBuf = (UINT8 *)&aBufVirtAddr;
     args.mInBufByteCount = sizeof(UINT32);
-    args.mMethodId = K2OS_NETIO_METHOD_RELBUFFER;
+    args.mMethodId = K2OS_NetIo_Method_RelBuffer;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aNetIo, &args, &actualOut);
@@ -371,7 +371,7 @@ K2OS_NetIo_SetEnable(
 
     args.mpInBuf = (UINT8 *)&aSetEnable;
     args.mInBufByteCount = sizeof(BOOL);
-    args.mMethodId = K2OS_NETIO_METHOD_SETENABLE;
+    args.mMethodId = K2OS_NetIo_Method_SetEnable;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aNetIo, &args, &actualOut);
@@ -406,7 +406,7 @@ K2OS_NetIo_GetEnable(
 
     args.mpOutBuf = (UINT8 *)&temp;
     args.mOutBufByteCount = sizeof(temp);
-    args.mMethodId = K2OS_NETIO_METHOD_GETENABLE;
+    args.mMethodId = K2OS_NetIo_Method_GetEnable;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aNetIo, &args, &actualOut);

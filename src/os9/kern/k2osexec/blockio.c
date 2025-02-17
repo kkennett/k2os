@@ -668,7 +668,7 @@ K2OSEXEC_BlockIoRpc_Call(
 
     switch (apCall->Args.mMethodId)
     {
-    case K2OS_BLOCKIO_METHOD_CONFIG:
+    case K2OS_BlockIo_Method_Config:
         if ((apCall->Args.mOutBufByteCount != 0) ||
             (apCall->Args.mInBufByteCount < sizeof(K2OS_BLOCKIO_CONFIG_IN)))
         {
@@ -684,7 +684,7 @@ K2OSEXEC_BlockIoRpc_Call(
         }
         break;
 
-    case K2OS_BLOCKIO_METHOD_GET_MEDIA:
+    case K2OS_BlockIo_Method_GetMedia:
         if ((apCall->Args.mInBufByteCount != 0) ||
             (apCall->Args.mOutBufByteCount < sizeof(K2OS_STORAGE_MEDIA)))
         {
@@ -704,7 +704,7 @@ K2OSEXEC_BlockIoRpc_Call(
         }
         break;
 
-    case K2OS_BLOCKIO_METHOD_RANGE_CREATE:
+    case K2OS_BlockIo_Method_RangeCreate:
         if ((apCall->Args.mInBufByteCount < sizeof(K2OS_BLOCKIO_RANGE_CREATE_IN)) ||
             (apCall->Args.mOutBufByteCount < sizeof(K2OS_BLOCKIO_RANGE_CREATE_OUT)))
         {
@@ -729,7 +729,7 @@ K2OSEXEC_BlockIoRpc_Call(
         }
         break;
 
-    case K2OS_BLOCKIO_METHOD_RANGE_DELETE:
+    case K2OS_BlockIo_Method_RangeDelete:
         if ((apCall->Args.mInBufByteCount < sizeof(K2OS_BLOCKIO_RANGE_DELETE_IN)) ||
             (apCall->Args.mOutBufByteCount != 0))
         {
@@ -749,7 +749,7 @@ K2OSEXEC_BlockIoRpc_Call(
         }
         break;
 
-    case K2OS_BLOCKIO_METHOD_TRANSFER:
+    case K2OS_BlockIo_Method_Transfer:
         if ((apCall->Args.mInBufByteCount < sizeof(K2OS_BLOCKIO_TRANSFER_IN)) ||
             (apCall->Args.mOutBufByteCount != 0))
         {

@@ -33,6 +33,51 @@
 #include "kern.h"
 
 BOOL
+KernThread_WaitIo(
+    void
+)
+{
+    K2OSKERN_CPUCORE volatile * pThisCore;
+    K2OS_THREAD_PAGE *          pThreadPage;
+    K2OSKERN_OBJ_THREAD *       pThisThread;
+    K2OSKERN_SCHED_ITEM *       pSchedItem;
+    BOOL                        disp;
+
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
+    K2_ASSERT(pThisThread->mIsKernelThread);
+
+    pThisThread->MacroWait.mpWaitingThread = pThisThread;
+    pThisThread->MacroWait.mNumEntries = 1;
+    pThisThread->MacroWait.mIsWaitAll = FALSE;
+    pThisThread->MacroWait.mTimerActive = FALSE;
+    pThisThread->MacroWait.TimerItem.mIsMacroWait = TRUE;
+    pThisThread->MacroWait.TimerItem.mHfTicks = K2OS_HFTIMEOUT_INFINITE;
+    pThisThread->MacroWait.mWaitResult = K2STAT_ERROR_UNKNOWN;
+    pThisThread->MacroWait.WaitEntry[0].ObjRef.AsAny = NULL;
+    KernObj_CreateRef(&pThisThread->MacroWait.WaitEntry[0].ObjRef, pThisThread->Kern.Io.NotifyRef.AsAny);
+
+    pSchedItem = &pThisThread->SchedItem;
+    pSchedItem->mSchedItemType = KernSchedItem_KernThread_WaitIo;
+
+    disp = K2OSKERN_SetIntr(FALSE);
+    K2_ASSERT(disp);
+
+    pThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
+
+    // any wait forfeits the remainder of the threads quantum
+    pThisThread->mQuantumHfTicksRemaining = 0;
+
+    KernThread_CallScheduler(pThisCore);
+
+    // interrupts will be back on again here
+
+    KernObj_ReleaseRef(&pThisThread->MacroWait.WaitEntry[0].ObjRef);
+
+    return (BOOL)pThisThread->Kern.mSchedCall_Result;
+}
+
+BOOL
 K2OS_Thread_WaitMany(
     K2OS_WaitResult *           apRetResult,
     UINT32                      aCount,
@@ -57,7 +102,7 @@ K2OS_Thread_WaitMany(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
@@ -194,7 +239,7 @@ K2OS_Thread_WaitMany(
     K2_ASSERT(ixEntry == aCount);
 
     pSchedItem = &pThisThread->SchedItem;
-    pSchedItem->mType = KernSchedItem_KernThread_Wait;
+    pSchedItem->mSchedItemType = KernSchedItem_KernThread_Wait;
 
     disp = K2OSKERN_SetIntr(FALSE);
     K2_ASSERT(disp);

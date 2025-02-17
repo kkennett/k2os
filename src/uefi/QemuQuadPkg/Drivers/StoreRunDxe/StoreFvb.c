@@ -395,6 +395,10 @@ QemuQuadStoreRunDxe_Init(
 
     ASSERT_EFI_ERROR(stat);
 
+    stat = gBS->InstallConfigurationTable(&gQemuQuadPeiBootCardMediaGuid, &gpCardInst->Protocol);
+
+    ASSERT_EFI_ERROR(stat);
+
     return stat;
 }
 

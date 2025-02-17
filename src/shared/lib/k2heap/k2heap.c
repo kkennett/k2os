@@ -66,6 +66,7 @@ sAllocFromNode(
 {
     K2HEAP_NODE *pNewPrev;
     K2HEAP_NODE *pNewNext;
+    UINT32       keepBit;
 
     K2_ASSERT(aAddr >= K2HEAP_NodeAddr(apFreeNode));
     K2_ASSERT(aSize <= K2HEAP_NodeSize(apFreeNode));
@@ -93,7 +94,9 @@ sAllocFromNode(
     else
         pNewNext = NULL;
 
+    keepBit = K2HEAP_NODE_USERBIT(apFreeNode);
     sRemoveHeapNode(apHeap, apFreeNode);
+    K2HEAP_NODE_CLRUSERBIT(apFreeNode);
 
     if (pNewPrev != NULL)
     {
@@ -102,6 +105,10 @@ sAllocFromNode(
         K2TREE_NODE_SETUSERBIT(&pNewPrev->AddrTreeNode);
 
         sInsertHeapNode(apHeap, pNewPrev);
+        if (keepBit)
+        {
+            K2HEAP_NODE_SETUSERBIT(pNewPrev);
+        }
 
         apFreeNode->AddrTreeNode.mUserVal = aAddr;
         apFreeNode->SizeTreeNode.mUserVal -= K2HEAP_NodeSize(pNewPrev);
@@ -114,6 +121,10 @@ sAllocFromNode(
         K2TREE_NODE_SETUSERBIT(&pNewNext->AddrTreeNode);
 
         sInsertHeapNode(apHeap, pNewNext);
+        if (keepBit)
+        {
+            K2HEAP_NODE_SETUSERBIT(pNewNext);
+        }
 
         apFreeNode->SizeTreeNode.mUserVal = aSize;
     }

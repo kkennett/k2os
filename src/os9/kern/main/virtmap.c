@@ -41,12 +41,10 @@ KernVirtMap_Purge(
     {
         KernObj_ReleaseRef(&apMap->ProcRef);
     }
- 
+
     KernObj_ReleaseRef(&apMap->PageArrayRef);
 
-    K2MEM_Zero(apMap, sizeof(K2OSKERN_OBJ_VIRTMAP));
-
-    KernHeap_Free(apMap);
+    KernObj_Free(&apMap->Hdr);
 }
 
 void
@@ -61,7 +59,8 @@ KernVirtMap_Cleanup_VirtNotLocked_FreeVirt(
     }
     else
     {
-        KernVirt_Release(K2HEAP_NodeAddr(&apMap->Kern.mpVirtHeapNode->HeapNode));
+        K2_ASSERT(0 != apMap->OwnerMapTreeNode.mUserVal);
+        KernVirt_Release(apMap->OwnerMapTreeNode.mUserVal);
     }
 }
 
@@ -213,7 +212,6 @@ KernVirtMap_Cleanup_VirtLocked_StartShootDown(
         {
             return KernVirtMap_Cleanup_VirtLocked_Done(apThisCore, apMap);
         }
-        return TRUE;
     }
 
     return FALSE;
@@ -233,6 +231,8 @@ KernVirtMap_Cleanup(
     UINT32                      pagePhys;
     UINT32                      virtAddr;
     BOOL                        doFree;
+    UINT32                      pagesLeft;
+    UINT32 *                    pPTE;
 
     K2_ASSERT(0 != (apMap->Hdr.mObjFlags & K2OSKERN_OBJ_FLAG_REFS_DEC_TO_ZERO));
 
@@ -241,7 +241,6 @@ KernVirtMap_Cleanup(
     pProc = apMap->ProcRef.AsProc;
     if (NULL != pProc)
     {
-//        K2OSKERN_Debug("Proc %2d: Virtmap %08X(%08X) cleanup\n", pProc->mId, apMap->OwnerMapTreeNode.mUserVal, apMap->mPageCount * K2_VA_MEMPAGE_BYTES);
         procStopped = (pProc->mState == KernProcState_Stopped) ? TRUE : FALSE;
 
         disp = K2OSKERN_SeqLock(&pProc->Virt.SeqLock);
@@ -278,6 +277,7 @@ KernVirtMap_Cleanup(
         {
             //
             // process exited case.  no tlbshootdown or virtual free done
+            // but we still purge
             //
             KernVirtMap_Purge(apMap);
             return;
@@ -289,7 +289,23 @@ KernVirtMap_Cleanup(
         disp = K2OSKERN_SeqLock(&gData.VirtMap.SeqLock);
 
         virtAddr = apMap->OwnerMapTreeNode.mUserVal;
-        for (ixPage = 0; ixPage < apMap->mPageCount; ixPage++)
+        pagesLeft = apMap->mPageCount;
+
+        if (apMap->Kern.mSegType == KernSeg_Thread_Stack)
+        {
+            // clear the guard mappings
+            pPTE = apMap->mpPte;
+            K2_ASSERT(K2OSKERN_PTE_STACK_GUARD == *pPTE);
+            *pPTE = 0;
+            pagesLeft--;
+            pPTE += pagesLeft;
+            K2_ASSERT(K2OSKERN_PTE_STACK_GUARD == *pPTE);
+            *pPTE = 0;
+            pagesLeft--;
+
+            virtAddr += K2_VA_MEMPAGE_BYTES;
+        }
+        for (ixPage = 0; ixPage < pagesLeft; ixPage++)
         {
             pagePhys = KernPte_BreakPageMap(pProc, virtAddr, 0);
             K2_ASSERT(pagePhys == KernPageArray_PagePhys(pPageArray, apMap->mPageArrayStartPageIx + ixPage));
@@ -310,13 +326,13 @@ KernVirtMap_Cleanup(
 
     if (doFree)
     {
-        //
-        // single core case
-        //
         KernVirtMap_Cleanup_VirtNotLocked_FreeVirt(apMap);
-        KernVirtMap_Purge(apMap);
     }
 
+    if (gData.mCpuCoreCount == 1)
+    {
+        KernVirtMap_Purge(apMap);
+    }
     //
     // else DPC queued (for sending icis or for checking if they are all complete)
     //

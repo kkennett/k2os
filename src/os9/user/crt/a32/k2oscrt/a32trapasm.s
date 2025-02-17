@@ -34,6 +34,28 @@
 
 .extern A32Crt_ExTrap_Mount_C 
 
+/*-------------------------------------------------------------------------------*/
+#if 0
+//BOOL K2_CALLCONV_REGS TrapExec(K2_EXCEPTION_TRAP * apTrap, UINT32 aResult);
+BEGIN_A32_PROC(TrapExecAsm)
+    str r1, [r0, #4]                    // put result in its place in the trap 
+    ldr r1, [r0]                        // get next trap addres to r1
+
+    mrc p15, 0, r12, c13, c0, 3         // get thread index from thread index register
+    lsl r12, #12                        // convert to thread page address
+    add r12, r12, #0x128                // go to offset of next trap in page
+    str r1, [r12]                       // put next trap addrss into thread page
+
+    add r0, r0, #8                      // move past next trap and trap result fields
+    ldr r12, [r0]                       // get cpsr value from trap
+    msr cpsr, r12                       // restore cpsr.  protected bit writes are ignored
+    add r0, r0, #8                      // move r0 over cpsr save and r0 value save.  we don't care about r0 value here
+
+    ldmia r0!, {r1-r14}                 // restore r1 to r14 from the trap
+    bx lr                               // r0 is guaranteed nonzero.  resume at link register address
+END_A32_PROC(TrapExecAsm)
+#endif
+
 //BOOL K2_CALLCONV_REGS A32CrtAsm_ExTrap_Mount(K2_EXCEPTION_TRAP *apTrap);
 BEGIN_A32_PROC(A32CrtAsm_ExTrap_Mount)
     mrs r12, cpsr

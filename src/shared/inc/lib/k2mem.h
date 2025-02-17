@@ -114,6 +114,12 @@ int   K2MEM_Compare(void const * aPtr1, void const * aPtr2, UINT_PTR aByteCount)
 //------------------------------------------------------------------------
 //
 
+void  K2MEM_Touch(void *apData, UINT32 aBytes);
+
+//
+//------------------------------------------------------------------------
+//
+
 typedef struct _K2MEM_BUFVECTOR K2MEM_BUFVECTOR;
 struct _K2MEM_BUFVECTOR
 {
@@ -124,6 +130,15 @@ struct _K2MEM_BUFVECTOR
 K2STAT   K2MEM_Scatter(UINT8 const* apSrcBuffer, UINT_PTR* apSrcBufferBytes, UINT_PTR aVectorCount, K2MEM_BUFVECTOR const* apVectorArray);
 K2STAT   K2MEM_Gather(UINT_PTR aVectorCount, K2MEM_BUFVECTOR const* apVectorArray, UINT8* apDstBuffer, UINT_PTR* apDstBufferBytes);
 UINT_PTR K2MEM_CountVectorsBytes(UINT_PTR aVectorCount, K2MEM_BUFVECTOR const * apVectorArray);
+
+//
+//------------------------------------------------------------------------
+//
+
+UINT16  K2MEM_ReadAsBytes_UINT16(void const *apData);
+void    K2MEM_WriteAsBytes_UINT16(void *apData, UINT16 aValue);
+UINT32  K2MEM_ReadAsBytes_UINT32(void const *apData);
+void    K2MEM_WriteAsBytes_UINT32(void *apData, UINT32 aValue);
 
 #ifdef __cplusplus
 };  // extern "C"

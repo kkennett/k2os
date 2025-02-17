@@ -571,7 +571,7 @@ Dhcp_Selecting_SendRequest(
 
     K2_ASSERT(NETDEV_Dhcp_State_Selecting == apNetDev->Proto.Ip.Udp.Dhcp.mState);
 
-    packetMax = UDP_HDR_LENGTH + DHCP_PACKET_OFFSET_OPTIONS + 32;
+    packetMax = UDP_HDR_LENGTH + DHCP_PACKET_OFFSET_OPTIONS + 128;
 
     pUdpHdr = (UINT8 *)K2OS_Heap_Alloc(packetMax);
     if (NULL == pUdpHdr)
@@ -1016,6 +1016,17 @@ DhcpState_Init(
                     K2MEM_Copy(&apNetDev->Proto.Ip.Udp.Dhcp.mDhcpServerIp, pOpt, sizeof(UINT32));
                     break;
 
+                case DHCP_OPTION_LEASE_TIME:
+                    if (optLen != 4)
+                    {
+                        Debug_Printf("*** Dhcp Server sent lease time that is wrong length\n");
+                        return;
+                    }
+                    K2MEM_Copy(&u32, pOpt, sizeof(UINT32));
+                    u32 = K2_SWAP32(u32);
+                    apNetDev->Proto.Ip.Udp.Dhcp.mMsLease = 1000 * u32;
+                    break;
+
                 case DHCP_OPTION_T1_VALUE:
                     if (optLen != 4)
                     {
@@ -1045,15 +1056,51 @@ DhcpState_Init(
             }
         } while (0 != optLeft);
 
-        if ((0 == apNetDev->Proto.Ip.Udp.Dhcp.mDhcpServerIp) ||
-            (0 == apNetDev->Proto.Ip.Udp.Dhcp.Host.mIpAddress) ||
-            (0 == apNetDev->Proto.Ip.Udp.Dhcp.Host.mSubnetMask) ||
-            (0 == apNetDev->Proto.Ip.Udp.Dhcp.Host.mDefaultGateway) ||
-            (0 == apNetDev->Proto.Ip.Udp.Dhcp.mMsT1) ||
-            (0 == apNetDev->Proto.Ip.Udp.Dhcp.mMsT2))
+        if (0 == apNetDev->Proto.Ip.Udp.Dhcp.mDhcpServerIp)
         {
-            Debug_Printf("*** Dhcp Server did not give some required options\n");
+            Debug_Printf("*** Dhcp Server did not give DHCP server IP\n");
             return;
+        }
+
+        if (0 == apNetDev->Proto.Ip.Udp.Dhcp.Host.mIpAddress)
+        {
+            Debug_Printf("*** Dhcp Server did not give IP address\n");
+            return;
+        }
+
+        if (0 == apNetDev->Proto.Ip.Udp.Dhcp.Host.mSubnetMask)
+        {
+            Debug_Printf("*** Dhcp Server did not give subnet mask\n");
+            return;
+        }
+
+        if (0 == apNetDev->Proto.Ip.Udp.Dhcp.Host.mDefaultGateway)
+        {
+            Debug_Printf("*** Dhcp Server did not give default gateway\n");
+            return;
+        }
+
+        if (0 == apNetDev->Proto.Ip.Udp.Dhcp.mMsLease)
+        {
+            if (0 != apNetDev->Proto.Ip.Udp.Dhcp.mMsT1)
+            {
+                apNetDev->Proto.Ip.Udp.Dhcp.mMsLease = 2 * apNetDev->Proto.Ip.Udp.Dhcp.mMsT1;
+            }
+            else
+            {
+                apNetDev->Proto.Ip.Udp.Dhcp.mMsT2 = 0;
+                apNetDev->Proto.Ip.Udp.Dhcp.mMsLease = (24 * 60 * 60 * 1000);
+            }
+        }
+
+        if (0 == apNetDev->Proto.Ip.Udp.Dhcp.mMsT1)
+        {
+            apNetDev->Proto.Ip.Udp.Dhcp.mMsT1 = apNetDev->Proto.Ip.Udp.Dhcp.mMsLease / 2;
+        }
+
+        if (0 == apNetDev->Proto.Ip.Udp.Dhcp.mMsT2)
+        {
+            apNetDev->Proto.Ip.Udp.Dhcp.mMsT2 = (apNetDev->Proto.Ip.Udp.Dhcp.mMsLease * 875) / 1000;
         }
 
         NetDev_DelTimer(apNetDev, apNetDev->Proto.Ip.Udp.Dhcp.mpTimer);

@@ -79,17 +79,22 @@ KernNotify_Threaded_KernelSignal(
     // thread has to not exec again until after the sem is processed
     //
     pSchedItem = &apThisThread->SchedItem;
-    pSchedItem->mType = KernSchedItem_KernThread_SignalNotify;
+    pSchedItem->mSchedItemType = KernSchedItem_KernThread_SignalNotify;
     KernObj_CreateRef(&pSchedItem->ObjRef, &apNotify->Hdr);
 
     disp = K2OSKERN_SetIntr(FALSE);
-    K2_ASSERT(disp);
 
     pThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
 
     KernThread_CallScheduler(pThisCore);
 
     // interrupts will be back on again here
+
+    if (!disp)
+    {
+        K2OSKERN_SetIntr(FALSE);
+    }
+
     KernObj_ReleaseRef(&pSchedItem->ObjRef);
 
     if (0 != apThisThread->Kern.mSchedCall_Result)

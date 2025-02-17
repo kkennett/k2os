@@ -132,6 +132,7 @@ ACPI_PowerButtonHandler(
 {
     K2OSKERN_Debug("Acpi_PowerButtonHandler\n");
     AcpiClearEvent(ACPI_EVENT_POWER_BUTTON);
+    K2_ASSERT(0);   // force dump
     return (AE_OK);
 }
 
@@ -220,6 +221,13 @@ ACPI_Describe(
             left -= ate;
             pEnd += ate;
         }
+    }
+
+    if (pInfo->Valid != 0)
+    {
+        ate = K2ASC_PrintfLen(pEnd, left, "VALID(%04X);", pInfo->Valid);
+        left -= ate;
+        pEnd += ate;
 
         if ((0 != (pInfo->Valid & ACPI_VALID_UID)) && (pInfo->UniqueId.Length > 0))
         {
@@ -373,7 +381,7 @@ ACPI_DiscoveredIrq(
 
         K2MEM_Zero(&resDef, sizeof(resDef));
 
-        resDef.mType = K2OS_RESTYPE_IRQ;
+        resDef.mResType = K2OS_RESTYPE_IRQ;
         resDef.mId = apNode->InSec.IrqResList.mNodeCount;
         resDef.Irq.Config.mSourceIrq = apRes->Data.Irq.Interrupts[ix];
         resDef.Irq.Config.mDestCoreIx = 0;
@@ -408,7 +416,7 @@ ACPI_DiscoveredExtIrq(
 
         K2MEM_Zero(&resDef, sizeof(resDef));
 
-        resDef.mType = K2OS_RESTYPE_IRQ;
+        resDef.mResType = K2OS_RESTYPE_IRQ;
         resDef.mId = 0x100 + apNode->InSec.IrqResList.mNodeCount;
         resDef.Irq.Config.mSourceIrq = apRes->Data.ExtendedIrq.Interrupts[ix];
         resDef.Irq.Config.mDestCoreIx = 0;
@@ -465,7 +473,7 @@ ACPI_DiscoveredIo(
 
     K2MEM_Zero(&resDef, sizeof(resDef));
 
-    resDef.mType = K2OS_RESTYPE_IO;
+    resDef.mResType = K2OS_RESTYPE_IO;
     resDef.mId = apNode->InSec.IoResList.mNodeCount;
     resDef.Io.Range.mBasePort = basePort;
     resDef.Io.Range.mSizeBytes = sizeBytes;
@@ -490,17 +498,15 @@ ACPI_AddPhys(
 
 //    K2OSKERN_Debug("  [PHYS %08X %08X]\n", aBaseAddr, aSizeBytes);
 
-    if ((0 != (aBaseAddr & K2_VA_MEMPAGE_OFFSET_MASK)) ||
-        (0 == aSizeBytes) ||
-        (0 != (aSizeBytes & K2_VA_MEMPAGE_OFFSET_MASK)))
+    if (0 == aSizeBytes)
     {
-        K2OSKERN_Debug("  [PHYS %08X %08X] IGNORED BAD ALIGN OR SIZE\n", aBaseAddr, aSizeBytes);
+        K2OSKERN_Debug("  [PHYS %08X %08X] SIZE ZERO\n", aBaseAddr, aSizeBytes);
         return;
     }
 
     K2MEM_Zero(&resDef, sizeof(resDef));
 
-    resDef.mType = K2OS_RESTYPE_PHYS;
+    resDef.mResType = K2OS_RESTYPE_PHYS;
     resDef.mId = apNode->InSec.PhysResList.mNodeCount;
     resDef.Phys.Range.mBaseAddr = aBaseAddr;
     resDef.Phys.Range.mSizeBytes = aSizeBytes;
@@ -891,7 +897,7 @@ ACPI_DiscoveredSystemBusChild(
             ACPI_Describe(apChildAcpiNode, &pOut, &left);
 
             ioBytes = ((UINT32)(pOut - pIoBuf)) + 1;
-            K2OSKERN_Debug("DevCreate(\"%.*s\");\n", ioBytes, pIoBuf);
+//            K2OSKERN_Debug("DevCreate(\"%.*s\");\n", ioBytes, pIoBuf);
 
             pChild->InSec.mpMountedInfo = (char *)K2OS_Heap_Alloc((ioBytes + 4) & ~3);
             if (NULL == pChild->InSec.mpMountedInfo)
@@ -1150,7 +1156,7 @@ ACPIBusRpc_Call(
 
     switch (apCall->Args.mMethodId)
     {
-    case K2OS_ACPIBUS_METHOD_RUNMETHOD:
+    case K2OS_AcpiBus_Method_RunMethod:
         if ((apCall->Args.mInBufByteCount < sizeof(K2OS_ACPIBUS_RUNMETHOD_IN)) ||
             (apCall->Args.mOutBufByteCount < sizeof(K2OS_ACPIBUS_RUNMETHOD_OUT)))
         {
@@ -1321,7 +1327,7 @@ ACPI_StartSystemBusDriver(
     //
     // add ramdisk node
     //
-//    ACPI_AddRamDisk();
+    ACPI_AddRamDisk();
 
     //
     // everything is enumerated/added.  enable the node now

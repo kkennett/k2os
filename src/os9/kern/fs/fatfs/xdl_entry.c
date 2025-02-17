@@ -32,8 +32,109 @@
 
 #include "fatfs.h"
 
-K2OS_CRITSEC    gFsSec;
-K2LIST_ANCHOR   gFsList;
+FATPROV gFatProv;
+
+static K2OS_RPC_OBJ_CLASSDEF const  sgClassDef =
+{
+    FATPROV_OBJ_CLASS_GUID,
+    FATFS_RpcObj_Create,
+    FATFS_RpcObj_OnAttach,
+    FATFS_RpcObj_OnDetach,
+    FATFS_RpcObj_Call,
+    FATFS_RpcObj_Delete
+};
+static K2_GUID128 sFsProvIfId = K2OS_IFACE_FSPROV;
+
+K2STAT
+OnLoad(
+    void
+)
+{
+    K2STAT stat;
+
+    K2MEM_Zero(&gFatProv, sizeof(gFatProv));
+
+    K2ASC_Copy(gFatProv.KernFsProv[0].mName, "FAT32");
+    gFatProv.KernFsProv[0].mFlags = K2OSKERN_FSPROV_FLAG_USE_VOLUME_IFINSTID;
+    gFatProv.KernFsProv[0].Ops.Probe = FAT32_Probe;
+    gFatProv.KernFsProv[0].Ops.Attach = FAT32_Attach;
+
+    K2ASC_Copy(gFatProv.KernFsProv[1].mName, "FAT16");
+    gFatProv.KernFsProv[1].mFlags = K2OSKERN_FSPROV_FLAG_USE_VOLUME_IFINSTID;
+    gFatProv.KernFsProv[1].Ops.Probe = FAT16_Probe;
+    gFatProv.KernFsProv[1].Ops.Attach = FAT16_Attach;
+
+    K2ASC_Copy(gFatProv.KernFsProv[2].mName, "FAT12");
+    gFatProv.KernFsProv[2].mFlags = K2OSKERN_FSPROV_FLAG_USE_VOLUME_IFINSTID;
+    gFatProv.KernFsProv[2].Ops.Probe = FAT12_Probe;
+    gFatProv.KernFsProv[2].Ops.Attach = FAT12_Attach;
+
+    if (!K2OS_CritSec_Init(&gFatProv.Sec))
+    {
+        return K2OS_Thread_GetLastStatus();
+    }
+
+    stat = K2STAT_NO_ERROR;
+    K2LIST_Init(&gFatProv.FsList);
+
+    gFatProv.mRpcClass = K2OS_RpcServer_Register(&sgClassDef, 0);
+    if (NULL == gFatProv.mRpcClass)
+    {
+        stat = K2OS_Thread_GetLastStatus();
+        K2_ASSERT(K2STAT_IS_ERROR(stat));
+    }
+    else
+    {
+        gFatProv.mRpcObjHandle = K2OS_Rpc_CreateObj(0, &sgClassDef.ClassId, (UINT32)&gFatProv);
+        if (NULL == gFatProv.mRpcObjHandle)
+        {
+            stat = K2OS_Thread_GetLastStatus();
+            K2_ASSERT(K2STAT_IS_ERROR(stat));
+        }
+        else
+        {
+            gFatProv.mRpcIfInst = K2OS_RpcObj_AddIfInst(
+                gFatProv.mRpcObj,
+                K2OS_IFACE_CLASSCODE_FSPROV,
+                &sFsProvIfId,
+                &gFatProv.mIfInstId,
+                TRUE
+            );
+            if (NULL == gFatProv.mRpcIfInst)
+            {
+                K2OS_Rpc_Release(gFatProv.mRpcObjHandle);
+            }
+        }
+
+        if (K2STAT_IS_ERROR(stat))
+        {
+            K2OS_RpcServer_Deregister(gFatProv.mRpcClass);
+        }
+    }
+
+    if (K2STAT_IS_ERROR(stat))
+    {
+        K2OS_CritSec_Done(&gFatProv.Sec);
+    }
+
+    return stat;
+}
+
+K2STAT
+OnUnload(
+    void
+)
+{
+    K2_ASSERT(0 == gFatProv.FsList.mNodeCount);
+
+    K2OS_RpcObj_RemoveIfInst(gFatProv.mRpcObj, gFatProv.mRpcIfInst);
+    K2OS_Rpc_Release(gFatProv.mRpcObjHandle);
+    K2OS_RpcServer_Deregister(gFatProv.mRpcClass);
+
+    K2OS_CritSec_Done(&gFatProv.Sec);
+
+    return K2STAT_NO_ERROR;
+}
 
 K2STAT
 K2_CALLCONV_REGS
@@ -44,20 +145,14 @@ xdl_entry(
 {
     if (aReason == XDL_ENTRY_REASON_LOAD)
     {
-        if (!K2OS_CritSec_Init(&gFsSec))
-        {
-            return K2OS_Thread_GetLastStatus();
-        }
-
-        K2LIST_Init(&gFsList);
+        return OnLoad();
     }
-    else
+
+    if (aReason == XDL_ENTRY_REASON_UNLOAD)
     {
-        K2_ASSERT(0 == gFsList.mNodeCount);
-
-        K2OS_CritSec_Done(&gFsSec);
+        return OnUnload();
     }
 
-    return K2STAT_NO_ERROR;
+    return K2STAT_ERROR_NOT_SUPPORTED;
 }
 

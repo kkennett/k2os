@@ -62,7 +62,7 @@ K2OS_Vol_Attach(
 
     args.mpInBuf = (UINT8 const *)&configIn;
     args.mInBufByteCount = sizeof(configIn);
-    args.mMethodId = K2OS_STORVOL_METHOD_CONFIG;
+    args.mMethodId = K2OS_StoreVol_Method_Config;
 
     configIn.mAccess = aAccess;
     configIn.mShare = aShare;
@@ -137,7 +137,7 @@ K2OS_Vol_Create(
     }
 
     K2MEM_Zero(&callArgs, sizeof(callArgs));
-    callArgs.mMethodId = K2OS_STORVOLMGR_METHOD_CREATE;
+    callArgs.mMethodId = K2OS_StoreVolMgr_Method_Create;
     callArgs.mInBufByteCount = sizeof(K2OS_STORVOLMGR_CREATE_IN);
     callArgs.mpInBuf = (UINT8 const *)&createIn;
     callArgs.mOutBufByteCount = sizeof(K2OS_STORVOLMGR_CREATE_OUT);
@@ -177,14 +177,14 @@ K2OS_Vol_Create(
 
 BOOL            
 K2OS_Vol_GetInfo(
-    K2OSSTOR_VOLUME         aStorVol,
-    K2OS_STORAGE_VOLUME *   apRetVolumeInfo
+    K2OSSTOR_VOLUME     aStorVol,
+    K2_STORAGE_VOLUME * apRetVolumeInfo
 )
 {
     K2OS_RPC_CALLARGS   args;
     UINT32              actualOut;
     K2STAT              stat;
-    K2OS_STORAGE_VOLUME dummy;
+    K2_STORAGE_VOLUME   dummy;
 
     if (NULL == aStorVol)
     {
@@ -198,8 +198,8 @@ K2OS_Vol_GetInfo(
     K2MEM_Zero(&args, sizeof(args));
 
     args.mpOutBuf = (UINT8 *)apRetVolumeInfo;
-    args.mOutBufByteCount = sizeof(K2OS_STORAGE_VOLUME);
-    args.mMethodId = K2OS_STORVOL_METHOD_GETINFO;
+    args.mOutBufByteCount = sizeof(K2_STORAGE_VOLUME);
+    args.mMethodId = K2OS_StoreVol_Method_GetInfo;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aStorVol, &args, &actualOut);
@@ -210,7 +210,7 @@ K2OS_Vol_GetInfo(
         return FALSE;
     }
 
-    if (sizeof(K2OS_STORAGE_VOLUME) != actualOut)
+    if (sizeof(K2_STORAGE_VOLUME) != actualOut)
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_SIZE);
         return FALSE;
@@ -240,7 +240,7 @@ K2OS_Vol_AddPartition(
 
     args.mpInBuf = (UINT8 *)apVolPart;
     args.mInBufByteCount = sizeof(K2OSSTOR_VOLUME_PART);
-    args.mMethodId = K2OS_STORVOL_METHOD_ADDPART;
+    args.mMethodId = K2OS_StoreVol_Method_AddPart;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aStorVol, &args, &actualOut);
@@ -278,7 +278,7 @@ K2OS_Vol_RemovePartition(
 
     args.mpInBuf = (UINT8 *)&remPartIn;
     args.mInBufByteCount = sizeof(K2OS_STORVOL_REMPART_IN);
-    args.mMethodId = K2OS_STORVOL_METHOD_REMPART;
+    args.mMethodId = K2OS_StoreVol_Method_RemPart;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aStorVol, &args, &actualOut);
@@ -317,7 +317,7 @@ K2OS_Vol_GetPartition(
     args.mInBufByteCount = sizeof(K2OS_STORVOL_GETPART_IN);
     args.mpOutBuf = (UINT8 *)apRetPart;
     args.mOutBufByteCount = sizeof(K2OSSTOR_VOLUME_PART);
-    args.mMethodId = K2OS_STORVOL_METHOD_GETPART;
+    args.mMethodId = K2OS_StoreVol_Method_GetPart;
 
     getPart.mIxPart = aIxPart;
 
@@ -356,7 +356,7 @@ K2OS_Vol_Make(
 
     K2MEM_Zero(&args, sizeof(args));
 
-    args.mMethodId = K2OS_STORVOL_METHOD_MAKE;
+    args.mMethodId = K2OS_StoreVol_Method_Make;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aStorVol, &args, &actualOut);
@@ -392,7 +392,7 @@ K2OS_Vol_GetState(
 
     args.mpOutBuf = (UINT8 *)&getStateOut;
     args.mOutBufByteCount = sizeof(K2OS_STORVOL_GETSTATE_OUT);
-    args.mMethodId = K2OS_STORVOL_METHOD_GETSTATE;
+    args.mMethodId = K2OS_StoreVol_Method_GetState;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aStorVol, &args, &actualOut);
@@ -431,7 +431,7 @@ K2OS_Vol_Break(
 
     K2MEM_Zero(&args, sizeof(args));
 
-    args.mMethodId = K2OS_STORVOL_METHOD_BREAK;
+    args.mMethodId = K2OS_StoreVol_Method_Break;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aStorVol, &args, &actualOut);
@@ -478,7 +478,7 @@ Vol_Transfer(
 
     args.mpInBuf = (UINT8 *)&transIn;
     args.mInBufByteCount = sizeof(K2OS_STORVOL_TRANSFER_IN);
-    args.mMethodId = K2OS_STORVOL_METHOD_TRANSFER;
+    args.mMethodId = K2OS_StoreVol_Method_Transfer;
 
     actualOut = 0;
     stat = K2OS_Rpc_Call((K2OS_RPC_OBJ_HANDLE)aStorVol, &args, &actualOut);

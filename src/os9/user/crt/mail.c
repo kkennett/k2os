@@ -147,7 +147,7 @@ K2OS_Mailbox_Create(
         return NULL;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     pTrackBox->mIsSlot = FALSE;
     pTrackBox->mVirtAddr = pThreadPage->mSysCall_Arg7_Result0;
@@ -163,8 +163,7 @@ K2OS_Mailbox_Create(
 BOOL
 K2OS_Mailbox_Recv(
     K2OS_MAILBOX_TOKEN  aTokMailbox,
-    K2OS_MSG *          apRetMsg,
-    UINT32              aTimeoutMs
+    K2OS_MSG *          apRetMsg
 )
 {
     CRT_MAIL_TRACK *                    pTrackBox;
@@ -176,11 +175,9 @@ K2OS_Mailbox_Recv(
     UINT32                              ixSlot;
     UINT32                              ixWord;
     UINT32                              ixBit;
-    UINT32                              tick;
     UINT32                              bitsVal;
     UINT32                              nextSlot;
     UINT32                              ixProd;
-    K2OS_WaitResult                     waitResult;
     K2OS_THREAD_PAGE *                  pThreadPage;
     BOOL                                result;
 
@@ -243,114 +240,82 @@ K2OS_Mailbox_Recv(
 
         if (0 != (ixSlot & K2OS_MAILBOX_GATE_CLOSED_BIT))
         {
-            if (0 == aTimeoutMs)
-            {
-                K2OS_Thread_SetLastStatus(K2STAT_ERROR_TIMEOUT);
-                return FALSE;
-            }
-
-            tick = K2OS_System_GetMsTick32();
-
-            if (!K2OS_Thread_WaitOne(&waitResult, aTokMailbox, aTimeoutMs))
-            {
-                if (waitResult == K2OS_Wait_TimedOut)
-                {
-                    K2OS_Thread_SetLastStatus(K2STAT_ERROR_TIMEOUT);
-                    break;
-                }
-                K2_ASSERT(K2STAT_IS_ERROR(K2OS_Thread_GetLastStatus()));
-                break;
-            }
-
-            tick = K2OS_System_GetMsTick32() - tick;
-            if (aTimeoutMs != K2OS_TIMEOUT_INFINITE)
-            {
-                if (aTimeoutMs >= tick)
-                {
-                    aTimeoutMs -= tick;
-                }
-                else
-                {
-                    aTimeoutMs = 0;
-                }
-            }
-            // go around
+            K2OS_Thread_SetLastStatus(K2STAT_ERROR_EMPTY);
+            return FALSE;
         }
-        else
-        {
-            // gate is open
-            ixWord = ixSlot >> 5;
-            ixBit = ixSlot & 0x1F;
 
-            bitsVal = pProd->OwnerMask[ixWord].mVal;
+        // gate is open
+        ixWord = ixSlot >> 5;
+        ixBit = ixSlot & 0x1F;
+
+        bitsVal = pProd->OwnerMask[ixWord].mVal;
+        K2_CpuReadBarrier();
+        if (0 != (bitsVal & (1 << ixBit)))
+        {
+            //
+            // slot has a message in it. try to capture it
+            //
+            nextSlot = (ixSlot + 1) & K2OS_MAILBOX_MSG_IX_MASK;
+            ixProd = pProd->IxProducer.mVal;
             K2_CpuReadBarrier();
-            if (0 != (bitsVal & (1 << ixBit)))
+            if (nextSlot == ixProd)
             {
                 //
-                // slot has a message in it. try to capture it
+                // if successful, this receive may make the mailbox empty and close the gate
                 //
-                nextSlot = (ixSlot + 1) & K2OS_MAILBOX_MSG_IX_MASK;
-                ixProd = pProd->IxProducer.mVal;
-                K2_CpuReadBarrier();
-                if (nextSlot == ixProd)
-                {
-                    //
-                    // if successful, this receive may make the mailbox empty and close the gate
-                    //
-                    result = CrtKern_SysCall1(K2OS_SYSCALL_ID_MAILBOXOWNER_RECVLAST, (UINT32)aTokMailbox);
-                    if (result)
-                    {
-                        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
-                        K2MEM_Copy(apRetMsg, pThreadPage->mMiscBuffer, sizeof(K2OS_MSG));
-
-                        // where did we actually receive from?
-                        ixSlot = pThreadPage->mSysCall_Arg7_Result0;
-                        ixWord = ixSlot >> 5;
-                        ixBit = ixSlot & 0x1F;
-                        result = TRUE;
-                    }
-                    else
-                    {
-                        //
-                        //  gate closed already                             K2STAT_ERROR_TIMEOUT
-                        //  no message found with open gate (transitory)    K2STAT_ERROR_EMPTY
-                        //  someone else consumed the last message OOB      K2STAT_ERROR_CHANGED
-                        //
-                        //  in all these cases, go around
-                        //
-                    }
-                }
-                else
-                {
-                    //
-                    // if successful, this receive will not make the mailbox empty
-                    //
-                    if (ixSlot == K2ATOMIC_CompareExchange(&pCons->IxConsumer.mVal, nextSlot, ixSlot))
-                    {
-                        //
-                        // we captured the message
-                        //
-                        K2MEM_Copy(apRetMsg, &pData->Msg[ixSlot], sizeof(K2OS_MSG));
-                        result = TRUE;
-                    }
-                }
-
+                result = CrtKern_SysCall1(K2OS_SYSCALL_ID_MAILBOXOWNER_RECVLAST, (UINT32)aTokMailbox);
                 if (result)
                 {
-                    bitsVal = pCons->ReserveMask[ixWord].mVal;
-                    K2_CpuReadBarrier();
+                    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+                    K2MEM_Copy(apRetMsg, pThreadPage->mMiscBuffer, sizeof(K2OS_MSG));
 
-                    if (0 != (bitsVal & (1 << ixBit)))
-                    {
-                        // received from a reserved slot.
-                        CrtKern_SysCall2(K2OS_SYSCALL_ID_MAILBOXOWNER_RECVRES, (UINT32)aTokMailbox, ixSlot);
-                        K2ATOMIC_And(&pProd->OwnerMask[ixWord].mVal, ~(1 << ixBit));
-                    }
-                    else
-                    {
-                        K2ATOMIC_And(&pProd->OwnerMask[ixWord].mVal, ~(1 << ixBit));
-                        K2ATOMIC_Inc((INT32 *)&pProd->AvailCount.mVal);
-                    }
+                    // where did we actually receive from?
+                    ixSlot = pThreadPage->mSysCall_Arg7_Result0;
+                    ixWord = ixSlot >> 5;
+                    ixBit = ixSlot & 0x1F;
+                    result = TRUE;
+                }
+                else
+                {
+                    //
+                    //  gate closed already                             K2STAT_ERROR_TIMEOUT
+                    //  no message found with open gate (transitory)    K2STAT_ERROR_EMPTY
+                    //  someone else consumed the last message OOB      K2STAT_ERROR_CHANGED
+                    //
+                    //  in all these cases, go around
+                    //
+                }
+            }
+            else
+            {
+                //
+                // if successful, this receive will not make the mailbox empty
+                //
+                if (ixSlot == K2ATOMIC_CompareExchange(&pCons->IxConsumer.mVal, nextSlot, ixSlot))
+                {
+                    //
+                    // we captured the message
+                    //
+                    K2MEM_Copy(apRetMsg, &pData->Msg[ixSlot], sizeof(K2OS_MSG));
+                    result = TRUE;
+                }
+            }
+
+            if (result)
+            {
+                bitsVal = pCons->ReserveMask[ixWord].mVal;
+                K2_CpuReadBarrier();
+
+                if (0 != (bitsVal & (1 << ixBit)))
+                {
+                    // received from a reserved slot.
+                    CrtKern_SysCall2(K2OS_SYSCALL_ID_MAILBOXOWNER_RECVRES, (UINT32)aTokMailbox, ixSlot);
+                    K2ATOMIC_And(&pProd->OwnerMask[ixWord].mVal, ~(1 << ixBit));
+                }
+                else
+                {
+                    K2ATOMIC_And(&pProd->OwnerMask[ixWord].mVal, ~(1 << ixBit));
+                    K2ATOMIC_Inc((INT32 *)&pProd->AvailCount.mVal);
                 }
             }
         }

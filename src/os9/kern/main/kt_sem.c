@@ -60,7 +60,7 @@ K2OS_Semaphore_Create(
         return NULL;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
@@ -108,7 +108,7 @@ K2OS_Semaphore_Inc(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
@@ -131,7 +131,7 @@ K2OS_Semaphore_Inc(
                 // thread has to not exec again until after the sem is processed
                 //
                 pSchedItem = &pThisThread->SchedItem;
-                pSchedItem->mType = KernSchedItem_KernThread_SemInc;
+                pSchedItem->mSchedItemType = KernSchedItem_KernThread_SemInc;
                 pSchedItem->Args.Sem_Inc.mCount = aIncCount;
                 KernObj_CreateRef(&pSchedItem->ObjRef, semUserRef.AsAny);
 

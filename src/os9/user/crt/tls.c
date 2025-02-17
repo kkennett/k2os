@@ -52,7 +52,7 @@ K2OS_Tls_AllocSlot(
     if (!result)
         return FALSE;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     bitNumber = pThreadPage->mSysCall_Arg7_Result0;
     K2_ASSERT(bitNumber < K2OS_NUM_THREAD_TLS_SLOTS);
@@ -113,7 +113,7 @@ K2OS_Tls_SetValue(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     pThreadPage->mTlsValue[aSlotIndex] = aValue;
 
@@ -140,7 +140,7 @@ K2OS_Tls_GetValue(
         return FALSE;
     }
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     *apRetValue = pThreadPage->mTlsValue[aSlotIndex];
 

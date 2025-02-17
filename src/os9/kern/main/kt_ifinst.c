@@ -43,16 +43,12 @@ K2OS_IfInst_Create(
     BOOL                    disp;
     K2OS_IFINST_TOKEN       tokResult;
 
-    pIfInst = (K2OSKERN_OBJ_IFINST *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_IFINST));
+    pIfInst = (K2OSKERN_OBJ_IFINST *)KernObj_Alloc(KernObj_IfInst);
     if (NULL == pIfInst)
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_OUT_OF_MEMORY);
         return NULL;
     }
-
-    K2MEM_Zero(pIfInst, sizeof(K2OSKERN_OBJ_IFINST));
-    pIfInst->Hdr.mObjType = KernObj_IfInst;
-    K2LIST_Init(&pIfInst->Hdr.RefObjList);
 
     disp = K2OSKERN_SeqLock(&gData.Iface.SeqLock);
 
@@ -79,7 +75,7 @@ K2OS_IfInst_Create(
 
     if (NULL == tokResult)
     {
-        KernHeap_Free(pIfInst);
+        KernObj_Free(&pIfInst->Hdr);
         K2OS_Thread_SetLastStatus(stat);
         return NULL;
     }
@@ -340,7 +336,7 @@ K2OS_IfInst_Publish(
                     K2_ASSERT(pThisThread->mIsKernelThread);
 
                     pSchedItem = &pThisThread->SchedItem;
-                    pSchedItem->mType = KernSchedItem_KernThread_IfInstPublish;
+                    pSchedItem->mSchedItemType = KernSchedItem_KernThread_IfInstPublish;
                     pSchedItem->Args.IfInst_Publish.mClassCode = aClassCode;
                     K2MEM_Copy(&pThisThread->mpKernRwViewOfThreadPage->mMiscBuffer, apSpecific, sizeof(K2_GUID128));
 

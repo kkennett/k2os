@@ -39,15 +39,32 @@ static UINT8 const sgPublicApiCode[] =
 /* 04 */    0xC3        // ret instruction must be at this address (SYSCALL_API + 4)
 };
 
+static UINT8 const sgTrapRestoreCode[]= 
+{
+/*  0: */  0x89, 0x51, 0x04,                        // mov    DWORD PTR[ecx + 0x4],edx      put trap result into correct place in trap structure
+/*  3: */  0x8b, 0x11,                              // mov    edx,DWORD PTR[ecx]            put the next trap address into edx
+/*  5: */  0x64, 0xa1, 0x00, 0x00, 0x00, 0x00,      // mov    eax,fs:0x0                    get the thread index
+/*  b: */  0xc1, 0xe0, 0x0c,                        // shl    eax,0xc                       convert to page address
+/*  e: */  0x89, 0x90, 0x28, 0x01, 0x00, 0x00,      // mov    DWORD PTR[eax + 0x128],edx    store the next trap address in the thread page
+/* 14: */  0x89, 0xcc,                              // mov    esp,ecx                       set stack pointer to trap address
+/* 16: */  0x83, 0xc4, 0x08,                        // add    esp,0x8                       skip next trap and trap result fields
+/* 19: */  0x9d,                                    // popfd                                flags were pushed second
+/* 1a: */  0x61,                                    // popad                                registers were pushed firat
+/* 1b: */  0x58,                                    // pop    eax                           original return address to trap mount (last thing in trap saved context)
+/* 1c: */  0x8b, 0x64, 0x24, 0xe8,                  // mov    esp,DWORD PTR[esp - 0x18]     restore original esp that was saved (and tweaked by trap save). never zero
+/* 20: */  0xff, 0xe0                               // jmp    eax                           jump to return address from trap mount with eax nonzero
+};
+
 void
 KernArch_UserInit(
     void
 )
 {
     //
-    // copy in the public api code to the public api page
+    // copy in the public api codes to the public api page
     //
     K2MEM_Copy((void *)K2OS_KVA_PUBLICAPI_SYSCALL, sgPublicApiCode, sizeof(sgPublicApiCode));
+    K2MEM_Copy((void *)K2OS_KVA_PUBLICAPI_TRAP_RESTORE, sgTrapRestoreCode, sizeof(sgTrapRestoreCode));
     X32_CacheFlushAll(); // wbinvd
 
     //
@@ -93,7 +110,7 @@ KernArch_UserCrtPrep(
 
     apInitThread->User.ArchExecContext.DS = (X32_SEGMENT_SELECTOR_USER_DATA | X32_SELECTOR_RPL_USER);
 
-    apInitThread->User.ArchExecContext.REGS.ECX = K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.RefRofsVirtMap.AsVirtMap->mPageCount * K2_VA_MEMPAGE_BYTES);
+    apInitThread->User.ArchExecContext.REGS.ECX = K2OS_UVA_TIMER_IOPAGE_BASE - (gData.BuiltIn.RefRofsVirtMap.AsVirtMap->mPageCount * K2_VA_MEMPAGE_BYTES);
     apInitThread->User.ArchExecContext.REGS.EDX = apProc->mId; // second arg to entry point
     apInitThread->User.ArchExecContext.EIP = gData.User.mEntrypoint;
     apInitThread->User.ArchExecContext.CS = (X32_SEGMENT_SELECTOR_USER_CODE | X32_SELECTOR_RPL_USER);
@@ -101,13 +118,13 @@ KernArch_UserCrtPrep(
 
     //
     // put first thread initial stack at end of TLS page for that thread
-    // process is not mapped, so can't write into tls page at its proc address
+    // process is not mapped, so can't write into threadpage at its proc address
     //
-    stackPtr = K2OS_KVA_TLSAREA_BASE + (apInitThread->mGlobalIx * K2_VA_MEMPAGE_BYTES) + 0xFFC;
+    stackPtr = K2OS_KVA_THREADPAGES_BASE + (apInitThread->mGlobalIx * K2_VA_MEMPAGE_BYTES) + 0xFFC;
     *((UINT32 *)stackPtr) = 0;
     stackPtr -= sizeof(UINT32);
     *((UINT32 *)stackPtr) = 0;
-    apInitThread->User.ArchExecContext.ESP = stackPtr - K2OS_KVA_TLSAREA_BASE;   // offset tls page from zero
+    apInitThread->User.ArchExecContext.ESP = stackPtr - K2OS_KVA_THREADPAGES_BASE;   // offset threadpage from zero
     apInitThread->User.ArchExecContext.SS = (X32_SEGMENT_SELECTOR_USER_DATA | X32_SELECTOR_RPL_USER);
 
     apInitThread->mState = KernThreadState_Created;
@@ -130,6 +147,7 @@ KernArch_UserThreadPrep(
 
     apThread->User.ArchExecContext.REGS.ECX = aArg0;
     apThread->User.ArchExecContext.REGS.EDX = aArg1;
+    apThread->User.ArchExecContext.REGS.ESP_Before_PushA = (UINT32)&apThread->User.ArchExecContext.Exception_Vector;
     apThread->User.ArchExecContext.EIP = aEntryPoint;
     apThread->User.ArchExecContext.CS = (X32_SEGMENT_SELECTOR_USER_CODE | X32_SELECTOR_RPL_USER);
     apThread->User.ArchExecContext.EFLAGS = X32_EFLAGS_INTENABLE | X32_EFLAGS_SBO | X32_EFLAGS_ZERO;
@@ -140,39 +158,3 @@ KernArch_UserThreadPrep(
     apThread->mState = KernThreadState_Created;
 }
 
-void
-KernArch_KernThreadPrep(
-    K2OSKERN_OBJ_THREAD *   apThread,
-    UINT32                  aEntryPoint,
-    UINT32 *                apStackPtr,
-    UINT32                  aArg0,
-    UINT32                  aArg1
-)
-{
-    K2OSKERN_ARCH_EXEC_CONTEXT *    pCtx;
-    UINT32                          initialStackPtr;
-
-    K2_ASSERT(apThread->mState == KernThreadState_InitNoPrep);
-
-    K2_ASSERT(*(((UINT32 *)K2OS_KVA_THREADPTRS_BASE) + apThread->mGlobalIx) == (UINT32)apThread);
-
-    initialStackPtr = *apStackPtr;
-    (*apStackPtr) -= (sizeof(K2OSKERN_ARCH_EXEC_CONTEXT) - (2 * sizeof(UINT32)));
-    pCtx = (K2OSKERN_ARCH_EXEC_CONTEXT *)(*apStackPtr);
-    K2MEM_Zero(pCtx, sizeof(K2OSKERN_ARCH_EXEC_CONTEXT) - 8);
-
-    pCtx->DS = (X32_SEGMENT_SELECTOR_KERNEL_DATA | X32_SELECTOR_RPL_KERNEL);
-
-    pCtx->REGS.ECX = aArg0;
-    pCtx->REGS.EDX = aArg1;
-    pCtx->EIP = aEntryPoint;
-    pCtx->CS = (X32_SEGMENT_SELECTOR_KERNEL_CODE | X32_SELECTOR_RPL_KERNEL);
-    pCtx->EFLAGS = X32_EFLAGS_INTENABLE | X32_EFLAGS_SBO | X32_EFLAGS_ZERO;
-
-    pCtx->ESP = initialStackPtr;
-    pCtx->SS = (X32_SEGMENT_SELECTOR_KERNEL_DATA | X32_SELECTOR_RPL_KERNEL);
-
-    apThread->mIsKernelThread = TRUE;
-
-    apThread->mState = KernThreadState_Created;
-}

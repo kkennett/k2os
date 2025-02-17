@@ -118,16 +118,12 @@ K2OSKERN_IrqHook(
         return NULL;
     }
 
-    pIntr = (K2OSKERN_OBJ_INTERRUPT *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_INTERRUPT));
+    pIntr = (K2OSKERN_OBJ_INTERRUPT *)KernObj_Alloc(KernObj_Interrupt);
     if (NULL == pIntr)
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_OUT_OF_MEMORY);
         return NULL;
     }
-
-    K2MEM_Zero(pIntr, sizeof(K2OSKERN_OBJ_INTERRUPT));
-    pIntr->Hdr.mObjType = KernObj_Interrupt;
-    K2LIST_Init(&pIntr->Hdr.RefObjList);
 
     tokResult = NULL;
 
@@ -159,7 +155,7 @@ K2OSKERN_IrqHook(
 
     if (K2STAT_IS_ERROR(stat))
     {
-        KernHeap_Free(pIntr);
+        KernObj_Free(&pIntr->Hdr);
         K2OS_Thread_SetLastStatus(stat);
         return NULL;
     }

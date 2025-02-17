@@ -32,6 +32,49 @@
 
 #include "kern.h"
 
+void
+LoadAllBuiltInXdl(
+    void
+)
+{
+    K2ROFS_DIR const *  pDir;
+    K2ROFS_FILE const * pFile;
+    UINT32              fileIx;
+    char const *        pFileName;
+    char const *        pExt;
+    char                ch;
+
+    pDir = K2ROFS_ROOTDIR(gData.BuiltIn.mpRofs);
+    K2_ASSERT(NULL != pDir);
+
+    pDir = K2ROFSHELP_SubDir(gData.BuiltIn.mpRofs, pDir, "kern");
+    K2_ASSERT(NULL != pDir);
+
+    K2_ASSERT(0 != pDir->mFileCount);
+
+    for (fileIx = 0; fileIx < pDir->mFileCount; fileIx++)
+    {
+        pFile = K2ROFSHELP_SubFileIx(gData.BuiltIn.mpRofs, pDir, fileIx);
+
+        pFileName = K2ROFS_NAMESTR(gData.BuiltIn.mpRofs, pFile->mName);
+
+        pExt = pFileName;
+        do
+        {
+            ch = *pExt;
+            pExt++;
+            if (ch == '.')
+            {
+                if (0 == K2ASC_CompIns(pExt, "xdl"))
+                {
+                    K2OS_Xdl_Acquire(pFileName);
+                }
+                break;
+            }
+        } while (0 != ch);
+    }
+}
+
 K2STAT 
 K2OSKERN_SysProc_Notify(
     K2OS_MSG const *apMsg
@@ -43,6 +86,24 @@ K2OSKERN_SysProc_Notify(
     BOOL                        disp;
     K2OSKERN_CPUCORE volatile * pThisCore;
     K2OSKERN_OBJ_THREAD *       pThisThread;
+
+    if ((apMsg->mMsgType == K2OS_SYSTEM_MSGTYPE_SYSPROC) &&
+        (apMsg->mShort == K2OS_SYSTEM_MSG_SYSPROC_SHORT_RUN))
+    {
+        if (!gData.mSystemStarted)
+        {
+//            K2OSKERN_Debug("Started\n");
+            //
+            // system is started
+            //
+            gData.mSystemStarted = TRUE;
+
+            //
+            // load all builtin drivers
+            //
+            LoadAllBuiltInXdl();
+        }
+    }
 
     doSignal = FALSE;
     stat = KernSysProc_Notify(TRUE, apMsg, &doSignal);
@@ -65,7 +126,7 @@ K2OSKERN_SysProc_Notify(
     K2_ASSERT(pThisThread->mIsKernelThread);
 
     pSchedItem = &pThisThread->SchedItem;
-    pSchedItem->mType = KernSchedItem_KernThread_SignalNotify;
+    pSchedItem->mSchedItemType = KernSchedItem_KernThread_SignalNotify;
     KernObj_CreateRef(&pSchedItem->ObjRef, gData.SysProc.RefNotify.AsAny);
 
     KernThread_CallScheduler(pThisCore);

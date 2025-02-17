@@ -173,7 +173,7 @@ typedef K2OS_SOCKET_OPAQUE *        K2OS_SOCKET;
 
 struct _K2OS_SOCKET_STATE
 {
-    K2OS_SocketType mType;
+    K2OS_SocketType mSocketType;
     void *          mpContext;
     BOOL            mIsBound;
     K2OS_IFINST_ID  mNetAdapter_IfInstanceId;   // 0 if unbound

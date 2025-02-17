@@ -56,6 +56,7 @@ BuildFileUser_SrcXml::Construct_Img(
     K2LIST_Init(&Proj.Img.UserXdlProjList);
     K2LIST_Init(&Proj.Img.RawXdlProjList);
     K2LIST_Init(&Proj.Img.BuiltInXdlProjList);
+    K2LIST_Init(&Proj.Img.BuiltInKernXdlProjList);
 
     ok = false;
 
@@ -95,11 +96,17 @@ BuildFileUser_SrcXml::Construct_Img(
                         break;
                 }
             }
-            else if (pSubNode->Name.mLen == 7)
+            else if (pSubNode->Name.mLen == 12)
             {
-                if (0 == K2ASC_CompInsLen(pSubNode->Name.mpChars, "builtin", 7))
+                if (0 == K2ASC_CompInsLen(pSubNode->Name.mpChars, "user_builtin", 12))
                 {
                     pProjDep = AddProject(apFullPath, pSubNode, ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
+                    if (NULL == pProjDep)
+                        break;
+                }
+                else if (0 == K2ASC_CompInsLen(pSubNode->Name.mpChars, "kern_builtin", 12))
+                {
+                    pProjDep = AddProject(apFullPath, pSubNode, ProjectType_Xdl, &Proj.Img.BuiltInKernXdlProjList);
                     if (NULL == pProjDep)
                         break;
                 }
@@ -139,6 +146,7 @@ BuildFileUser_SrcXml::Construct_Img(
                 if (NULL == Proj.Img.mpKernXdl)
                     break;
 
+#if !IS_OSA
                 do {
                     K2ASC_Printf(gStrBuf, "src\\%s\\kern\\k2osacpi", gpOsVer);
                     Proj.Img.mpKernAcpiXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.RawXdlProjList);
@@ -150,7 +158,7 @@ BuildFileUser_SrcXml::Construct_Img(
                         Proj.Img.mpKernExecXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.RawXdlProjList);
                         if (NULL == Proj.Img.mpKernExecXdl)
                             break;
-
+#endif
                         do {
                             K2ASC_Printf(gStrBuf, "src\\%s\\user\\crt\\%s\\k2oscrt", gpOsVer, gpArchName[gArch]);
                             Proj.Img.mpUserCrtXdl = AddProjectByPath(apFullPath, gStrBuf, ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
@@ -176,7 +184,7 @@ BuildFileUser_SrcXml::Construct_Img(
                                         printf("*** XML for IMG specifies kernel that is not targeted at kernel mode [%s]\n", apFullPath);
                                         break;
                                     }
-
+#if !IS_OSA
                                     if ((ProjectType_Invalid != Proj.Img.mpKernAcpiXdl->mpDependOn->mProjectType) &&
                                         (!Proj.Img.mpKernAcpiXdl->mpDependOn->mIsKernelTarget))
                                     {
@@ -190,7 +198,7 @@ BuildFileUser_SrcXml::Construct_Img(
                                         printf("*** XML for IMG specifies kern EXEC that is not targeted at kern mode [%s]\n", apFullPath);
                                         break;
                                     }
-
+#endif
                                     if ((ProjectType_Invalid != Proj.Img.mpUserCrtXdl->mpDependOn->mProjectType) &&
                                         (Proj.Img.mpUserCrtXdl->mpDependOn->mIsKernelTarget))
                                     {
@@ -251,6 +259,8 @@ BuildFileUser_SrcXml::Construct_Img(
 
                         } while (0);
 
+#if !IS_OSA
+
                         if (!ok)
                             Proj.Img.mpKernExecXdl = NULL;
 
@@ -260,6 +270,8 @@ BuildFileUser_SrcXml::Construct_Img(
                         Proj.Img.mpKernAcpiXdl = NULL;
 
                 } while (0);
+
+#endif
 
                 if (!ok)
                     Proj.Img.mpKernXdl = NULL;
@@ -284,6 +296,7 @@ BuildFileUser_SrcXml::Construct_Img(
         PurgeProjDepList(&Proj.Img.RawXdlProjList);
         PurgeProjDepList(&Proj.Img.UserXdlProjList);
         PurgeProjDepList(&Proj.Img.BuiltInXdlProjList);
+        PurgeProjDepList(&Proj.Img.BuiltInKernXdlProjList);
         Proj.Img.mpPlatXdl = NULL;
     }
 
@@ -300,6 +313,7 @@ BuildFileUser_SrcXml::Destruct_Img(
     PurgeProjDepList(&Proj.Img.RawXdlProjList);
     PurgeProjDepList(&Proj.Img.UserXdlProjList);
     PurgeProjDepList(&Proj.Img.BuiltInXdlProjList);
+    PurgeProjDepList(&Proj.Img.BuiltInKernXdlProjList);
 
     //
     // project dependencies will all be purged by srcxml generic code
@@ -309,8 +323,10 @@ BuildFileUser_SrcXml::Destruct_Img(
     Proj.Img.mpKernXdl = NULL;
     Proj.Img.mpPlatXdl = NULL;
     Proj.Img.mpKernCrtXdl = NULL;
+#if !IS_OSA
     Proj.Img.mpKernAcpiXdl = NULL;
     Proj.Img.mpKernExecXdl = NULL;
+#endif
     Proj.Img.mpUserCrtXdl = NULL;
     Proj.Img.mpUserSysProcXdl = NULL;
 }

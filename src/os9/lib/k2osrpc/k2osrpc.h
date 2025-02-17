@@ -145,6 +145,34 @@ K2_PACKED_POP
 typedef struct _K2OSRPC_OBJ_HANDLE_HDR      K2OSRPC_OBJ_HANDLE_HDR;
 typedef struct _K2OSRPC_SERVER_OBJ_HANDLE   K2OSRPC_SERVER_OBJ_HANDLE;
 typedef struct _K2OSRPC_CLIENT_OBJ_HANDLE   K2OSRPC_CLIENT_OBJ_HANDLE;
+typedef struct _K2OSRPC_CLIENT_CONN         K2OSRPC_CLIENT_CONN;
+
+struct _K2OSRPC_CLIENT_CONN
+{
+    INT32               mRefCount;
+    INT32               mRunningRef;
+    K2OS_MAILBOX_TOKEN  mTokMailbox;
+    K2OS_IPCEND         mIpcEnd;
+    K2OS_THREAD_TOKEN   mTokThread;
+    UINT32              mThreadId;
+    K2OS_SIGNAL_TOKEN   mTokStopNotify;
+    K2OS_SIGNAL_TOKEN   mTokConnectStatusGate;
+    BOOL                mIsConnected;
+    BOOL                mIsRejected;
+    K2OS_CRITSEC        IoListSec;
+    K2LIST_ANCHOR       IoList;
+    K2TREE_NODE         ConnTreeNode; // mUserVal is server interface instance id
+};
+
+struct _K2OSRPC_CLIENT_OBJ_HANDLE
+{
+    K2OSRPC_OBJ_HANDLE_HDR  Hdr;
+    K2OS_MAILBOX_TOKEN      mTokNotifyMailbox;
+    UINT32                  mServerObjId;
+    K2_GUID128              ClassId;
+    K2OSRPC_CLIENT_CONN *   mpConnToServer;
+    K2TREE_NODE             ServerHandleTreeNode;   // mUserVal is server handle 
+};
 
 //
 //------------------------------------------------------------------------
@@ -174,6 +202,8 @@ K2OS_MAILBOX_TOKEN K2OSRPC_Client_SwapNotifyTarget(K2OSRPC_CLIENT_OBJ_HANDLE * p
 
 UINT32 K2OSRPC_Server_GetObjectId(K2OSRPC_SERVER_OBJ_HANDLE * pServerHandle);
 UINT32 K2OSRPC_Client_GetObjectId(K2OSRPC_CLIENT_OBJ_HANDLE * pClientHandle);
+
+K2OS_IFINST_ID K2OSRPC_GetObjIds(K2OS_RPC_OBJ_HANDLE aObjHandle, UINT32 *apRetObjId);
 
 //
 //------------------------------------------------------------------------

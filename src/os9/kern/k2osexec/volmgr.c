@@ -63,7 +63,7 @@ struct _VOLPART
     K2OS_IFINST_ID          mIfInstId;
     
     K2OS_STORAGE_PARTITION  StorPart;
-    UINT32                  mOffset;
+    UINT64                  mVolumeOffset;
 
     K2OS_IFINST_ID          mDevIfInstId;
     K2OSSTOR_BLOCKIO        mDevBlockIo;
@@ -82,7 +82,7 @@ struct _VOL
     K2OS_RPC_IFINST         mIfInst;
     K2OS_IFINST_ID          mIfInstId;
 
-    K2OS_STORAGE_VOLUME     StorVol;
+    K2_STORAGE_VOLUME       StorVol;
     VOLPART **              mppParts;
 
     K2LIST_LINK             VolListLink;
@@ -204,7 +204,19 @@ VolRpc_GetPart(
     K2OSSTOR_VOLUME_PART *          apOutPart
 )
 {
-    return K2STAT_ERROR_NOT_IMPL;
+    UINT32 ixPart;
+
+    ixPart = apGetPartIn->mIxPart;
+    if (ixPart >= apVol->StorVol.mPartitionCount)
+    {
+        return K2STAT_ERROR_OUT_OF_BOUNDS;
+    }
+
+    apOutPart->mPartitionIfInstId = apVol->mppParts[ixPart]->mIfInstId;
+    apOutPart->mBlockIoDevIfInstId = apVol->mppParts[ixPart]->mDevIfInstId;
+    apOutPart->mVolumeOffset = apVol->mppParts[ixPart]->mVolumeOffset;
+
+    return K2STAT_NO_ERROR;
 }
 
 K2STAT
@@ -509,7 +521,7 @@ K2OSEXEC_VolRpc_Call(
 
     switch (apCall->Args.mMethodId)
     {
-    case K2OS_STORVOL_METHOD_CONFIG:
+    case K2OS_StoreVol_Method_Config:
         if ((apCall->Args.mInBufByteCount < sizeof(K2OS_STORVOL_CONFIG_IN)) ||
             (apCall->Args.mOutBufByteCount != 0))
         {
@@ -521,21 +533,21 @@ K2OSEXEC_VolRpc_Call(
         }
         break;
 
-    case K2OS_STORVOL_METHOD_GETINFO:
+    case K2OS_StoreVol_Method_GetInfo:
         if ((apCall->Args.mInBufByteCount != 0) ||
-            (apCall->Args.mOutBufByteCount < sizeof(K2OS_STORAGE_VOLUME)))
+            (apCall->Args.mOutBufByteCount < sizeof(K2_STORAGE_VOLUME)))
         {
             stat = K2STAT_ERROR_BAD_SIZE;
         }
         else
         {
-            K2MEM_Copy(apCall->Args.mpOutBuf, &pVol->StorVol, sizeof(K2OS_STORAGE_VOLUME));
-            *apRetUsedOutBytes = sizeof(K2OS_STORAGE_VOLUME);
+            K2MEM_Copy(apCall->Args.mpOutBuf, &pVol->StorVol, sizeof(K2_STORAGE_VOLUME));
+            *apRetUsedOutBytes = sizeof(K2_STORAGE_VOLUME);
             stat = K2STAT_NO_ERROR;
         }
         break;
 
-    case K2OS_STORVOL_METHOD_ADDPART:
+    case K2OS_StoreVol_Method_AddPart:
         if ((apCall->Args.mInBufByteCount < sizeof(K2OSSTOR_VOLUME_PART)) ||
             (apCall->Args.mOutBufByteCount != 0))
         {
@@ -555,7 +567,7 @@ K2OSEXEC_VolRpc_Call(
         }
         break;
 
-    case K2OS_STORVOL_METHOD_REMPART:
+    case K2OS_StoreVol_Method_RemPart:
         if ((apCall->Args.mInBufByteCount < sizeof(K2OS_STORVOL_REMPART_IN)) ||
             (apCall->Args.mOutBufByteCount != 0))
         {
@@ -575,7 +587,7 @@ K2OSEXEC_VolRpc_Call(
         }
         break;
 
-    case K2OS_STORVOL_METHOD_GETPART:
+    case K2OS_StoreVol_Method_GetPart:
         if ((apCall->Args.mInBufByteCount < sizeof(K2OS_STORVOL_GETPART_IN)) ||
             (apCall->Args.mOutBufByteCount < sizeof(K2OSSTOR_VOLUME_PART)))
         {
@@ -600,7 +612,7 @@ K2OSEXEC_VolRpc_Call(
         }
         break;
 
-    case K2OS_STORVOL_METHOD_MAKE:
+    case K2OS_StoreVol_Method_Make:
         if ((apCall->Args.mInBufByteCount != 0) ||
             (apCall->Args.mOutBufByteCount != 0))
         {
@@ -616,7 +628,7 @@ K2OSEXEC_VolRpc_Call(
         }
         break;
 
-    case K2OS_STORVOL_METHOD_GETSTATE:
+    case K2OS_StoreVol_Method_GetState:
         if ((apCall->Args.mInBufByteCount != 0) ||
             (apCall->Args.mOutBufByteCount < sizeof(K2OS_STORVOL_GETSTATE_OUT)))
         {
@@ -634,7 +646,7 @@ K2OSEXEC_VolRpc_Call(
         }
         break;
 
-    case K2OS_STORVOL_METHOD_BREAK:
+    case K2OS_StoreVol_Method_Break:
         if ((apCall->Args.mInBufByteCount != 0) ||
             (apCall->Args.mOutBufByteCount != 0))
         {
@@ -650,7 +662,7 @@ K2OSEXEC_VolRpc_Call(
         }
         break;
 
-    case K2OS_STORVOL_METHOD_TRANSFER:
+    case K2OS_StoreVol_Method_Transfer:
         if ((apCall->Args.mInBufByteCount < sizeof(K2OS_STORVOL_TRANSFER_IN)) ||
             (apCall->Args.mOutBufByteCount != 0))
         {
@@ -872,14 +884,15 @@ VolMgr_PartLocked_Change(
                         pVol->StorVol.mPartitionCount = 1;
                         pVol->StorVol.mBlockSizeBytes = apPart->StorPart.mBlockSizeBytes;
                         pVol->StorVol.mBlockCount = apPart->StorPart.mBlockCount;
+                        K2MEM_Copy(&pVol->StorVol.mUniqueId, &apPart->StorPart.mIdGuid, sizeof(K2_GUID128));
                         pVol->StorVol.mTotalBytes = ((UINT64)pVol->StorVol.mBlockCount) * ((UINT64)pVol->StorVol.mBlockSizeBytes);
                         if (apPart->StorPart.mFlagActive)
                         {
-                            pVol->StorVol.mAttributes |= K2OS_STORAGE_VOLUME_ATTRIB_BOOT;
+                            pVol->StorVol.mAttributes |= K2_STORAGE_VOLUME_ATTRIB_BOOT;
                         }
                         if (apPart->StorPart.mFlagReadOnly)
                         {
-                            pVol->StorVol.mAttributes |= K2OS_STORAGE_VOLUME_ATTRIB_READ_ONLY;
+                            pVol->StorVol.mAttributes |= K2_STORAGE_VOLUME_ATTRIB_READ_ONLY;
                         }
 
                         pVol->mShare = (UINT32)-1;
@@ -947,6 +960,8 @@ VolMgr_Part_Arrived(
     UINT32                              actualOut;
     VOLPART *                           pPart;
 
+//    K2OSKERN_Debug("VOLMGR: Partition ifinst %d arrived\n", aIfInstId);
+
     hRpcObj = K2OS_Rpc_AttachByIfInstId(aIfInstId, NULL);
     if (NULL == hRpcObj)
     {
@@ -955,7 +970,7 @@ VolMgr_Part_Arrived(
     }
 
     K2MEM_Zero(&args, sizeof(args));
-    args.mMethodId = K2OS_STORAGE_PARTITION_METHOD_GET_INFO;
+    args.mMethodId = K2OS_StorePart_Method_GetInfo;
     args.mpOutBuf = (UINT8 *)&info;
     args.mOutBufByteCount = sizeof(info);
 
@@ -1002,7 +1017,7 @@ VolMgr_Part_Departed(
     K2LIST_LINK *   pListLink;
     VOLPART *       pPart;
 
-    K2OSKERN_Debug("VOLMGR: Partition ifinst %d departed\n", aIfInstId);
+//    K2OSKERN_Debug("VOLMGR: Partition ifinst %d departed\n", aIfInstId);
 
     pPart = NULL;
 
@@ -1076,9 +1091,9 @@ VolMgr_Thread(
         if (!K2OS_Thread_WaitOne(&waitResult, sgVolMgr.mTokMailbox, K2OS_TIMEOUT_INFINITE))
             break;
         K2_ASSERT(K2OS_Wait_Signalled_0 == waitResult);
-        if (K2OS_Mailbox_Recv(sgVolMgr.mTokMailbox, &msg, 0))
+        if (K2OS_Mailbox_Recv(sgVolMgr.mTokMailbox, &msg))
         {
-            if (msg.mType == K2OS_SYSTEM_MSGTYPE_IFINST)
+            if (msg.mMsgType == K2OS_SYSTEM_MSGTYPE_IFINST)
             {
                 if (msg.mShort == K2OS_SYSTEM_MSG_IFINST_SHORT_ARRIVE)
                 {
@@ -1096,7 +1111,7 @@ VolMgr_Thread(
                     K2OSKERN_Debug("*** VolMgr received unexpected IFINST message (%04X)\n", msg.mShort);
                 }
             }
-            else if (msg.mType == K2OS_SYSTEM_MSGTYPE_RPC)
+            else if (msg.mMsgType == K2OS_SYSTEM_MSGTYPE_RPC)
             {
                 if (msg.mShort == K2OS_SYSTEM_MSG_RPC_SHORT_NOTIFY)
                 {
@@ -1109,7 +1124,7 @@ VolMgr_Thread(
             }
             else
             {
-                K2OSKERN_Debug("*** SysProc VolMgr received unexpected message type (%04X)\n", msg.mType);
+                K2OSKERN_Debug("*** SysProc VolMgr received unexpected message type (%04X)\n", msg.mMsgType);
             }
         }
 

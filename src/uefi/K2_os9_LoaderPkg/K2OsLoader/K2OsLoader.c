@@ -232,8 +232,18 @@ K2OsLoaderEntryPoint(
     XDL *                   pXdlAcpi;
     XDL *                   pXdlExec;
     K2STAT                  stat;
+    EFI_TIME                time;
+    EFI_TIME_CAPABILITIES   timeCaps;
 
     K2Printf(L"\n\n\nK2Loader\n----------------\n");
+
+    efiStatus = gRT->GetTime(&time, &timeCaps);
+    if (EFI_ERROR(efiStatus))
+        return efiStatus;
+
+    K2Printf(L"Time reported as %04d-%02d-%02d %02d:%02d:%02d\n",
+        time.Year, time.Month, time.Day,
+        time.Hour, time.Minute, time.Second);
 
     K2MEM_Zero(&gData, sizeof(gData));
 

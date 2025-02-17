@@ -36,23 +36,37 @@ K2OS_Debug_OutputString(
     char const *apStr
 )
 {
-    char const *pChk;
+    K2OS_THREAD_PAGE *  pThreadPage;
+    char *              pOut;
+    char                ch;
+    UINT32              left;
 
     if (NULL == apStr)
         return 0;
 
-    //
-    // fault in user mode if string is not null terminated
-    //
-    pChk = apStr;
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    left = K2OS_THREAD_PAGE_BUFFER_BYTES - 1;
+    pOut = (char *)pThreadPage->mMiscBuffer;
+    --apStr;
     do
     {
-        if (0 == *pChk)
+        ++apStr;
+        ch = *apStr;
+        if (ch != 0)
+        {
+            if (((ch < ' ') && (ch != '\n') && (ch != '\r')) ||
+                (ch > 127))
+                ch = '.';
+        }
+        *pOut = ch;
+        if (0 == ch)
             break;
-        pChk++;
-    } while (1);
+        pOut++;
+    } while (--left);
+    if (0 == left)
+        *pOut = 0;
 
-    return CrtKern_SysCall1(K2OS_SYSCALL_ID_OUTPUT_DEBUG, (UINT32)apStr);
+    return CrtKern_SysCall1(K2OS_SYSCALL_ID_OUTPUT_DEBUG, 0);
 }
 
 void

@@ -803,21 +803,20 @@ K2OS_IpcEnd_SendVector(
                         }
 
                         stat = KernIpcEnd_Load(refIpcEnd.AsIpcEnd);
-                        if (!K2STAT_IS_ERROR(stat))
+                        if (K2STAT_IS_ERROR(stat))
                         {
-                            bytesToSend = byteCount;
-                            stat = K2MEM_Gather(aVectorCount, apVectors, ((UINT8 *)pKernIpcEnd->mpSendRing) + sizeof(K2RING) + (offset * pKernIpcEnd->mRemoteChunkBytes), &byteCount);
-                            K2_ASSERT(!K2STAT_IS_ERROR(stat));
-                            K2_ASSERT(byteCount == bytesToSend);
-
-                            stat = K2RING_Writer_Wrote(pKernIpcEnd->mpSendRing);
-                            if (K2STAT_IS_ERROR(stat))
-                            {
-                                K2OSKERN_Debug("*** Writer_Wrote error 0x%08X\n", stat);
-                                K2_ASSERT(0);       // want to know about this.
-                                byteCount = 0;
-                            }
+                            K2OS_Thread_SetLastStatus(stat);
+                            K2OSKERN_Debug("***KernIpcEnd_Load failed (%08X)\n", stat);
+                            break;
                         }
+
+                        bytesToSend = byteCount;
+                        stat = K2MEM_Gather(aVectorCount, apVectors, ((UINT8 *)pKernIpcEnd->mpSendRing) + sizeof(K2RING) + (offset * pKernIpcEnd->mRemoteChunkBytes), &byteCount);
+                        K2_ASSERT(!K2STAT_IS_ERROR(stat));
+                        K2_ASSERT(byteCount == bytesToSend);
+
+                        stat = K2RING_Writer_Wrote(pKernIpcEnd->mpSendRing);
+                        K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
                         disp = K2OSKERN_SetIntr(FALSE);
                         K2_ASSERT(disp);
@@ -924,7 +923,7 @@ K2OS_IpcEnd_ProcessMsg(
     K2OS_MSG const *apMsg
 )
 {
-    if ((NULL == apMsg) || (apMsg->mType != K2OS_SYSTEM_MSGTYPE_IPCEND))
+    if ((NULL == apMsg) || (apMsg->mMsgType != K2OS_SYSTEM_MSGTYPE_IPCEND))
     {
         return FALSE;
     }

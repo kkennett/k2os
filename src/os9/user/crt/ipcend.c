@@ -294,6 +294,10 @@ K2OS_IpcEnd_User_Recv(
 
     offsetCount = (UINT32)-1;
     availCount = K2RING_Reader_GetAvail(apIpcEnd->mpRecvRing, &offsetCount);
+    if (availCount < recvCount)
+    {
+        CrtDbg_Printf("availCount = %d, recvCount = %d\n", availCount, recvCount);
+    }
     K2_ASSERT(availCount >= recvCount);
     K2_ASSERT(offsetCount < apIpcEnd->mpRecvRing->mSize);
 
@@ -683,12 +687,7 @@ K2OS_IpcEnd_SendVector(
                 K2_ASSERT(byteCount == bytesToSend);
 
                 stat = K2RING_Writer_Wrote(pIpcEnd->mpSendRing);
-                if (K2STAT_IS_ERROR(stat))
-                {
-                    CrtDbg_Printf("*** Writer_Wrote error 0x%08X\n", stat);
-                    K2_ASSERT(0);       // want to know about this.
-                    byteCount = 0;
-                }
+                K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
                 result = (BOOL)CrtKern_SysCall2(K2OS_SYSCALL_ID_IPCEND_SEND, (UINT32)pIpcEnd->mIpcEndToken, byteCount);
 
@@ -774,7 +773,7 @@ K2OS_IpcEnd_ProcessMsg(
     K2OS_MSG const *apMsg
 )
 {
-    if ((NULL == apMsg) || (apMsg->mType != K2OS_SYSTEM_MSGTYPE_IPCEND))
+    if ((NULL == apMsg) || (apMsg->mMsgType != K2OS_SYSTEM_MSGTYPE_IPCEND))
     {
         return FALSE;
     }

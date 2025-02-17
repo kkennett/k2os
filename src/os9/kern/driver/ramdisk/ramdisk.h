@@ -34,6 +34,8 @@
 
 #include <k2osddk.h>
 #include <k2osdev_blockio.h>
+#include <lib/k2fat.h>
+#include <lib/k2fatfs.h>
 
 /* ------------------------------------------------------------------------- */
 
@@ -46,6 +48,8 @@ struct _RAMDISK_DEVICE
     UINT32                          mVirtBase;
     UINT32                          mPageCount;
     K2OS_VIRTMAP_TOKEN              mTokVirtMap;
+
+    K2FATFS_OPS                     FatOps;
 
     K2OSDDK_pf_BlockIo_NotifyKey *  mpNotifyKey;
 };

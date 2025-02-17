@@ -97,7 +97,7 @@ K2OS_CritSec_TryEnter(
         // we have the CS at recursion count 1
         //
         pSec->mRecursionCount = 1;
-        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (threadIx * K2_VA_MEMPAGE_BYTES));
+        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (threadIx * K2_VA_MEMPAGE_BYTES));
         pThreadPage->mCsDepth++;
         return TRUE;
     }
@@ -194,7 +194,7 @@ K2OS_CritSec_Enter(
     // we have the CS at recursion count 1
     //
     pSec->mRecursionCount = 1;
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (threadIx * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (threadIx * K2_VA_MEMPAGE_BYTES));
     pThreadPage->mCsDepth++;
 }
 
@@ -226,7 +226,7 @@ K2OS_CritSec_Leave(
     //
     // leaving CS
     //
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (threadIx * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (threadIx * K2_VA_MEMPAGE_BYTES));
     K2_ASSERT(0 != pThreadPage->mCsDepth);
     pThreadPage->mCsDepth--;
 

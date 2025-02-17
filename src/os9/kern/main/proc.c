@@ -170,17 +170,12 @@ KernProc_CreateRawProc(
 
             do
             {
-                pProc = (K2OSKERN_OBJ_PROCESS *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_PROCESS));
+                pProc = (K2OSKERN_OBJ_PROCESS *)KernObj_Alloc(KernObj_Process);
                 if (NULL == pProc)
                 {
                     stat = K2STAT_ERROR_OUT_OF_MEMORY;
                     break;
                 }
-
-                K2MEM_Zero(pProc, sizeof(K2OSKERN_OBJ_PROCESS));
-
-                pProc->Hdr.mObjType = KernObj_Process;
-                K2LIST_Init(&pProc->Hdr.RefObjList);
 
                 pProc->mState = KernProcState_InRawCreate;
 
@@ -194,7 +189,7 @@ KernProc_CreateRawProc(
                 K2LIST_Init(&pProc->PageList.Locked.Reserved_Dirty);
                 K2LIST_Init(&pProc->PageList.Locked.Reserved_Clean);
                 K2LIST_Init(&pProc->PageList.Locked.PageTables);
-                K2LIST_Init(&pProc->PageList.Locked.ThreadTls);
+                K2LIST_Init(&pProc->PageList.Locked.ThreadPages);
                 K2LIST_Init(&pProc->PageList.Locked.Tokens);
 
                 K2OSKERN_SeqInit(&pProc->Token.SeqLock);
@@ -206,16 +201,27 @@ KernProc_CreateRawProc(
                 K2LIST_Init(&pProc->Thread.SchedLocked.ActiveList);
                 K2LIST_Init(&pProc->Thread.Locked.DeadList);
 
+                K2OSKERN_SeqInit(&pProc->IpcEnd.SeqLock);
+                K2LIST_Init(&pProc->IpcEnd.Locked.List);
+
+                K2OSKERN_SeqInit(&pProc->MboxOwner.SeqLock);
+                K2LIST_Init(&pProc->MboxOwner.Locked.List);
+
                 pProc->mId = K2ATOMIC_AddExchange(&gData.Proc.mNextId, 1);
 
                 pProc->mVirtMapKVA = virtMapKVA;
 
                 stat = KernPhys_AllocPow2Bytes(&res, K2_VA32_PROC_TRANSTAB_SIZE, &pProc->Virt.mpPageDirTrack);
                 K2_ASSERT(!K2STAT_IS_ERROR(stat));
-
                 pagesLeft = gData.User.mInitPageCount - (K2_VA32_PROC_TRANSTAB_SIZE / K2_VA_MEMPAGE_BYTES);
 
-                KernPhys_AllocSparsePages(&res, pagesLeft, &pProc->PageList.Locked.Reserved_Dirty);
+                stat = KernPageArray_CreateSparseFromRes(&res, gData.User.mCrtDataPagesCount, K2OS_MAPTYPE_USER_DATA, &pProc->RefCrtDataPageArray);
+                K2_ASSERT(!K2STAT_IS_ERROR(stat));
+                pagesLeft -= gData.User.mCrtDataPagesCount;
+
+                stat = KernPhys_AllocSparsePages(&res, pagesLeft, &pProc->PageList.Locked.Reserved_Dirty);
+                K2_ASSERT(!K2STAT_IS_ERROR(stat));
+
                 KernPhys_CutTrackListIntoPages(&pProc->PageList.Locked.Reserved_Dirty, FALSE, NULL, TRUE, KernPhysPageList_Proc_Res_Dirty);
                 K2_ASSERT(pagesLeft == pProc->PageList.Locked.Reserved_Dirty.mNodeCount);
 
@@ -223,7 +229,7 @@ KernProc_CreateRawProc(
                 {
                     if (!KernArch_UserProcPrep(pProc))
                     {
-                        KernHeap_Free(pProc);
+                        KernObj_Free(&pProc->Hdr);
                         pProc = NULL;
                         stat = K2STAT_ERROR_OUT_OF_MEMORY;
                         break;
@@ -258,6 +264,8 @@ KernProc_CreateRawProc(
 
                 if (K2STAT_IS_ERROR(stat))
                 {
+                    KernObj_ReleaseRef(&pProc->RefCrtDataPageArray);
+
                     KernPhys_FreeTrackList(&pProc->PageList.Locked.Reserved_Dirty);
                 }
 
@@ -881,8 +889,32 @@ KernProc_BuildProcess(
     UINT32                  bar;
     K2OSKERN_PHYSTRACK *    pTrack;
     UINT32                  physPageAddr;
+    UINT32                  tempVirt;
+    K2OSKERN_OBJREF         refTempVirtMap;
 
 //    K2OSKERN_Debug("Process %d being built\n", apProc->mId);
+
+    //
+    // create copy of fresh crt data segment contents into allocated page array
+    //
+    tempVirt = KernVirt_Reserve(gData.User.mCrtDataPagesCount);
+    if (0 == tempVirt)
+        return K2STAT_ERROR_OUT_OF_MEMORY;
+    refTempVirtMap.AsAny = NULL;
+    stat = KernVirtMap_Create(apProc->RefCrtDataPageArray.AsPageArray, 0, gData.User.mCrtDataPagesCount, 
+        tempVirt, K2OS_MapType_Data_ReadWrite, &refTempVirtMap);
+    if (K2STAT_IS_ERROR(stat))
+    {
+        KernVirt_Release(tempVirt);
+        return stat;
+    }
+    K2MEM_Copy(
+        (void *)tempVirt,
+        (void *)gData.User.RefVirtMapOfUserCrtDefaultDataSegment.AsVirtMap->OwnerMapTreeNode.mUserVal,
+        gData.User.mCrtDataPagesCount * K2_VA_MEMPAGE_BYTES
+    );
+    K2OS_CacheOperation(K2OS_CACHEOP_FlushDataRange, tempVirt, gData.User.mCrtDataPagesCount * K2_VA_MEMPAGE_BYTES);
+    KernObj_ReleaseRef(&refTempVirtMap);
 
     //
     // start by shoving in pagetables at top and bottom
@@ -897,12 +929,11 @@ KernProc_BuildProcess(
         pTrack->Flags.Field.PageListIx = KernPhysPageList_Proc_PageTables;
         K2LIST_AddAtTail(&apProc->PageList.Locked.PageTables, &pTrack->ListLink);
         physPageAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack);
-        KernPhys_ZeroPage(physPageAddr);
         KernArch_InstallPageTable(apProc, bar, physPageAddr);
     } while (bar > gData.User.mTopInitPt);
     apProc->Virt.Locked.mTopPt = gData.User.mTopInitPt;
 
-    bar = 0;    // first page is tls pagetable for this process
+    bar = 0;    // first page is threadpages pagetable for this process
     do
     {
         K2_ASSERT(0 != apProc->PageList.Locked.Reserved_Dirty.mNodeCount);
@@ -911,7 +942,6 @@ KernProc_BuildProcess(
         pTrack->Flags.Field.PageListIx = KernPhysPageList_Proc_PageTables;
         K2LIST_AddAtTail(&apProc->PageList.Locked.PageTables, &pTrack->ListLink);
         physPageAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack);
-        KernPhys_ZeroPage(physPageAddr);
         KernArch_InstallPageTable(apProc, bar, physPageAddr);
         bar += K2_VA32_PAGETABLE_MAP_BYTES;
     } while (bar < gData.User.mBotInitPt);
@@ -927,7 +957,6 @@ KernProc_BuildProcess(
         //
         // publicapi
         //
-//        K2OSKERN_Debug("Create PublicApi Map\n");
         stat = KernProc_CreateDefaultMap(
             apProc,
             &gData.User.PublicApiPageArray,
@@ -942,7 +971,6 @@ KernProc_BuildProcess(
         //
         // timerio page
         //
-//        K2OSKERN_Debug("Create TimerIo Map\n");
         stat = KernProc_CreateDefaultMap(
             apProc,
             &gData.User.TimerPageArray,
@@ -957,12 +985,11 @@ KernProc_BuildProcess(
         //
         // rofs range
         //
-//        K2OSKERN_Debug("Create FileSys Map\n");
-        K2_ASSERT((K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.RefRofsVirtMap.AsVirtMap->mPageCount * K2_VA_MEMPAGE_BYTES)) == gData.User.mTopInitVirtBar);
+        K2_ASSERT((K2OS_UVA_TIMER_IOPAGE_BASE - (gData.BuiltIn.RefRofsVirtMap.AsVirtMap->mPageCount * K2_VA_MEMPAGE_BYTES)) == gData.User.mTopInitVirtBar);
         stat = KernProc_CreateDefaultMap(
             apProc,
-            gData.FileSys.RefRofsVirtMap.AsVirtMap->PageArrayRef.AsPageArray,
-            K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.RefRofsVirtMap.AsVirtMap->mPageCount * K2_VA_MEMPAGE_BYTES),
+            gData.BuiltIn.RefRofsVirtMap.AsVirtMap->PageArrayRef.AsPageArray,
+            K2OS_UVA_TIMER_IOPAGE_BASE - (gData.BuiltIn.RefRofsVirtMap.AsVirtMap->mPageCount * K2_VA_MEMPAGE_BYTES),
             K2OS_MapType_Data_ReadOnly,
             &apProc->FileSysMapRef
         );
@@ -976,7 +1003,6 @@ KernProc_BuildProcess(
         //
         // crt xdltrack
         //
-//        K2OSKERN_Debug("Create XdlTrack Map\n");
         stat = KernProc_CreateDefaultMap(
             apProc,
             apProc->XdlTrackPageArrayRef.AsPageArray,
@@ -994,7 +1020,6 @@ KernProc_BuildProcess(
         //
         // crt xdlheader
         //
-//        K2OSKERN_Debug("Create XdlHeader Map\n");
         stat = KernProc_CreateDefaultMap(
             apProc,
             gData.User.mpKernUserCrtSeg[KernUserCrtSeg_XdlHeader],
@@ -1010,7 +1035,6 @@ KernProc_BuildProcess(
         //
         // crt text
         //
-//        K2OSKERN_Debug("Create Text Map\n");
         stat = KernProc_CreateDefaultMap(
             apProc,
             gData.User.mpKernUserCrtSeg[KernUserCrtSeg_Text],
@@ -1026,7 +1050,6 @@ KernProc_BuildProcess(
         //
         // crt readonly
         //
-//        K2OSKERN_Debug("Create Read Map\n");
         stat = KernProc_CreateDefaultMap(
             apProc,
             gData.User.mpKernUserCrtSeg[KernUserCrtSeg_Read],
@@ -1040,14 +1063,13 @@ KernProc_BuildProcess(
         bar += (apProc->CrtMapRef[KernUserCrtSeg_Read].AsVirtMap->mPageCount * K2_VA_MEMPAGE_BYTES);
 
         //
-        // crt data
+        // crt data - use copied page array
         //
-//        K2OSKERN_Debug("Create Data Map\n");
         stat = KernProc_CreateDefaultMap(
             apProc,
-            gData.User.mpKernUserCrtSeg[KernUserCrtSeg_Data],
+            apProc->RefCrtDataPageArray.AsPageArray, 
             bar,
-            K2OS_MapType_Data_CopyOnWrite,
+            K2OS_MapType_Data_ReadWrite,
             &apProc->CrtMapRef[KernUserCrtSeg_Data]
         );
         K2_ASSERT(!K2STAT_IS_ERROR(stat));
@@ -1058,7 +1080,6 @@ KernProc_BuildProcess(
         //
         // crt symbols
         //
-//        K2OSKERN_Debug("Create Symbols Map\n");
         stat = KernProc_CreateDefaultMap(
             apProc,
             gData.User.mpKernUserCrtSeg[KernUserCrtSeg_Sym],
@@ -1519,7 +1540,6 @@ KernProc_TokenLocked_Destroy(
         //
         // this is the right token. release the reference for the linked object
         //
-//        K2OSKERN_Debug("Proc %d Delete token %08X\n", apProc->mId, aToken);
         K2_ASSERT(0 < pToken->InUse.Ref.AsAny->mTokenCount);
         if (0 == K2ATOMIC_Dec((INT32 volatile *)&pToken->InUse.Ref.AsAny->mTokenCount))
         {
@@ -1566,7 +1586,7 @@ KernProc_TokenDestroyInSysCall(
 
     K2_ASSERT(aToken != NULL);
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
     objRef.AsAny = NULL;
     hitZero = FALSE;
 
@@ -1612,7 +1632,7 @@ KernProc_TokenDestroyInSysCall(
         if (doSchedCall)
         {
             pSchedItem = &apCurThread->SchedItem;
-            pSchedItem->mType = KernSchedItem_Thread_SysCall;
+            pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
             KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
             KernObj_CreateRef(&pSchedItem->ObjRef, objRef.AsAny);
             KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
@@ -1645,7 +1665,7 @@ KernProc_SysCall_TokenShare(
 
     targetProcId = pThreadPage->mSysCall_Arg1;
 
-    if (apCurThread->User.ProcRef.AsProc->mId == targetProcId)
+    if (apCurThread->RefProc.AsProc->mId == targetProcId)
     {
         // cant share with yourself
         stat = K2STAT_ERROR_BAD_ARGUMENT;
@@ -1653,7 +1673,7 @@ KernProc_SysCall_TokenShare(
     else
     {
         refObj.AsAny = NULL;
-        stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
+        stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
         if (!K2STAT_IS_ERROR(stat))
         {
             refTargetProc.AsAny = NULL;
@@ -1668,7 +1688,7 @@ KernProc_SysCall_TokenShare(
 
             if (!K2STAT_IS_ERROR(stat))
             {
-                stat = KernObj_Share(apCurThread->User.ProcRef.AsProc,
+                stat = KernObj_Share(apCurThread->RefProc.AsProc,
                     refObj.AsAny,
                     refTargetProc.AsProc,
                     &apCurThread->User.mSysCall_Result);
@@ -1681,87 +1701,6 @@ KernProc_SysCall_TokenShare(
 
             KernObj_ReleaseRef(&refObj);
         }
-    }
-
-    if (K2STAT_IS_ERROR(stat))
-    {
-        apCurThread->User.mSysCall_Result = 0;
-        pThreadPage->mLastStatus = stat;
-    }
-}
-
-void    
-KernProc_SysCall_GetLaunchInfo(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    K2OSKERN_OBJ_THREAD *       apCurThread
-)
-{
-    K2STAT                  stat;
-    K2OSKERN_OBJ_PROCESS *  pProc;
-    K2OS_THREAD_PAGE *      pThreadPage;
-    UINT32                  workAddr;
-    UINT32                  lockMapCount;
-    K2OSKERN_OBJREF         lockedMapRefs[2];
-    UINT32                  map0FirstPageIx;
-    K2OS_PROC_START_INFO *  pUserLaunchInfo;
-    UINT32                  ix;
-
-    pProc = apCurThread->User.ProcRef.AsProc;
-    pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
-
-    if (apCurThread->User.mSysCall_Arg0 != pProc->mId)
-    {
-        stat = K2STAT_ERROR_NOT_ALLOWED;
-    }
-    else
-    {
-        workAddr = pThreadPage->mSysCall_Arg1;
-        K2MEM_Zero(lockedMapRefs, sizeof(K2OSKERN_OBJREF) * 2);
-
-        stat = KernProc_AcqMaps(
-            pProc, 
-            pThreadPage->mSysCall_Arg1, 
-            sizeof(K2OS_PROC_START_INFO), 
-            TRUE, 
-            &lockMapCount, 
-            lockedMapRefs, 
-            &map0FirstPageIx
-        );
-
-        if (!K2STAT_IS_ERROR(stat))
-        {
-            pUserLaunchInfo = (K2OS_PROC_START_INFO *)workAddr;
-            if (1 == pProc->mId)
-            {
-                //
-                // hard coded that proc 1 is SysProct
-                //
-                K2ASC_Copy(pUserLaunchInfo->mPath, "sysproc.xdl");
-                pUserLaunchInfo->mArgStr[0] = 0;
-            }
-            else
-            {
-                //
-                // copy in launch info from process that started this process
-                //
-                K2_ASSERT(NULL != pProc->mpLaunchInfo);
-                K2MEM_Copy(pUserLaunchInfo, pProc->mpLaunchInfo, sizeof(K2OS_PROC_START_INFO));
-            }
-
-            //
-            // release maps for target range
-            //
-            for (ix = 0; ix < lockMapCount; ix++)
-            {
-                KernObj_ReleaseRef(&lockedMapRefs[ix]);
-            }
-    
-            apCurThread->User.mSysCall_Result = (UINT32)TRUE;
-        }
-//        else
-//        {
-//            K2OSKERN_Debug("GetLaunchInfo - AcqMaps failed\n");
-//        }
     }
 
     if (K2STAT_IS_ERROR(stat))
@@ -1789,7 +1728,7 @@ KernProc_AcqMaps(
     UINT32                  mapCount;
 
     if ((aProcVirtAddr >= (K2OS_UVA_TIMER_IOPAGE_BASE - aDataSize)) ||
-        (aProcVirtAddr < K2OS_UVA_LOW_BASE))
+        (aProcVirtAddr < K2_VA_MEMPAGE_BYTES))
     {
         return K2STAT_ERROR_OUT_OF_BOUNDS;
     }
@@ -1802,9 +1741,8 @@ KernProc_AcqMaps(
 
     pMap = apRetMapRefs->AsVirtMap;
 
-    if ((pMap->mMapType != K2OS_MapType_Data_ReadWrite) &&
-        (pMap->mMapType != K2OS_MapType_Data_CopyOnWrite) &&
-        (pMap->mMapType != K2OS_MapType_Thread_Stack))
+    if ((pMap->mVirtToPhysMapType != K2OS_MapType_Data_ReadWrite) &&
+        (pMap->mVirtToPhysMapType != K2OS_MapType_Thread_Stack))
     {
         if (aWriteable)
         {
@@ -1824,7 +1762,6 @@ KernProc_AcqMaps(
     pagesLeft = pMap->mPageCount - pageIx;
 
     *apRetMapCount = 1;
-    ++apRetMapRefs;
     *apRetMap0StartPage = pageIx;
 
     if (aDataSize <= pagesLeft)
@@ -1834,11 +1771,13 @@ KernProc_AcqMaps(
     // infrequent case where data spans more than one map
     //
     mapCount = 1;
+    ++apRetMapRefs;
 
-    aProcVirtAddr += pagesLeft * K2_VA_MEMPAGE_BYTES;
+    aProcVirtAddr = (aProcVirtAddr & K2_VA_PAGEFRAME_MASK) + (pagesLeft * K2_VA_MEMPAGE_BYTES);
     aDataSize -= pagesLeft;
 
     stat = K2STAT_NO_ERROR;
+
     do
     {
         stat = KernProc_FindMapAndCreateRef(apProc, aProcVirtAddr, apRetMapRefs, &pageIx);
@@ -1847,14 +1786,12 @@ KernProc_AcqMaps(
 
         K2_ASSERT(0 == pageIx);
 
+        pMap = apRetMapRefs->AsVirtMap;
         ++apRetMapRefs;
         mapCount++;
 
-        pMap = apRetMapRefs->AsVirtMap;
-
-        if ((pMap->mMapType != K2OS_MapType_Data_ReadWrite) &&
-            (pMap->mMapType != K2OS_MapType_Data_CopyOnWrite) &&
-            (pMap->mMapType != K2OS_MapType_Thread_Stack))
+        if ((pMap->mVirtToPhysMapType != K2OS_MapType_Data_ReadWrite) &&
+            (pMap->mVirtToPhysMapType != K2OS_MapType_Thread_Stack))
         {
             if (aWriteable)
             {
@@ -1913,7 +1850,7 @@ KernProc_SysCall_VirtReserve(
     else
     {
         stat = KernProc_UserVirtHeapAlloc(
-            apCurThread->User.ProcRef.AsProc,
+            apCurThread->RefProc.AsProc,
             pageCount,
             &pProcHeapNode);
         if (!K2STAT_IS_ERROR(stat))
@@ -1948,7 +1885,7 @@ KernProc_SysCall_VirtGet(
     K2OSKERN_OBJ_PROCESS *  pProc;
     K2HEAP_NODE *           pHeapNode;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
 
     disp = K2OSKERN_SeqLock(&pProc->Virt.SeqLock);
 
@@ -1979,7 +1916,7 @@ KernProc_SysCall_VirtRelease(
     K2HEAP_NODE *           pHeapNode;
     K2OSKERN_PROCHEAP_NODE *pProcHeapNode;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
 
     disp = K2OSKERN_SeqLock(&pProc->Virt.SeqLock);
 
@@ -2062,7 +1999,7 @@ KernProc_SysCall_TokenClone(
     pThreadPage->mSysCall_Arg7_Result0 = 0;
 
     objRef.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &objRef);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &objRef);
     if (!K2STAT_IS_ERROR(stat))
     {
         switch (objRef.AsAny->mObjType)
@@ -2071,7 +2008,7 @@ KernProc_SysCall_TokenClone(
             stat = K2STAT_ERROR_NOT_ALLOWED;
             break;
         default:
-            stat = KernProc_TokenCreate(apCurThread->User.ProcRef.AsProc, objRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
+            stat = KernProc_TokenCreate(apCurThread->RefProc.AsProc, objRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
             if (!K2STAT_IS_ERROR(stat))
             {
                 if (objRef.AsAny->mObjType == KernObj_MailboxOwner)
@@ -2095,110 +2032,6 @@ KernProc_SysCall_TokenClone(
 }
 
 void    
-KernProc_SysCall_TrapMount(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    K2OSKERN_OBJ_THREAD *       apCurThread
-)
-{
-    K2STAT              stat;
-    K2_EXCEPTION_TRAP * pTrap;
-    UINT32              mapCount;
-    K2OSKERN_OBJREF     mapRef[2];
-    UINT32              map0PageIx;
-
-    pTrap = (K2_EXCEPTION_TRAP *)apCurThread->User.mSysCall_Arg0;
-
-    mapRef[0].AsAny = mapRef[1].AsAny = NULL;
-
-    stat = KernProc_AcqMaps(apCurThread->User.ProcRef.AsProc,
-        (UINT32)pTrap,
-        sizeof(K2_EXCEPTION_TRAP),
-        TRUE,
-        &mapCount,
-        mapRef,
-        &map0PageIx);
-
-    if (!K2STAT_IS_ERROR(stat))
-    {
-        pTrap->mpNextTrap = apCurThread->mpTrapStack;
-        apCurThread->mpTrapStack = pTrap;
-        //
-        // successful mount returns FALSE.  if the trap fires it returns TRUE (altered context)
-        //
-        apCurThread->User.mSysCall_Result = FALSE;
-
-        KernObj_ReleaseRef(&mapRef[0]);
-        if (mapCount > 1)
-            KernObj_ReleaseRef(&mapRef[1]);
-    }
-
-    if (K2STAT_IS_ERROR(stat))
-    {
-        //
-        // unsuccessful mount returns TRUE.  trap result already set by CRT before this syscall
-        // since we can't touch the trap because we couldn't acquire the maps
-        //
-        apCurThread->User.mSysCall_Result = TRUE;
-        apCurThread->mpKernRwViewOfThreadPage->mLastStatus = stat;
-    }
-}
-
-void    
-KernProc_SysCall_TrapDismount(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    K2OSKERN_OBJ_THREAD *       apCurThread
-)
-{
-    K2STAT              stat;
-    K2_EXCEPTION_TRAP * pTrap;
-    UINT32              mapCount;
-    K2OSKERN_OBJREF     mapRef[2];
-    UINT32              map0PageIx;
-
-    pTrap = (K2_EXCEPTION_TRAP *)apCurThread->User.mSysCall_Arg0;
-
-    if (pTrap != apCurThread->mpTrapStack)
-    {
-        //
-        // convert to raiseException
-        //
-        K2OSKERN_Debug("*** Thread %d INVALID TrapDismount (%08X)\n", apCurThread->mGlobalIx, pTrap);
-        apCurThread->User.mSysCall_Arg0 = K2STAT_EX_LOGIC;
-        KernThread_SysCall_RaiseException(apThisCore, apCurThread);
-        return;
-    }
-
-    mapRef[0].AsAny = mapRef[1].AsAny = NULL;
-
-    stat = KernProc_AcqMaps(apCurThread->User.ProcRef.AsProc,
-        (UINT32)pTrap,
-        sizeof(K2_EXCEPTION_TRAP),
-        TRUE,
-        &mapCount,
-        mapRef,
-        &map0PageIx);
-
-    if (K2STAT_IS_ERROR(stat))
-    {
-        K2OSKERN_Debug("*** Thread %d Trap Maps could not be acquired at dismount (%08X)\n", apCurThread->mGlobalIx, pTrap);
-        apCurThread->User.mSysCall_Arg0 = K2STAT_EX_LOGIC;
-        KernThread_SysCall_RaiseException(apThisCore, apCurThread);
-        return;
-    }
-
-    apCurThread->mpTrapStack = pTrap->mpNextTrap;
-
-    //
-    // double release the acquired maps
-    //
-    KernObj_ReleaseRef(&mapRef[0]);
-    if (mapCount > 1)
-        KernObj_ReleaseRef(&mapRef[1]);
-
-    apCurThread->User.mSysCall_Result = 0;
-}
-
-void    
 KernProc_SysCall_Exit(
     K2OSKERN_CPUCORE volatile * apThisCore,
     K2OSKERN_OBJ_THREAD *       apCurThread
@@ -2207,7 +2040,7 @@ KernProc_SysCall_Exit(
     K2OSKERN_SCHED_ITEM *   pSchedItem;
 
     pSchedItem = &apCurThread->SchedItem;
-    pSchedItem->mType = KernSchedItem_Thread_SysCall;
+    pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
     KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
     KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
     KernSched_QueueItem(pSchedItem);
@@ -2224,11 +2057,14 @@ KernProc_SysCall_AtStart(
     UINT32                  pageIx;
     UINT32                  mapAddr;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
 
-    if ((apCurThread->User.StackMapRef.AsAny != NULL) ||
+    //
+    // two threads - main and rpc client thread
+    //
+    if ((apCurThread->StackMapRef.AsAny != NULL) ||
         (pProc->Thread.Locked.CreateList.mNodeCount != 0) ||
-        (pProc->Thread.SchedLocked.ActiveList.mNodeCount != 1) ||
+        (pProc->Thread.SchedLocked.ActiveList.mNodeCount != 2) ||
         (pProc->Thread.Locked.DeadList.mNodeCount != 0) ||
         (pProc->mState != KernProcState_Starting))
     {
@@ -2243,11 +2079,11 @@ KernProc_SysCall_AtStart(
 
     mapAddr = apCurThread->User.mSysCall_Arg0;
 
-    stat = KernProc_FindMapAndCreateRef(pProc, mapAddr, &apCurThread->User.StackMapRef, &pageIx);
+    stat = KernProc_FindMapAndCreateRef(pProc, mapAddr, &apCurThread->StackMapRef, &pageIx);
     if ((K2STAT_IS_ERROR(stat)) ||
         (pageIx != 0) ||
-        (apCurThread->User.StackMapRef.AsVirtMap->User.mpProcHeapNode->HeapNode.AddrTreeNode.mUserVal != (mapAddr - K2_VA_MEMPAGE_BYTES)) ||
-        (apCurThread->User.StackMapRef.AsVirtMap->mMapType != K2OS_MapType_Thread_Stack))
+        (apCurThread->StackMapRef.AsVirtMap->User.mpProcHeapNode->HeapNode.AddrTreeNode.mUserVal != (mapAddr - K2_VA_MEMPAGE_BYTES)) ||
+        (apCurThread->StackMapRef.AsVirtMap->mVirtToPhysMapType != K2OS_MapType_Thread_Stack))
     {
         //
         // catastrophic error. exit process
@@ -2261,16 +2097,10 @@ KernProc_SysCall_AtStart(
     //
     // kernel takes ownership of thread stack and the virtual alloc for it
     //
-    apCurThread->User.StackMapRef.AsVirtMap->User.mpProcHeapNode->mUserOwned = FALSE;
+    apCurThread->StackMapRef.AsVirtMap->User.mpProcHeapNode->mUserOwned = FALSE;
     //
     // crt will release the map, leaving only the kernel reference to the map
     //
-
-    if (K2OS_SYSPROC_ID == pProc->mId)
-    {
-        // set up notify message queue for sysproc
-
-    }
 
 #if K2OSKERN_TRACE_THREAD_LIFE
     K2OSKERN_Debug("-- Proc %d Started\n", pProc->mId);
@@ -2301,7 +2131,7 @@ KernProc_Stop_CheckComplete(
         {
             KernCpu_StopProc(apThisCore, pProc);
         }
-        pProc->StoppedSchedItem.mType = KernSchedItem_ProcStopped;
+        pProc->StoppedSchedItem.mSchedItemType = KernSchedItem_ProcStopped;
         KernArch_GetHfTimerTick(&pProc->StoppedSchedItem.mHfTick);
         KernSched_QueueItem(&pProc->StoppedSchedItem);
     }
@@ -2381,7 +2211,7 @@ KernProc_StopDpc(
         {
             KernCpu_StopProc(apThisCore, pProc);
         }
-        pProc->StoppedSchedItem.mType = KernSchedItem_ProcStopped;
+        pProc->StoppedSchedItem.mSchedItemType = KernSchedItem_ProcStopped;
         KernArch_GetHfTimerTick(&pProc->StoppedSchedItem.mHfTick);
         KernSched_QueueItem(&pProc->StoppedSchedItem);
     }
@@ -2393,8 +2223,11 @@ KernProc_ExitedDpc(
     void *                      apArg
 )
 {
-    K2OSKERN_OBJ_PROCESS *  pProc;
-    UINT32                  ixSeg;
+    K2OSKERN_OBJ_PROCESS *      pProc;
+    UINT32                      ixSeg;
+    K2OSKERN_OBJ_IPCEND *       pIpcEnd;
+    K2OSKERN_OBJ_MAILBOXOWNER * pMboxOwner;
+    K2LIST_LINK *               pListLink;
 
     //
     // queued by scheduler when process state transitions to stopped
@@ -2410,6 +2243,37 @@ KernProc_ExitedDpc(
     // the process' state changed to stopping
     //
     K2_ASSERT(0 == pProc->Token.Locked.mCount);
+
+    //
+    // any remaining ipc endpoints need to be checked to see if they are in waitfordisack
+    //
+    pListLink = pProc->IpcEnd.Locked.List.mpHead;
+    if (NULL != pListLink)
+    {
+        do
+        {
+            pIpcEnd = K2_GET_CONTAINER(K2OSKERN_OBJ_IPCEND, pListLink, OwnerIpcEndListLocked.ListLink);
+            pListLink = pListLink->mpNext;
+            if (pIpcEnd->Connection.Locked.mState == KernIpcEndState_WaitDisAck)
+            {
+                KernIpcEnd_DisconnectAck(pIpcEnd);
+            }
+        } while (NULL != pListLink);
+    }
+
+    //
+    // any remaining mailboxes need to have undelivered reserve references destroyed
+    //
+    pListLink = pProc->MboxOwner.Locked.List.mpHead;
+    if (NULL != pListLink)
+    {
+        do
+        {
+            pMboxOwner = K2_GET_CONTAINER(K2OSKERN_OBJ_MAILBOXOWNER, pListLink, OwnerMboxOwnerListLocked.ListLink);
+            pListLink = pListLink->mpNext;
+            KernMailboxOwner_AbortReserveHolders(pMboxOwner);
+        } while (NULL != pListLink);
+    }
 
     //
     // release reference to xdl tracking map
@@ -2483,22 +2347,23 @@ KernProc_Clean_TransBaseDone(
     KernProc_MergePageList(&collectList, &apProc->PageList.Locked.Reserved_Dirty, KernPhysPageList_Proc_Res_Dirty);
     KernProc_MergePageList(&collectList, &apProc->PageList.Locked.Reserved_Clean, KernPhysPageList_Proc_Res_Clean);
     KernProc_MergePageList(&collectList, &apProc->PageList.Locked.PageTables, KernPhysPageList_Proc_PageTables);
-    KernProc_MergePageList(&collectList, &apProc->PageList.Locked.ThreadTls, KernPhysPageList_Proc_ThreadTls);
+    KernProc_MergePageList(&collectList, &apProc->PageList.Locked.ThreadPages, KernPhysPageList_Proc_ThreadPages);
     KernProc_MergePageList(&collectList, &apProc->PageList.Locked.Working, KernPhysPageList_Proc_Working);
     KernProc_MergePageList(&collectList, &apProc->PageList.Locked.Tokens, KernPhysPageList_Proc_Token);
     KernPhys_FreeTrackList(&collectList);
 
     KernPhys_FreeTrack(apProc->Virt.mpPageDirTrack);
 
+    KernObj_ReleaseRef(&apProc->RefCrtDataPageArray);
+
     //
     // purge the memory used for the process structure
     //
     procId = apProc->mId;
-    K2MEM_Zero(apProc, sizeof(K2OSKERN_OBJ_PROCESS));
-    KernHeap_Free(apProc);
+    KernObj_Free(&apProc->Hdr);
 
 //    K2OSKERN_Debug("Process %d purged\n", procId);
-    sysProcMsg.mType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
+    sysProcMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
     sysProcMsg.mShort = K2OS_SYSTEM_MSG_SYSPROC_SHORT_PROCESS_PURGED;
     sysProcMsg.mPayload[0] = procId;
     doSignal = FALSE;
@@ -3129,7 +2994,7 @@ KernProc_Create(
     // number of physical pages left on reserved list should match number of data pages + number of sym pages
     // for copy-on-write operations of crt data segment and crt sym segment
     //
-    K2_ASSERT(pProc->PageList.Locked.Reserved_Dirty.mNodeCount == 2 + gData.User.mCrtDataPagesCount);
+    K2_ASSERT(pProc->PageList.Locked.Reserved_Dirty.mNodeCount == 2);
 
     pProc->mState = KernProcState_Launching;
 
@@ -3151,7 +3016,7 @@ KernProc_SysCall_Fast_TlsAlloc(
     UINT64                  alt;
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
     do
     {
         oldVal = pProc->mTlsBitmap;
@@ -3189,7 +3054,7 @@ KernProc_SysCall_Fast_TlsFree(
     UINT64                  newVal;
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
 
     slotIndex = apCurThread->User.mSysCall_Arg0;
 
@@ -3225,7 +3090,7 @@ KernProc_SysCall_GetExitCode(
     K2OS_THREAD_PAGE * pThreadPage;
     K2OSKERN_OBJREF         procRef;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     if (pProc->mId != 1)
@@ -3270,11 +3135,11 @@ KernProc_SysCall_CacheOp(
     K2OSKERN_OBJ_THREAD *       apCurThread
 )
 {
-    BOOL                    disp;
-    K2OS_THREAD_PAGE * pThreadPage;
-    UINT32                op;
-    UINT32                baseAddr;
-    UINT32                length;
+    BOOL                disp;
+    K2OS_THREAD_PAGE *  pThreadPage;
+    UINT32              op;
+    UINT32              baseAddr;
+    UINT32              length;
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
@@ -3293,9 +3158,9 @@ KernProc_SysCall_CacheOp(
 
     if (length > 0)
     {
-        disp = K2OSKERN_SeqLock(&apCurThread->User.ProcRef.AsProc->Virt.SeqLock);
+        disp = K2OSKERN_SeqLock(&apCurThread->RefProc.AsProc->Virt.SeqLock);
         K2OS_CacheOperation(op, baseAddr, length);
-        K2OSKERN_SeqUnlock(&apCurThread->User.ProcRef.AsProc->Virt.SeqLock, disp);
+        K2OSKERN_SeqUnlock(&apCurThread->RefProc.AsProc->Virt.SeqLock, disp);
     }
 
     apCurThread->User.mSysCall_Result = 1;
@@ -3453,4 +3318,21 @@ KernProc_Threaded_UserMap(
     }
 
     return stat;
+}
+
+void    
+KernProc_SysCall_OutputDebug(
+    K2OSKERN_CPUCORE volatile * apThisCore, 
+    K2OSKERN_OBJ_THREAD * apCurThread
+)
+{
+    K2OS_THREAD_PAGE * pThreadPage;
+
+    pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
+
+    pThreadPage->mMiscBuffer[K2OS_THREAD_PAGE_BUFFER_BYTES - 1] = 0;
+   
+    apCurThread->User.mSysCall_Result = K2OSKERN_Debug("%s", (char const *)pThreadPage->mMiscBuffer);
+
+    pThreadPage->mLastStatus = K2STAT_NO_ERROR;
 }

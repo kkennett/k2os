@@ -96,6 +96,7 @@ extern X32_xDTPTR   __attribute__((aligned(16))) gX32Kern_IDTPTR;
 extern X32_LDTENTRY __attribute__((aligned(16))) gX32Kern_UserLDT[K2OS_MAX_CPU_COUNT];
 
 extern K2OSKERN_SEQLOCK    gX32Kern_IntrSeqLock;
+extern K2OSKERN_SEQLOCK    gX32Kern_SchedTimerSeqLock;
 extern BOOL                gX32Kern_ApicReady;
 extern UINT16              gX32Kern_GlobalSystemIrqOverrideMap[X32_DEVIRQ_MAX_COUNT];
 extern UINT16              gX32Kern_GlobalSystemIrqOverrideFlags[X32_DEVIRQ_MAX_COUNT];
@@ -135,17 +136,15 @@ UINT32 X32Kern_VectorToDevIrq(UINT32 aVector);
 
 void X32Kern_InitTiming(void);
 
-void X32Kern_InitCacheConfig(void);
-
 typedef void (K2_CALLCONV_REGS *pf_X32Kern_CpuLaunchEntryPoint)(UINT32 aCoreIx);
 void K2_CALLCONV_REGS X32KernAsm_CpuLaunchEntryPoint(UINT32 aCoreIx);
 
 void K2_CALLCONV_REGS X32KernAsm_SysEnter_Entry(void);
 
 void X32Kern_StartTime(void);
-void X32Kern_TimerInterrupt(K2OSKERN_CPUCORE volatile * apThisCore);
+void X32Kern_SchedTimer_Interrupt(K2OSKERN_CPUCORE volatile * apThisCore);
 
-void K2_CALLCONV_REGS X32KernAsm_EnterMonitorFromKernelThread(UINT32 aNewStackPtr, UINT32 *apStoreThreadStackPtr);
+void K2_CALLCONV_REGS X32KernAsm_SaveKernelThreadStateAndEnterMonitor(UINT32 aNewStackPtr, UINT32 *apStoreThreadStackPtr);
 void K2_CALLCONV_REGS X32KernAsm_EnterMonitor(UINT32 aESP);
 
 void X32Kern_DumpStackTrace(K2OSKERN_OBJ_PROCESS *apProc, UINT32 aEIP, UINT32 aEBP, UINT32 aESP, char *  apBuffer);

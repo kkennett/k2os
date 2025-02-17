@@ -102,7 +102,7 @@ struct _DEVEVENT
 
     DEVNODE_REF         DevNodeRef;
 
-    DevNodeEventType    mType;
+    DevNodeEventType    mDevNodeEventType;
     UINT32              mArg;
 };
 
@@ -417,7 +417,7 @@ void VolMgr_Init(void);
 //------------------------------------------------------------------------
 //
 
-void FsMgr_Init(void);
+void FsMgr_Init(K2OSKERN_FSNODE *apRootFsNode, K2OSKERN_FSNODE * apFsRootFsNode, K2OSKERN_pf_FsNodeInit afFsNodeInit);
 
 //
 //------------------------------------------------------------------------
@@ -498,16 +498,166 @@ void NetIo_Init(void);
 //------------------------------------------------------------------------
 //
 
-void Rofs_Init(void);
+void Rofs_Init(K2ROFS const *apRofs);
 
 //
 //------------------------------------------------------------------------
 //
 
-extern UINT32           gMainThreadId;
-extern EXEC_PLAT        gPlat;
-extern K2OSKERN_DDK     gKernDdk;
-extern K2OS_IFINST_ID   gAcpiBusIfInstId;
+typedef struct _FSMGR_FILESYS FSMGR_FILESYS;
+struct _FSMGR_FILESYS
+{
+    K2OS_RPC_OBJ        mRpcObj;
+    K2OS_RPC_IFINST     mRpcIfInst;
+    K2OS_IFINST_ID      mIfInstId;
+    K2OS_RPC_OBJ_HANDLE mhRpcObj;
+
+    K2OSKERN_FILESYS    KernFileSys;
+    UINT32              mFsNumber;
+    K2LIST_LINK         FsListLink;
+};
+
+K2STAT K2OSEXEC_FileSysRpc_Create(K2OS_RPC_OBJ aObject, K2OS_RPC_OBJ_CREATE const * apCreate, UINT32 *apRetContext);
+K2STAT K2OSEXEC_FileSysRpc_OnAttach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aProcessId, UINT32 *apRetUseContext);
+K2STAT K2OSEXEC_FileSysRpc_OnDetach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aUseContext);
+K2STAT K2OSEXEC_FileSysRpc_Call(K2OS_RPC_OBJ_CALL const * apCall, UINT32 *apRetUsedOutBytes);
+K2STAT K2OSEXEC_FileSysRpc_Delete(K2OS_RPC_OBJ aObject, UINT32 aObjContext);
+
+typedef struct _FSPROV FSPROV;
+struct _FSPROV
+{
+    K2OS_IFINST_ID      mFsProvIfInstId;
+    K2OS_RPC_OBJ_HANDLE mRpcObjHandle;
+    UINT32              mIndex;
+    K2OSKERN_FSPROV *   mpKernFsProv;
+    K2LIST_LINK         ListLink;
+};
+
+typedef struct _FSMGR_USER FSMGR_USER;
+struct _FSMGR_USER
+{
+    UINT32              mProcId;
+    K2LIST_LINK         FsMgrUserListLink;
+};
+
+typedef struct _FSMGR_KNOWN_VOLUME FSMGR_KNOWN_VOLUME;
+struct _FSMGR_KNOWN_VOLUME
+{
+    K2OS_IFINST_ID  mIfInstId;
+    UINT32          mIter;
+    FSPROV *        mpFsProv;
+    K2LIST_LINK     ListLink;
+};
+
+typedef struct _FSMGR FSMGR;
+struct _FSMGR
+{
+    K2OS_RPC_OBJ            mRpcObj;
+
+    K2OS_THREAD_TOKEN       mTokThread;
+    UINT32                  mThreadId;
+
+    K2OS_MAILBOX_TOKEN      mTokMailbox;
+    K2OS_RPC_IFINST         mRpcIfInst;
+    K2OS_IFINST_ID          mIfInstId;
+
+    K2OS_CRITSEC            Sec;
+    UINT32                  mNextFsNumber;
+
+    K2LIST_ANCHOR           FsProvList;
+    K2LIST_ANCHOR           UserList;
+    K2LIST_ANCHOR           FsList;
+    K2LIST_ANCHOR           KnownVolList;
+    UINT32                  mKnownIter;
+
+    K2OSKERN_FSNODE *       mpRootFsNode;
+    K2OSKERN_FSNODE *       mpFsRootFsNode;
+    K2OSKERN_pf_FsNodeInit  mfFsNodeInit;
+
+    K2OSKERN_FILE *         mpKernFileForRoot;
+};
+
+typedef struct _FSCLIENT FSCLIENT;
+struct _FSCLIENT
+{
+    K2OS_RPC_OBJ        mRpcObj;
+    UINT32              mProcId;
+    UINT32              mCreatorContext;
+    UINT32              mObjId;
+    K2OSKERN_SEQLOCK    SeqLockForCurDir;
+    K2OSKERN_FILE *     mpCurDir;
+    K2TREE_NODE         TreeNode;
+};
+
+K2STAT K2OSEXEC_FsClientRpc_Create(K2OS_RPC_OBJ aObject, K2OS_RPC_OBJ_CREATE const * apCreate, UINT32 *apRetContext);
+K2STAT K2OSEXEC_FsClientRpc_OnAttach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aProcessId, UINT32 *apRetUseContext);
+K2STAT K2OSEXEC_FsClientRpc_OnDetach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aUseContext);
+K2STAT K2OSEXEC_FsClientRpc_Call(K2OS_RPC_OBJ_CALL const * apCall, UINT32 *apRetUsedOutBytes);
+K2STAT K2OSEXEC_FsClientRpc_Delete(K2OS_RPC_OBJ aObject, UINT32 aObjContext);
+
+K2STAT K2OSEXEC_FsEnumRpc_Create(K2OS_RPC_OBJ aObject, K2OS_RPC_OBJ_CREATE const * apCreate, UINT32 *apRetContext);
+K2STAT K2OSEXEC_FsEnumRpc_OnAttach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aProcessId, UINT32 *apRetUseContext);
+K2STAT K2OSEXEC_FsEnumRpc_OnDetach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aUseContext);
+K2STAT K2OSEXEC_FsEnumRpc_Call(K2OS_RPC_OBJ_CALL const * apCall, UINT32 *apRetUsedOutBytes);
+K2STAT K2OSEXEC_FsEnumRpc_Delete(K2OS_RPC_OBJ aObject, UINT32 aObjContext);
+
+typedef struct _FSFILEUSE FSFILEUSE;
+struct _FSFILEUSE
+{
+    K2OS_RPC_OBJ_HANDLE mhClient;
+    FSCLIENT *          mpClient;
+    UINT32 volatile     mInUse;     // this keeps attach to 1
+    K2OS_CRITSEC        Sec;        // this guards against simultaneous use by multiple threads
+    K2OS_RPC_OBJ        mRpcObj;
+    K2OSKERN_FILE *     mpKernFile;
+    UINT64              mPointer;
+};
+
+K2STAT K2OSEXEC_FsFileUseRpc_Create(K2OS_RPC_OBJ aObject, K2OS_RPC_OBJ_CREATE const * apCreate, UINT32 *apRetContext);
+K2STAT K2OSEXEC_FsFileUseRpc_OnAttach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aProcessId, UINT32 *apRetUseContext);
+K2STAT K2OSEXEC_FsFileUseRpc_OnDetach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aUseContext);
+K2STAT K2OSEXEC_FsFileUseRpc_Call(K2OS_RPC_OBJ_CALL const * apCall, UINT32 *apRetUsedOutBytes);
+K2STAT K2OSEXEC_FsFileUseRpc_Delete(K2OS_RPC_OBJ aObject, UINT32 aObjContext);
+
+struct _K2OSKERN_FILE
+{
+    INT32 volatile  mRefCount;
+
+    K2OS_CRITSEC    Sec;
+
+    K2TREE_NODE     MapTreeNode;        // mUserVal is ptr to fsnode this file holds reference on
+
+    struct
+    {
+        UINT32      mAccess;
+        UINT32      mShare;
+    } Static;
+
+    struct
+    {
+        K2LIST_ANCHOR   UseList;
+    } Locked;
+};
+
+BOOL   K2OSEXEC_KernFile_Init(K2OSKERN_FILE *apKernFile);
+UINT32 K2OSEXEC_KernFile_AddRef(K2OSKERN_FILE *apKernFile);
+UINT32 K2OSEXEC_KernFile_Release(K2OSKERN_FILE *apKernFile);
+K2STAT K2OSEXEC_KernFile_Acquire(K2OSKERN_FILE *apBaseDir, char const *apPath, UINT32 aAccess, UINT32 aShare, K2OS_FileOpenType aOpenType, UINT32 aOpenFlags, UINT32 aNewFileAttrib, K2OSKERN_FILE **appRetFile);
+K2STAT K2OSEXEC_KernFile_Read(K2OSKERN_FILE *apKernFile, UINT32 aProcId, K2OS_BUFDESC const *apBufDesc, UINT64 const *apOffset, UINT32 aByteCountReq, UINT32 *apRetByteCountGot);
+
+//
+// -------------------------------------------------------------------------
+// 
+
+extern UINT32               gMainThreadId;
+extern EXEC_PLAT            gPlat;
+extern K2OSKERN_DDK         gKernDdk;
+extern K2OS_IFINST_ID       gAcpiBusIfInstId;
+extern K2OSKERN_FSPROV *    gpRofsProv;
+extern FSMGR                gFsMgr;
+extern K2TREE_ANCHOR        gFsClientTree;
+extern K2TREE_ANCHOR        gFsNodeMapTree;
+extern K2OSKERN_SEQLOCK     gFsNodeMapTreeSeqLock;
 
 //
 // -------------------------------------------------------------------------

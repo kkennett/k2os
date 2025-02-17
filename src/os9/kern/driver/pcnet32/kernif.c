@@ -434,7 +434,7 @@ Init(
 
     K2MEM_Zero(&netReg, sizeof(netReg));
     K2ASC_CopyLen(netReg.Desc.mName, "PCNet32", K2_NET_ADAPTER_NAME_MAX_LEN);
-    netReg.Desc.mType = K2_NetAdapter_Ethernet;
+    netReg.Desc.mNetAdapterType = K2_NetAdapter_Ethernet;
     netReg.Desc.mPhysicalMTU = ETHER_FRAME_HDR_LENGTH + ETHER_FRAME_MTU;    // crc auto
     netReg.Desc.Addr.mLen = ETHER_FRAME_MAC_LENGTH;
     K2MEM_Copy(&netReg.Desc.Addr.mValue, apDevice->mCacheAPROM, ETHER_FRAME_MAC_LENGTH);
@@ -482,10 +482,10 @@ Init(
         K2OSDDK_NetIoDeregister(apDevice->mDevCtx, apDevice);
         PCNET32_WriteCSR(apDevice, 0, 4);
     }
-    else
-    {
-        K2OSKERN_Debug("PCNET32(%08X) initialized\n");
-    }
+//    else
+//    {
+//        K2OSKERN_Debug("PCNET32(%08X) initialized\n");
+//    }
 
     return stat;
 }

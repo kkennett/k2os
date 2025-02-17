@@ -143,6 +143,7 @@ struct _NETDEV_DHCP_PROTO
     UINT32                      mDhcpServerIp;
     IPV4_HOST                   Host;
     K2OS_IPV4_PARAM             IpParam;
+    UINT32                      mMsLease;
     UINT32                      mMsT1;
     UINT32                      mMsT2;
     UINT32                      mRetryCounter;
@@ -192,7 +193,7 @@ struct _NETDEV_L2_PROTO
 {
     NETDEV *    mpNetDev;
     BOOL        mIsStarted;
-    UINT32      mHTYPE;         // should match mpNetDev->Desc.mType
+    UINT32      mHTYPE;         // should match mpNetDev->Desc.mNetAdapterType
     UINT32      mClientMTU;
     UINT8       mHwBroadcastAddr[K2_NET_ADAPTER_ADDR_MAX_LEN];
     struct {

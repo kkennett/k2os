@@ -128,10 +128,10 @@
 #define K2OS_KVA_BUILTIN_AREA_END                   (K2OS_KVA_BUILTIN_FS_BASE + K2OS_KVA_BUILTIN_MAX_SIZE)
 
 // this must be virtually 4MB aligned. pagetable not installed by boot loader
-#define K2OS_KVA_TLSAREA_BASE                       0xFF800000
-#define K2OS_KVA_TLSAREA_SIZE                       0x00400000  
+#define K2OS_KVA_THREADPAGES_BASE                   0xFF800000
+#define K2OS_KVA_THREADPAGES_SIZE                   0x00400000  
 
-#define K2OS_KVA_KERNEL_ARENA_INIT_TOP              K2OS_KVA_TLSAREA_BASE
+#define K2OS_KVA_KERNEL_ARENA_INIT_TOP              K2OS_KVA_THREADPAGES_BASE
 
 /* --------------------------------------------------------------------------------- */
 
@@ -264,7 +264,7 @@
 #define K2OS_UVA_PUBLICAPI_BASE                     0x7FFFF000 
 #define K2OS_UVA_TIMER_IOPAGE_BASE                  0x7FFFE000
 #define K2OS_UVA_PUBLICAPI_PAGETABLE_BASE           0x7FC00000
-#define K2OS_UVA_TLSAREA_BASE                       0x00000000 
+#define K2OS_UVA_THREADPAGES_BASE                   0x00000000 
 #define K2OS_UVA_LOW_BASE                           0x00400000 
 #define K2OS_UVA_XDL_GLOBALS                        K2OS_UVA_LOW_BASE 
 #define K2OS_UVA_XDL_CRTPAGE                        (K2OS_UVA_XDL_GLOBALS + K2_VA_MEMPAGE_BYTES)
@@ -283,6 +283,7 @@
 #define K2OS_PUBLICAPI_OFFSET_CORE2_DATA            0xFB8 
 #define K2OS_PUBLICAPI_OFFSET_CORE1_DATA            0xFB4 
 #define K2OS_PUBLICAPI_OFFSET_CORE0_DATA            0xFB0 
+#define K2OS_PUBLICAPI_OFFSET_TRAP_RESTORE          0x800
 #define K2OS_PUBLIACPI_OFFSET_SYSCALL               0
 
 #define K2OS_KVA_PUBLICAPI_TIMER_FREQ               (K2OS_KVA_PUBLICAPI_BASE + K2OS_PUBLICAPI_OFFSET_TIMER_FREQ)
@@ -290,12 +291,14 @@
 #define K2OS_KVA_PUBLICAPI_DATETIME                 (K2OS_KVA_PUBLICAPI_BASE + K2OS_PUBLICAPI_OFFSET_DATETIME)
 #define K2OS_KVA_PUBLICAPI_PERCORE_DATA             (K2OS_KVA_PUBLICAPI_BASE + K2OS_PUBLICAPI_OFFSET_CORE0_DATA)
 #define K2OS_KVA_PUBLICAPI_SYSCALL                  (K2OS_KVA_PUBLICAPI_BASE + K2OS_PUBLIACPI_OFFSET_SYSCALL)
+#define K2OS_KVA_PUBLICAPI_TRAP_RESTORE             (K2OS_KVA_PUBLICAPI_BASE + K2OS_PUBLICAPI_OFFSET_TRAP_RESTORE)
 
 #define K2OS_UVA_PUBLICAPI_TIMER_FREQ               (K2OS_UVA_PUBLICAPI_BASE + K2OS_PUBLICAPI_OFFSET_TIMER_FREQ)
 #define K2OS_UVA_PUBLICAPI_TIMER_ADDR               (K2OS_UVA_PUBLICAPI_BASE + K2OS_PUBLICAPI_OFFSET_TIMER_ADDR)
 #define K2OS_UVA_PUBLICAPI_DATETIME                 (K2OS_UVA_PUBLICAPI_BASE + K2OS_PUBLICAPI_OFFSET_DATETIME)
 #define K2OS_UVA_PUBLICAPI_PERCORE_DATA             (K2OS_UVA_PUBLICAPI_BASE + K2OS_PUBLICAPI_OFFSET_CORE0_DATA)
 #define K2OS_UVA_PUBLICAPI_SYSCALL                  (K2OS_UVA_PUBLICAPI_BASE + K2OS_PUBLIACPI_OFFSET_SYSCALL)
+#define K2OS_UVA_PUBLICAPI_TRAP_RESTORE             (K2OS_UVA_PUBLICAPI_BASE + K2OS_PUBLICAPI_OFFSET_TRAP_RESTORE)
 
 /* --------------------------------------------------------------------------------- */
 
@@ -328,6 +331,7 @@
 #define K2OS_ACCESS_R                               PF_R 
 #define K2OS_ACCESS_W                               PF_W 
 #define K2OS_ACCESS_RW                              (PF_R | PF_W)
+#define K2OS_ACCESS_INVALID                         0xFFFFFFFF
 
 /* --------------------------------------------------------------------------------- */
 
@@ -405,12 +409,17 @@
 #define K2OS_SYSTEM_MSG_SYSPROC_SHORT_THREAD_CREATED    3
 #define K2OS_SYSTEM_MSG_SYSPROC_SHORT_PROCESS_CREATED   4
 #define K2OS_SYSTEM_MSG_SYSPROC_SHORT_PROCESS_PURGED    5
+#define K2OS_SYSTEM_MSG_SYSPROC_SHORT_RUN               6
 
 /* --------------------------------------------------------------------------------- */
 
 #define K2OS_DATA_OPERATION_READ    1
 #define K2OS_DATA_OPERATION_WRITE   2
 #define K2OS_DATA_OPERATION_ERASE   3
+
+/* --------------------------------------------------------------------------------- */
+
+#define K2OS_FSATTRIB_LINK          0x80000000
 
 /* --------------------------------------------------------------------------------- */
 

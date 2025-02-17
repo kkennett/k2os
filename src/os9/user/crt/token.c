@@ -52,7 +52,7 @@ K2OS_Token_Clone(
 
     if (NULL != result)
     {
-        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
         if (pThreadPage->mSysCall_Arg7_Result0 != 0)
         {

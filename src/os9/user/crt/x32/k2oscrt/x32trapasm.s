@@ -31,15 +31,35 @@
 //
 #include <k2asmx32.inc>
 
+#if 0
+/*-------------------------------------------------------------------------------*/
+//BOOL K2_CALLCONV_REGS TrapExec(K2_EXCEPTION_TRAP * apTrap, UINT32 aResult);
+BEGIN_X32_PROC(TrapExecAsm)
+    mov  dword ptr [%ecx + 4], %edx         // put result in its place in the trap 
+    mov %edx, dword ptr [%ecx]              // get next trap address to edx now
+    mov  %eax,%fs:0x0                       // thread index to ecx
+    shl  %eax, 0xC                          // convert thread index to page address 
+    mov  dword ptr [%eax + 0x128], %edx     // store next trap address in thread page in correct place
+    mov  %esp, %ecx                         // prep for context restore
+    add %esp, 8                             // skip over next trap pointer and exception code
+    popfd                                   // flags pushed second
+    popad                                   // regs pushed first
+    pop %eax                                // this is resume address at end of trap saved context.  Will ALWAYS be nonzero
+    mov %esp, dword ptr [%esp - 24]         // restore original stack pointer that was saved (and tweaked)
+    jmp %eax
+END_X32_PROC(TrapExecAsm)
+#endif
+
 /*-------------------------------------------------------------------------------*/
 //BOOL K2_CALLCONV_REGS X32CrtAsm_ExTrap_Mount(K2_EXCEPTION_TRAP *apTrap)
 
 BEGIN_X32_PROC(X32CrtAsm_ExTrap_Mount)
-    pusha 
-    pushf
+    // return address is already on stack at esp, this is BOS for X32_CONTEXT
+    pushad                      // 8 * 4
+    pushfd                      // 1 * 4
 .extern X32Crt_ExTrap_Mount_C
-    call X32Crt_ExTrap_Mount_C
-    add %esp, (9*4)
+    call X32Crt_ExTrap_Mount_C  // ecx still points to trap
+    add %esp, (9*4)             // get rid of pusha, pushf 
     ret
 END_X32_PROC(X32CrtAsm_ExTrap_Mount)
 

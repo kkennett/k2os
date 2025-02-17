@@ -65,11 +65,7 @@ KernIfInst_Cleanup(
         KernObj_ReleaseRef(&apIfInst->RefChild);
     }
 
-    K2_ASSERT(0 == apIfInst->Hdr.RefObjList.mNodeCount);
-
-    K2MEM_Zero(apIfInst, sizeof(K2OSKERN_OBJ_IFINST));
-
-    KernHeap_Free(apIfInst);
+    KernObj_Free(&apIfInst->Hdr);
 }
 
 void    
@@ -85,18 +81,14 @@ KernIfInst_SysCall_Create(
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
-    pIfInst = (K2OSKERN_OBJ_IFINST *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_IFINST));
+    pIfInst = (K2OSKERN_OBJ_IFINST *)KernObj_Alloc(KernObj_IfInst);
     if (NULL == pIfInst)
     {
         stat = K2STAT_ERROR_OUT_OF_MEMORY;
     }
     else
     {
-        K2MEM_Zero(pIfInst, sizeof(K2OSKERN_OBJ_IFINST));
-        pIfInst->Hdr.mObjType = KernObj_IfInst;
-        K2LIST_Init(&pIfInst->Hdr.RefObjList);
-
-        KernObj_CreateRef(&pIfInst->RefProc, apCurThread->User.ProcRef.AsAny);
+        KernObj_CreateRef(&pIfInst->RefProc, apCurThread->RefProc.AsAny);
 
         disp = K2OSKERN_SeqLock(&gData.Iface.SeqLock);
 
@@ -108,7 +100,7 @@ KernIfInst_SysCall_Create(
         // an enum or lookup containing an ifinst that is
         // not being returned to the owner  (race)
         //
-        stat = KernProc_TokenCreate(apCurThread->User.ProcRef.AsProc, &pIfInst->Hdr, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
+        stat = KernProc_TokenCreate(apCurThread->RefProc.AsProc, &pIfInst->Hdr, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
 
         if (!K2STAT_IS_ERROR(stat))
         {
@@ -120,7 +112,7 @@ KernIfInst_SysCall_Create(
         if (K2STAT_IS_ERROR(stat))
         {
             KernObj_ReleaseRef(&pIfInst->RefProc);
-            KernHeap_Free(pIfInst);
+            KernObj_Free(&pIfInst->Hdr);
         }
         else
         {
@@ -147,7 +139,7 @@ KernIfInst_SysCall_Fast_GetId(
     UINT32              result;
 
     refObj.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
 
     if (K2STAT_IS_ERROR(stat))
     {
@@ -184,7 +176,7 @@ KernIfInst_SysCall_SetMailbox(
 
     refObj.AsAny = NULL;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
@@ -257,7 +249,7 @@ KernIfInst_SysCall_Fast_ContextOp(
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
 
     if (K2STAT_IS_ERROR(stat))
     {
@@ -313,7 +305,7 @@ KernIfInst_SysCall_Publish(
     }
     else
     {
-        stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
+        stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refObj);
         if (!K2STAT_IS_ERROR(stat))
         {
             if (refObj.AsAny->mObjType != KernObj_IfInst)
@@ -334,7 +326,7 @@ KernIfInst_SysCall_Publish(
                 {
                     stat = K2STAT_NO_ERROR;
                     pSchedItem = &apCurThread->SchedItem;
-                    pSchedItem->mType = KernSchedItem_Thread_SysCall;
+                    pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
                     pSchedItem->Args.IfInst_Publish.mClassCode = pThreadPage->mSysCall_Arg1;
                     KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
                     KernObj_CreateRef(&pSchedItem->ObjRef, refObj.AsAny);

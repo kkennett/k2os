@@ -134,7 +134,7 @@ K2OS_Token_Destroy(
                 K2_ASSERT(pThisThread->mIsKernelThread);
 
                 pSchedItem = &pThisThread->SchedItem;
-                pSchedItem->mType = KernSchedItem_KernThread_LastTokenDestroyed;
+                pSchedItem->mSchedItemType = KernSchedItem_KernThread_LastTokenDestroyed;
                 KernObj_CreateRef(&pSchedItem->ObjRef, objRef.AsAny);
 
                 KernThread_CallScheduler(pThisCore);

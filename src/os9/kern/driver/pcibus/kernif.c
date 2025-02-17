@@ -102,7 +102,7 @@ PCIBusRpc_Call(
 
     switch (apCall->Args.mMethodId)
     {
-    case K2OS_PCIBUS_METHOD_CFG_READ:
+    case K2OS_PciBus_Method_Read:
         if ((apCall->Args.mInBufByteCount != sizeof(K2OS_PCIBUS_CFG_READ_IN)) ||
             (apCall->Args.mOutBufByteCount != sizeof(UINT32)))
         {
@@ -120,7 +120,7 @@ PCIBusRpc_Call(
         }
         break;
 
-    case K2OS_PCIBUS_METHOD_CFG_WRITE:
+    case K2OS_PciBus_Method_Write:
         if ((apCall->Args.mInBufByteCount != sizeof(K2OS_PCIBUS_CFG_WRITE_IN)) ||
             (apCall->Args.mOutBufByteCount != 0))
         {
@@ -234,7 +234,7 @@ StartDriver(
     callArgs.mOutBufByteCount = sizeof(runMethodOut);
     callArgs.mpInBuf = (UINT8 const *)&runMethodIn;
     callArgs.mpOutBuf = (UINT8 *)&runMethodOut;
-    callArgs.mMethodId = K2OS_ACPIBUS_METHOD_RUNMETHOD;
+    callArgs.mMethodId = K2OS_AcpiBus_Method_RunMethod;
     runMethodIn.mDevCtx = apPciBus->mDevCtx;
     runMethodIn.mMethod = K2_MAKEID4('_', 'B', 'B', 'N');
     rpcOut = 0;
@@ -297,7 +297,7 @@ StartDriver(
         {
             apPciBus->mECAMBaseAddr = apPciBus->BusPhysRes.Def.Phys.Range.mBaseAddr;
             apPciBus->mUseECAM = TRUE;
-            K2OSKERN_Debug("PciBus(%d,%d): Using ECAM at %08X\n", apPciBus->mSegNum, apPciBus->mBusNum, apPciBus->mECAMBaseAddr);
+//            K2OSKERN_Debug("PciBus(%d,%d): Using ECAM at %08X\n", apPciBus->mSegNum, apPciBus->mBusNum, apPciBus->mECAMBaseAddr);
         }
     }
 

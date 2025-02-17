@@ -33,33 +33,6 @@
 
 #define CONNECT_TO_SERVER_TIMEOUT_MS 5000
 
-typedef struct _K2OSRPC_CLIENT_CONN K2OSRPC_CLIENT_CONN;
-struct _K2OSRPC_CLIENT_CONN
-{
-    INT32               mRefCount;
-    INT32               mRunningRef;
-    K2OS_MAILBOX_TOKEN  mTokMailbox;
-    K2OS_IPCEND         mIpcEnd;
-    K2OS_THREAD_TOKEN   mTokThread;
-    UINT32              mThreadId;
-    K2OS_SIGNAL_TOKEN   mTokStopNotify;
-    K2OS_SIGNAL_TOKEN   mTokConnectStatusGate;
-    BOOL                mIsConnected;
-    BOOL                mIsRejected;
-    K2OS_CRITSEC        IoListSec;
-    K2LIST_ANCHOR       IoList;
-    K2TREE_NODE         ConnTreeNode; // mUserVal is server interface instance id
-};
-
-struct _K2OSRPC_CLIENT_OBJ_HANDLE
-{
-    K2OSRPC_OBJ_HANDLE_HDR  Hdr;
-    K2OS_MAILBOX_TOKEN      mTokNotifyMailbox;
-    UINT32                  mServerObjId;
-    K2OSRPC_CLIENT_CONN *   mpConnToServer;
-    K2TREE_NODE             ServerHandleTreeNode;   // mUserVal is server handle 
-};
-
 typedef struct _K2OSRPC_IOMSG K2OSRPC_IOMSG;
 struct _K2OSRPC_IOMSG
 {
@@ -218,7 +191,7 @@ K2OSRPC_ClientConn_OnRecv(
     {
         if (aByteCount == sizeof(K2OSRPC_OBJ_NOTIFY))
         {
-            msg.mType = 0;
+            msg.mMsgType = 0;
 
             K2OS_CritSec_Enter(&gRpcGraphSec);
 
@@ -227,7 +200,7 @@ K2OSRPC_ClientConn_OnRecv(
             {
                 pObjHandle = K2_GET_CONTAINER(K2OSRPC_CLIENT_OBJ_HANDLE, pTreeNode, ServerHandleTreeNode);
 
-                msg.mType = K2OS_SYSTEM_MSGTYPE_RPC;
+                msg.mMsgType = K2OS_SYSTEM_MSGTYPE_RPC;
                 msg.mShort = K2OS_SYSTEM_MSG_RPC_SHORT_NOTIFY;
                 msg.mPayload[0] = (UINT32)pObjHandle;
                 msg.mPayload[1] = ((K2OSRPC_OBJ_NOTIFY const *)apData)->mCode;
@@ -236,7 +209,7 @@ K2OSRPC_ClientConn_OnRecv(
 
             K2OS_CritSec_Leave(&gRpcGraphSec);
 
-            if (0 != msg.mType)
+            if (0 != msg.mMsgType)
             {
                 if (NULL != pObjHandle->mTokNotifyMailbox)
                 {
@@ -247,7 +220,7 @@ K2OSRPC_ClientConn_OnRecv(
                 }
                 else
                 {
-                    K2OSRPC_Debug("Object %08X received notify but no mailbox set\n", pObjHandle);
+                    K2OSRPC_Debug("Process %d Object %08X received notify but no mailbox set\n", K2OS_Process_GetId(), pObjHandle);
                 }
             }
 
@@ -531,11 +504,11 @@ K2OSRPC_ClientConn_Thread(
                 timeoutLeft -= elapsedMs;
             oldTick = newTick;
 
-            if (K2OS_Mailbox_Recv(pConn->mTokMailbox, &msg, 0))
+            if (K2OS_Mailbox_Recv(pConn->mTokMailbox, &msg))
             {
                 if (!K2OS_IpcEnd_ProcessMsg(&msg))
                 {
-                    if ((msg.mType == K2OS_SYSTEM_MSGTYPE_IPC) &&
+                    if ((msg.mMsgType == K2OS_SYSTEM_MSGTYPE_IPC) &&
                         (msg.mShort == K2OS_SYSTEM_MSG_IPC_SHORT_REQUEST))
                     {
                         //
@@ -621,11 +594,11 @@ K2OSRPC_ClientConn_Thread(
                 break;
             }
 
-            if (K2OS_Mailbox_Recv(pConn->mTokMailbox, &msg, 0))
+            if (K2OS_Mailbox_Recv(pConn->mTokMailbox, &msg))
             {
                 if (!K2OS_IpcEnd_ProcessMsg(&msg))
                 {
-                    if ((msg.mType == K2OS_SYSTEM_MSGTYPE_IPC) &&
+                    if ((msg.mMsgType == K2OS_SYSTEM_MSGTYPE_IPC) &&
                         (msg.mShort == K2OS_SYSTEM_MSG_IPC_SHORT_REQUEST))
                     {
                         //
@@ -666,11 +639,11 @@ K2OSRPC_ClientConn_Thread(
                 K2_ASSERT(ok);
                 K2_ASSERT(waitResult == K2OS_Wait_Signalled_0);
 
-                if (K2OS_Mailbox_Recv(pConn->mTokMailbox, &msg, 0))
+                if (K2OS_Mailbox_Recv(pConn->mTokMailbox, &msg))
                 {
                     if (!K2OS_IpcEnd_ProcessMsg(&msg))
                     {
-                        if ((msg.mType == K2OS_SYSTEM_MSGTYPE_IPC) &&
+                        if ((msg.mMsgType == K2OS_SYSTEM_MSGTYPE_IPC) &&
                             (msg.mShort == K2OS_SYSTEM_MSG_IPC_SHORT_REQUEST))
                         {
                             //
@@ -892,6 +865,7 @@ K2OSRPC_Client_CreateObj(
         // addref to conn not done because we would release the one we got from FindOrCreate() above
         pHandle->ServerHandleTreeNode.mUserVal = response.mServerHandle;
         pHandle->mServerObjId = response.mServerObjId;
+        K2MEM_Copy(&pHandle->ClassId, apClassId, sizeof(K2_GUID128));
 
         K2OS_CritSec_Enter(&gRpcGraphSec);
 
@@ -1146,6 +1120,7 @@ K2OSRPC_Client_PurgeHandle(
 
     apObjHandle->ServerHandleTreeNode.mUserVal = 0;
     apObjHandle->mServerObjId = 0;
+    K2MEM_Zero(&apObjHandle->ClassId, sizeof(K2_GUID128));
 
     if (NULL != apObjHandle->mTokNotifyMailbox)
     {

@@ -113,59 +113,6 @@ K2OS_VirtMap_Create(
     return tokVirtMap;
 }
 
-K2OS_PAGEARRAY_TOKEN
-K2OS_VirtMap_AcquirePageArray(
-    K2OS_VIRTMAP_TOKEN  aTokVirtMap,
-    UINT32 *            apRetStartPageIndex
-)
-{
-    K2OS_TOKEN      result;
-    K2STAT          stat;
-    K2OSKERN_OBJREF refVirtMap;
-
-    if (NULL == aTokVirtMap)
-    {
-        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
-        return NULL;
-    }
-
-    refVirtMap.AsAny = NULL;
-    stat = KernToken_Translate(aTokVirtMap, &refVirtMap);
-    if (K2STAT_IS_ERROR(stat))
-    {
-        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_TOKEN);
-        return NULL;
-    }
-
-    result = NULL;
-
-    if (refVirtMap.AsAny->mObjType != KernObj_VirtMap)
-    {
-        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_TOKEN);
-    }
-    else
-    {
-        stat = KernToken_Create(refVirtMap.AsVirtMap->PageArrayRef.AsAny, &result);
-        if (K2STAT_IS_ERROR(stat))
-        {
-            K2_ASSERT(NULL == result);
-            K2OS_Thread_SetLastStatus(stat);
-        }
-        else
-        {
-            K2_ASSERT(NULL != result);
-            if (NULL != apRetStartPageIndex)
-            {
-                *apRetStartPageIndex = refVirtMap.AsVirtMap->mPageArrayStartPageIx;
-            }
-        }
-    }
-
-    KernObj_ReleaseRef(&refVirtMap);
-
-    return result;
-}
-
 K2OS_VIRTMAP_TOKEN
 K2OS_VirtMap_Acquire(
     UINT32                      aVirtAddr,
@@ -196,14 +143,21 @@ K2OS_VirtMap_Acquire(
             // back up
             //
             pTreeNode = K2TREE_PrevNode(&gData.VirtMap.Tree, pTreeNode);
-            pVirtMap = K2_GET_CONTAINER(K2OSKERN_OBJ_VIRTMAP, pTreeNode, OwnerMapTreeNode);
-
-            // greater than or it would have matched
-            K2_ASSERT(aVirtAddr > pVirtMap->OwnerMapTreeNode.mUserVal);
-            offset = (aVirtAddr - pVirtMap->OwnerMapTreeNode.mUserVal) / K2_VA_MEMPAGE_BYTES;
-            if (offset >= pVirtMap->mPageCount)
+            if (NULL != pTreeNode)
             {
-                pTreeNode = NULL;
+                pVirtMap = K2_GET_CONTAINER(K2OSKERN_OBJ_VIRTMAP, pTreeNode, OwnerMapTreeNode);
+
+                // greater than or it would have matched
+                K2_ASSERT(aVirtAddr > pVirtMap->OwnerMapTreeNode.mUserVal);
+                offset = (aVirtAddr - pVirtMap->OwnerMapTreeNode.mUserVal) / K2_VA_MEMPAGE_BYTES;
+                if (offset >= pVirtMap->mPageCount)
+                {
+                    pTreeNode = NULL;
+                    pVirtMap = NULL;
+                }
+            }
+            else
+            {
                 pVirtMap = NULL;
             }
         }
@@ -241,7 +195,7 @@ K2OS_VirtMap_Acquire(
 
     if (NULL != apRetMapType)
     {
-        *apRetMapType = pVirtMap->mMapType;
+        *apRetMapType = pVirtMap->mVirtToPhysMapType;
     }
 
     return result;
@@ -282,7 +236,7 @@ K2OS_VirtMap_GetInfo(
         result = refVirtMap.AsVirtMap->OwnerMapTreeNode.mUserVal;
         if (NULL != apRetMapType)
         {
-            *apRetMapType = refVirtMap.AsVirtMap->mMapType;
+            *apRetMapType = refVirtMap.AsVirtMap->mVirtToPhysMapType;
         }
         if (NULL != apRetMapPageCount)
         {
@@ -352,9 +306,8 @@ K2OSKERN_PrepIo(
         return stat;
     }
 
-    mapType = mapRef.AsVirtMap->mMapType;
+    mapType = mapRef.AsVirtMap->mVirtToPhysMapType;
     if ((mapType != K2OS_MapType_Data_ReadWrite) &&
-        (mapType != K2OS_MapType_Data_CopyOnWrite) &&
         (mapType != K2OS_MapType_Thread_Stack) &&
         (mapType != K2OS_MapType_MemMappedIo_ReadWrite) &&
         (mapType != K2OS_MapType_Write_Thru))
@@ -390,7 +343,7 @@ K2OSKERN_PrepIo(
         // how much contiguous space is left in the page array?
         //
         pageArrayPageIndex = mapRef.AsVirtMap->mPageArrayStartPageIx + mapPageIx;
-        if (pPageArray->mType == KernPageArray_Sparse)
+        if (pPageArray->mPageArrayType == KernPageArray_Sparse)
         {
             if (aUseHwDma)
             {
@@ -482,4 +435,3 @@ K2OSKERN_PrepIo(
 
     return stat;
 }
-

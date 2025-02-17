@@ -1,1 +1,1 @@
-@..\..\..\..\k2tools\k2auto.exe
+@..\..\..\..\k2tools\k2auto.exe x32

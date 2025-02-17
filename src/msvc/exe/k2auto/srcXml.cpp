@@ -425,6 +425,19 @@ BuildFileUser_SrcXml::Dump(
                 }
             } while (NULL != pListLink);
         }
+        pListLink = Proj.Img.BuiltInKernXdlProjList.mpHead;
+        if (NULL != pListLink)
+        {
+            do {
+                pProjDep = K2_GET_CONTAINER(ProjDep, pListLink, OwnerListLink);
+                pListLink = pListLink->mpNext;
+                pSubProj = pProjDep->mpDependOn;
+                if ((!aDamagedOnly) || (pProjDep->mpDependOn->IsDamaged()))
+                {
+                    printf("  SUB BIN XDL %s %s\n", pProjDep->mpDependOn->IsDamaged() ? "DAMG" : "GOOD", pProjDep->mpDependOn->mpSubPath);
+                }
+            } while (NULL != pListLink);
+        }
         pListLink = Proj.Img.UserXdlProjList.mpHead;
         if (NULL != pListLink)
         {

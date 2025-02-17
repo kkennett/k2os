@@ -788,6 +788,8 @@ Dev_NodeLocked_AddRes(
     UINT32 *        pu;
     DEV_RES *       pOtherDevRes;
     K2LIST_LINK *   pListLink;
+    UINT32          physStartAlign;
+    UINT32          physEndAlign;
 
     pDevRes = (DEV_RES *)K2OS_Heap_Alloc(sizeof(DEV_RES));
     if (NULL == pDevRes)
@@ -801,7 +803,7 @@ Dev_NodeLocked_AddRes(
 
     pDevRes->mAcpiContext = (UINT32)aAcpiContext;
 
-    switch (apResDef->mType)
+    switch (apResDef->mResType)
     {
     case K2OS_RESTYPE_IO:
         pListLink = apNode->InSec.IoResList.mpHead;
@@ -842,15 +844,22 @@ Dev_NodeLocked_AddRes(
                 pListLink = pListLink->mpNext;
             } while (NULL != pListLink);
         }
+        // inclusive align base
+        physStartAlign = (pDevRes->DdkRes.Def.Phys.Range.mBaseAddr / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
+        // inclusive align true end
+        physEndAlign = pDevRes->DdkRes.Def.Phys.Range.mBaseAddr + pDevRes->DdkRes.Def.Phys.Range.mSizeBytes;
+        physEndAlign = ((physEndAlign + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
+        // create encompassing page array
         pDevRes->DdkRes.Phys.mTokPageArray = gKernDdk.PageArray_CreateAt(
-            pDevRes->DdkRes.Def.Phys.Range.mBaseAddr,
-            pDevRes->DdkRes.Def.Phys.Range.mSizeBytes / K2_VA_MEMPAGE_BYTES
+            physStartAlign,
+            (physEndAlign - physStartAlign) / K2_VA_MEMPAGE_BYTES
         );
         if (NULL == pDevRes->DdkRes.Phys.mTokPageArray)
         {
             K2OS_Heap_Free(pDevRes);
             return K2OS_Thread_GetLastStatus();
         }
+        pDevRes->DdkRes.Phys.mFirstPageOffset = pDevRes->DdkRes.Def.Phys.Range.mBaseAddr - physStartAlign;
         pDevRes->mPlatRes = gPlat.DeviceAddRes(apNode->InSec.mPlatDev, K2OS_RESTYPE_PHYS, apResDef->Phys.Range.mBaseAddr, apResDef->Phys.Range.mSizeBytes);
         if (NULL == pDevRes->mPlatRes)
         {
@@ -898,11 +907,11 @@ Dev_NodeLocked_AddRes(
 
     if (NULL == pDevRes->mPlatRes)
     {
-        K2OSKERN_Debug("*** Could not add plat res type %d\n", apResDef->mType);
+        K2OSKERN_Debug("*** Could not add plat res type %d\n", apResDef->mResType);
         return K2STAT_ERROR_UNKNOWN;
     }
 
-    switch (apResDef->mType)
+    switch (apResDef->mResType)
     {
     case K2OS_RESTYPE_IO:
         K2LIST_AddAtTail(&apNode->InSec.IoResList, &pDevRes->ListLink);
@@ -910,6 +919,7 @@ Dev_NodeLocked_AddRes(
     case K2OS_RESTYPE_PHYS:
         K2LIST_AddAtTail(&apNode->InSec.PhysResList, &pDevRes->ListLink);
         K2_ASSERT(NULL != pDevRes->DdkRes.Phys.mTokPageArray);
+        K2_ASSERT(pDevRes->DdkRes.Phys.mFirstPageOffset < K2_VA_MEMPAGE_BYTES);
         break;
     case K2OS_RESTYPE_IRQ:
         K2LIST_AddAtTail(&apNode->InSec.IrqResList, &pDevRes->ListLink);

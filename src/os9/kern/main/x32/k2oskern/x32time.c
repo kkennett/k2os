@@ -298,13 +298,11 @@ KernArch_GetHfTimerTick(
 }
 
 static void
-sDisableTimerInterrupts(
+sSchedTimer_DisableInterrupt(
     void
 )
 {
     UINT32 reg;
-
-    sgArmed = FALSE;
 
     //
     // disable timer interrupt
@@ -327,7 +325,7 @@ X32Kern_StartTime(
 //    K2OSKERN_Debug("CpuClockRate = %d\n", (UINT32)gX32Kern_CpuClockRate);
 //    K2OSKERN_Debug("BusClockRate = %d\n", (UINT32)gX32Kern_BusClockRate);
     sReadHPET64(&sgTimeBias);
-    sDisableTimerInterrupts();
+    sSchedTimer_DisableInterrupt();
 }
 
 void
@@ -336,29 +334,58 @@ KernArch_SchedTimer_Arm(
     UINT64 const *              apDeltaHfTicks
 )
 {
-    UINT32 reg;
-    UINT32 deltaHfTicks;
+    UINT32  reg;
+    UINT32  deltaHfTicks;
+    BOOL    disp;
 
-    sDisableTimerInterrupts();
+    //
+    // only scheduling core should be doing this (arming the timer)
+    // 
+    K2_ASSERT(apThisCore == gData.Sched.mpSchedulingCore);
+
+    disp = K2OSKERN_SeqLock(&gX32Kern_SchedTimerSeqLock);
+    K2_ASSERT(FALSE == disp);
+
+    sSchedTimer_DisableInterrupt();
+
+    //
+    // on another core, the sched timer interrupt may be sitting at 
+    // the "ENTER - see above" point below, or it may have already 
+    // been queued to another CPU and not handled as a CPU event yet.
+    //
 
     if (NULL == apDeltaHfTicks)
     {
-//        K2OSKERN_Debug("SchedTimer(Disabled)\n");
+        sgArmed = FALSE;
+        KTRACE(apThisCore, 1, KTRACE_SCHED_TIMER_DISARM);
+        K2OSKERN_SeqUnlock(&gX32Kern_SchedTimerSeqLock, FALSE);
         return;
     }
 
+    if (!sgArmed)
+    {
+        //
+        // timer CPU event may be pending on another core
+        //
+        if (KernCpuCoreEventType_Invalid != gData.Timer.SchedCpuEvent.mEventType)
+        {
+            //
+            // another core is in the process of handling the scheduling
+            // timer interrupt so arming the timer here is moot
+            //
+            K2OSKERN_SeqUnlock(&gX32Kern_SchedTimerSeqLock, FALSE);
+            return;
+        }
+    }
+
+    //
+    // (re) arm the timer at the specified target
+    //
     deltaHfTicks = (UINT32)((*apDeltaHfTicks) & 0x00000000FFFFFFFFull);
 
-//    K2OSKERN_Debug("SchedTimer(%d)\n", aDeltaHfTicks);
-
-    //
-    // arm the timer
-    //
     reg = (UINT32)(sgHPET_Freq / 500);
     if (deltaHfTicks < reg)
         deltaHfTicks = reg;
-
-    sgArmed = TRUE;
 
     reg = sReadHPET32() + deltaHfTicks;
     MMREG_WRITE32(sgHPET, HPET_OFFSET_TIMER0_COMPARE, reg);
@@ -366,31 +393,44 @@ KernArch_SchedTimer_Arm(
     reg = MMREG_READ32(sgHPET, HPET_OFFSET_TIMER0_CONFIG);
     reg |= HPET_TIMER_CONFIG_LO_INT_ENB;
     MMREG_WRITE32(sgHPET, HPET_OFFSET_TIMER0_CONFIG, reg);
+        
+    KTRACE(apThisCore, 2, KTRACE_SCHED_TIMER_ARM, (UINT32)(deltaHfTicks & 0xFFFFFFFFull));
+
+    sgArmed = TRUE;
+
+    K2OSKERN_SeqUnlock(&gX32Kern_SchedTimerSeqLock, FALSE);
 }
 
 void 
-X32Kern_TimerInterrupt(
+X32Kern_SchedTimer_Interrupt(
     K2OSKERN_CPUCORE volatile * apThisCore
 )
 {
-    K2OSKERN_CPUCORE_EVENT * pEvent;
+    K2OSKERN_CPUCORE_EVENT volatile *   pEvent;
+    BOOL                                disp;
 
-    if (!sgArmed)
+    /***** ENTER - see above *****/
+    disp = K2OSKERN_SeqLock(&gX32Kern_SchedTimerSeqLock);
+    K2_ASSERT(FALSE == disp);
+
+    if (sgArmed)
     {
-//        K2OSKERN_Debug("--Unexpected timer interrupt\n");
-        return;
+        sgArmed = FALSE;
+        K2_CpuWriteBarrier();
+
+        pEvent = &gData.Timer.SchedCpuEvent;
+        K2_ASSERT(KernCpuCoreEventType_Invalid == pEvent->mEventType);
+        pEvent->mEventType = KernCpuCoreEvent_SchedTimer_Fired;
+        pEvent->mSrcCoreIx = apThisCore->mCoreIx;
+        KernArch_GetHfTimerTick((UINT64 *)&pEvent->mEventHfTick);
+        KernCpu_QueueEvent(pEvent);
+    }
+    else
+    {
+        K2OSKERN_Debug("---Spurious scheduling timer interrupt\n");
     }
 
-    sgArmed = FALSE;
-
-//    K2OSKERN_Debug("SchedTimer(Fires)\n");
-
-    pEvent = &gData.Timer.SchedEvent;
-    K2_ASSERT(KernCpuCoreEvent_None == pEvent->mEventType);
-    pEvent->mEventType = KernCpuCoreEvent_SchedTimer_Fired;
-    pEvent->mSrcCoreIx = apThisCore->mCoreIx;
-    KernArch_GetHfTimerTick((UINT64 *)&pEvent->mEventHfTick);
-    KernCpu_QueueEvent(pEvent);
+    K2OSKERN_SeqUnlock(&gX32Kern_SchedTimerSeqLock, FALSE);
 }
 
 void 
@@ -399,6 +439,8 @@ X32Kern_StopCoreTimer(
 )
 {
     apThisCore->mIsTimerRunning = FALSE;
+
+    KTRACE(apThisCore, 1, KTRACE_CORE_TIMER_STOP);
 
     //
     // disable the LOCAPIC timer interrupt
@@ -418,7 +460,9 @@ X32Kern_SetCoreTimer(
 )
 {
     K2_ASSERT(!apThisCore->mIsTimerRunning);
-    
+
+    KTRACE(apThisCore, 2, KTRACE_CORE_TIMER_SET, aCpuTickDelay);
+
     if (0 == aCpuTickDelay)
     {
         //
@@ -432,9 +476,9 @@ X32Kern_SetCoreTimer(
     //
     MMREG_WRITE32(K2OS_KVA_X32_LOCAPIC, X32_LOCAPIC_OFFSET_TIMER_INIT, aCpuTickDelay);
 
-    X32Kern_UnmaskDevIrq(X32_DEVIRQ_LVT_TIMER);
-
     apThisCore->mIsTimerRunning = TRUE;
+
+    X32Kern_UnmaskDevIrq(X32_DEVIRQ_LVT_TIMER);
 }
 
 BOOL 

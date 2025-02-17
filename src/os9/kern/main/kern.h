@@ -1,3 +1,4 @@
+
 //   
 //   BSD 3-Clause License
 //   
@@ -92,6 +93,7 @@ typedef struct _K2OSKERN_OBJ_IFSUBS         K2OSKERN_OBJ_IFSUBS;
 typedef struct _K2OSKERN_OBJ_IPCEND         K2OSKERN_OBJ_IPCEND;
 typedef struct _K2OSKERN_OBJ_NOTIFYPROXY    K2OSKERN_OBJ_NOTIFYPROXY;
 
+
 /* --------------------------------------------------------------------------------- */
 
 typedef struct  _K2OSKERN_PHYSTRACK K2OSKERN_PHYSTRACK;
@@ -107,8 +109,9 @@ enum _KernPhysPageList
     // global lists here
     //
     KernPhysPageList_Overhead,      // vector page, ap start pages, etc.
-    KernPhysPageList_Kern_ThreadTls,
-    KernPhysPageList_Count,
+    KernPhysPageList_Kern_ThreadPages,
+
+    KernPhysPageList_Count,         // -----------------------------------
 
     //
     // per-process lists here
@@ -117,7 +120,7 @@ enum _KernPhysPageList
     KernPhysPageList_Proc_Res_Dirty,
     KernPhysPageList_Proc_Res_Clean,
     KernPhysPageList_Proc_PageTables,
-    KernPhysPageList_Proc_ThreadTls,
+    KernPhysPageList_Proc_ThreadPages,
     KernPhysPageList_Proc_Working,
     KernPhysPageList_Proc_Token,
 
@@ -174,11 +177,13 @@ typedef struct _K2OSKERN_DPC_SIMPLE     K2OSKERN_DPC_SIMPLE;
 
 enum _KernDpcPrioType
 {
-    KernDpcPrio_Invalid,
+    KernDpcPrioType_Invalid,
+
     KernDpcPrio_Lo,
     KernDpcPrio_Med,
     KernDpcPrio_Hi,
-    KernDpcPrio_Count
+
+    KernDpcPrioType_Count
 };
 
 typedef void (*K2OSKERN_pf_DPC)(K2OSKERN_CPUCORE volatile *apThisCore, void *apKey);
@@ -202,7 +207,7 @@ typedef struct _K2OSKERN_OBJREF     K2OSKERN_OBJREF;
 
 enum _KernObjType
 {
-    KernObj_Error = 0,
+    KernObjType_Invalid = 0,
 
     KernObj_Process,        // 1
     KernObj_Thread,         // 2
@@ -223,7 +228,7 @@ enum _KernObjType
     KernObj_IpcEnd,         // 17
     KernObj_NotifyProxy,    // 18
 
-    KernObj_Count
+    KernObjType_Count
 };
 
 #define K2OSKERN_OBJ_FLAG_PERMANENT         0x8000
@@ -314,21 +319,20 @@ struct _K2OSKERN_ARCH_EXEC_CONTEXT
 
 enum _KernIciType
 {
-    KernIci_None = 0,
+    KernIciType_Invalid = 0,
     
     KernIci_Wakeup,
     KernIci_TlbInv,
     KernIci_Panic,
     KernIci_StopProc,
-    KernIci_DebugCmd,
     KernIci_KernThreadTlbInv,
 
-    KernIci_Count
+    KernIciType_Count
 };
 
 enum _KernCpuCoreEventType
 {
-    KernCpuCoreEvent_None = 0,
+    KernCpuCoreEventType_Invalid = 0,
 
     KernCpuCoreEvent_Thread_SysCall,
     KernCpuCoreEvent_Thread_Exception,
@@ -341,13 +345,13 @@ enum _KernCpuCoreEventType
 
 enum _KernTickModeType
 {
-    KernTickMode_Invalid = 0,
+    KernTickModeType_Invalid = 0,
 
     KernTickMode_Idle,
     KernTickMode_Kern,
     KernTickMode_Thread,
 
-    KernTickMode_Count
+    KernTickModeType_Count
 };
 
 struct _K2OSKERN_CPUCORE_EVENT
@@ -360,9 +364,9 @@ struct _K2OSKERN_CPUCORE_EVENT
 
 struct _K2OSKERN_CPUCORE_ICI
 {
-    K2OSKERN_CPUCORE_EVENT  CpuCoreEvent;
-    KernIciType             mIciType;
-    void *                  mpArg;
+    K2OSKERN_CPUCORE_EVENT volatile CpuCoreEvent;
+    KernIciType                     mIciType;
+    void *                          mpArg;
 };
 
 struct _K2OSKERN_TLBSHOOT
@@ -442,13 +446,13 @@ struct _K2OSKERN_TIMERITEM
 typedef enum _KernSchedItemType KernSchedItemType;
 enum _KernSchedItemType
 {
-    KernSchedItem_Invalid,
+    KernSchedItemType_Invalid,
 
     KernSchedItem_Thread_SysCall,
     KernSchedItem_Aborted_Running_Thread,
     KernSchedItem_SchedTimer_Fired,
-    KernSchedItem_Thread_Crash_Process,
     KernSchedItem_Thread_ResumeDeferral_Completed,
+    KernSchedItem_Thread_Exception,
     KernSchedItem_Alarm_Cleanup,
     KernSchedItem_SemUser_Cleanup,
     KernSchedItem_Interrupt,
@@ -458,6 +462,7 @@ enum _KernSchedItemType
     KernSchedItem_KernThread_SemInc,
     KernSchedItem_KernThread_StartProc,
     KernSchedItem_KernThread_Wait,
+    KernSchedItem_KernThread_WaitIo,
     KernSchedItem_KernThread_SignalNotify,
     KernSchedItem_KernThread_SetAffinity,
     KernSchedItem_KernThread_MountAlarm,
@@ -471,7 +476,7 @@ enum _KernSchedItemType
     KernSchedItem_KernThread_IpcRejectRequest,
     KernSchedItem_KernThread_IpcAccept,
 
-    KernSchedItem_Count
+    KernSchedItemType_Count
 };
 
 typedef struct _K2OSKERN_SCHED_ITEM_ARGS_SEM_INC K2OSKERN_SCHED_ITEM_ARGS_SEM_INC;
@@ -550,7 +555,7 @@ union _K2OSKERN_SCHED_ITEM_ARGS
 typedef struct _K2OSKERN_SCHED_ITEM K2OSKERN_SCHED_ITEM;
 struct _K2OSKERN_SCHED_ITEM
 {
-    KernSchedItemType               mType;
+    KernSchedItemType               mSchedItemType;
     K2OSKERN_OBJREF                 ObjRef;
     UINT64                          mHfTick;
     K2OSKERN_SCHED_ITEM_ARGS        Args;
@@ -578,6 +583,7 @@ typedef enum   _KernProcStateType           KernProcStateType;
 typedef struct _K2OSKERN_KERN_TOKEN         K2OSKERN_KERN_TOKEN;
 typedef struct _K2OSKERN_VIRTHEAP_NODE      K2OSKERN_VIRTHEAP_NODE;
 typedef struct _K2OSKERN_PROCIPCEND         K2OSKERN_PROCIPCEND;
+typedef struct _K2OSKERN_PROCMBOXOWNER      K2OSKERN_PROCMBOXOWNER;
 
 struct _K2OSKERN_KERN_TOKEN
 {
@@ -665,7 +671,7 @@ struct _K2OSKERN_PROCPAGELIST
         K2LIST_ANCHOR       Reserved_Dirty;
         K2LIST_ANCHOR       Reserved_Clean;
         K2LIST_ANCHOR       PageTables;
-        K2LIST_ANCHOR       ThreadTls;
+        K2LIST_ANCHOR       ThreadPages;
         K2LIST_ANCHOR       Working;
         K2LIST_ANCHOR       Tokens;
     } Locked;
@@ -709,9 +715,19 @@ struct _K2OSKERN_PROCIPCEND
     } Locked;
 };
 
+struct _K2OSKERN_PROCMBOXOWNER
+{
+    K2OSKERN_SEQLOCK    SeqLock;
+    struct
+    {
+        K2LIST_ANCHOR   List;
+    } Locked;
+};
+
 enum _KernProcStateType
 {
-    KernProcState_Invalid,
+    KernProcStateType_Invalid,
+
     KernProcState_InRawCreate,
     KernProcState_InBuild,
     KernProcState_Launching,
@@ -721,7 +737,7 @@ enum _KernProcStateType
     KernProcState_Stopping,
     KernProcState_Stopped,      // order important
 
-    KernProcState_Count
+    KernProcStateType_Count
 };
 
 typedef enum _KernUserCrtSegType KernUserCrtSegType;
@@ -758,6 +774,8 @@ struct _K2OSKERN_OBJ_PROCESS
     K2OSKERN_OBJREF                 FileSysMapRef;
     K2OSKERN_OBJREF                 CrtMapRef[KernUserCrtSegType_Count];
 
+    K2OSKERN_OBJREF                 RefCrtDataPageArray;
+
     K2LIST_ANCHOR *                 mpUserXdlList;
 
     K2OSKERN_PROCVIRT               Virt;
@@ -765,6 +783,7 @@ struct _K2OSKERN_OBJ_PROCESS
     K2OSKERN_PROCTOKEN              Token;
     K2OSKERN_PROCTHREAD             Thread;
     K2OSKERN_PROCIPCEND             IpcEnd;
+    K2OSKERN_PROCMBOXOWNER          MboxOwner;
 
     K2OSKERN_TLBSHOOT               ProcStoppedTlbShoot;
     UINT32                          mIciSendMask;
@@ -795,22 +814,22 @@ struct _K2OSKERN_IRQ
 
 struct _K2OSKERN_OBJ_INTERRUPT
 {
-    K2OSKERN_OBJ_HEADER     Hdr;
+    K2OSKERN_OBJ_HEADER             Hdr;
 
-    K2OSKERN_IRQ *          mpParentIrq;
+    K2OSKERN_IRQ *                  mpParentIrq;
 
-    K2OSKERN_OBJREF         GateRef;        // gate is pulsed on interrupt
+    K2OSKERN_OBJREF                 GateRef;        // gate is pulsed on interrupt
 
-    K2OSKERN_CPUCORE_EVENT  Event;
+    K2OSKERN_CPUCORE_EVENT volatile Event;
 
-    BOOL                    mVoteForEnabled;
-    BOOL                    mInService;
+    BOOL                            mVoteForEnabled;
+    BOOL                            mInService;
 
-    K2OSKERN_SCHED_ITEM     SchedItem;
+    K2OSKERN_SCHED_ITEM             SchedItem;
 
-    K2LIST_LINK             IrqInterruptListLink;
+    K2LIST_LINK                     IrqInterruptListLink;
 
-    K2OSKERN_pf_Hook_Key *  mpHookKey;
+    K2OSKERN_pf_Hook_Key *          mpHookKey;
 };
 
 /* --------------------------------------------------------------------------------- */
@@ -822,6 +841,7 @@ typedef struct _K2OSKERN_WAITENTRY      K2OSKERN_WAITENTRY;
 typedef struct _K2OSKERN_MACROWAIT      K2OSKERN_MACROWAIT;
 typedef struct _K2OSKERN_USER_THREAD    K2OSKERN_USER_THREAD;
 typedef struct _K2OSKERN_KERN_THREAD    K2OSKERN_KERN_THREAD;
+typedef struct _K2OSKERN_KERN_THREAD_IO K2OSKERN_KERN_THREAD_IO;
 
 struct _K2OSKERN_WAITENTRY
 {
@@ -846,21 +866,25 @@ typedef void (*KernUser_pf_SysCall)(K2OSKERN_CPUCORE volatile * apThisCore, K2OS
 
 enum _KernThreadStateType
 {
-    KernThreadState_Invalid = 0,
+    KernThreadStateType_Invalid = 0,
+
     KernThreadState_Init,
     KernThreadState_InitNoPrep,
     KernThreadState_Created,
     KernThreadState_Migrating,
     KernThreadState_OnCpuLists,
     KernThreadState_Running,
+    KernThreadState_InPaging,
+    KernThreadState_InException,
     KernThreadState_Waiting,
+    KernThreadState_WaitIo,
     KernThreadState_InScheduler,
     KernThreadState_InScheduler_ResumeDeferred,
     KernThreadState_Debug_Crashed,
     KernThreadState_InIo,
     KernThreadState_Exited,
 
-    KernThreadState_Count
+    KernThreadStateType_Count
 };
 
 struct _K2OSKERN_THREAD_EX
@@ -869,30 +893,21 @@ struct _K2OSKERN_THREAD_EX
     K2STAT              mExCode;
     BOOL                mPageWasPresent;
     BOOL                mWasWrite;
-    K2OSKERN_OBJREF     MapRef;         // map containing fault address
+    K2OSKERN_OBJREF     VirtMapRef;         // map containing fault address
     UINT32              mMapPageIx;
     UINT32              mIciSendMask;
+    UINT32              mArchSpec[2];
 };
 
 struct _K2OSKERN_USER_THREAD
 {
-    K2OSKERN_OBJREF                 ProcRef;
+    UINT32                      mSysCall_Id;
+    UINT32                      mSysCall_Arg0;
+    UINT32                      mSysCall_Result;
 
-    UINT32                          mSysCall_Id;
-    UINT32                          mSysCall_Arg0;
-    UINT32                          mSysCall_Result;
+    BOOL                        mIsInSysCall;
 
-    BOOL                            mIsInSysCall;
-
-    K2OSKERN_THREAD_EX              LastEx;
-
-    K2OSKERN_OBJREF                 StackMapRef;
-
-    struct {
-        K2OSKERN_DPC_SIMPLE         DpcSimple;
-    } CoW;
-
-    K2OSKERN_ARCH_EXEC_CONTEXT      ArchExecContext;
+    K2OSKERN_ARCH_EXEC_CONTEXT  ArchExecContext;
 
     struct {
         K2LIST_LINK             ProcIoListLink;
@@ -902,20 +917,30 @@ struct _K2OSKERN_USER_THREAD
     } Io;
 };
 
+struct _K2OSKERN_KERN_THREAD_IO
+{
+    K2OSKERN_OBJREF             NotifyRef;
+    K2OSKERN_KERN_THREAD_IO *   mpChainNext;
+};
+
 struct _K2OSKERN_KERN_THREAD
 {
-    UINT32              mStackBaseVirt;
-    K2LIST_ANCHOR       StackPhysTrackList;
-    UINT32              mStackPtr;
+    UINT32                  mStackPtr;
 
-    void *              mpArg;
-    K2OSKERN_OBJREF     ResultRef;
+    void *                  mpArg;
+    K2OSKERN_OBJREF         ResultRef;
 
-    UINT32              mSchedCall_Result;
+    UINT32                  mSchedCall_Result;
 
-    K2OS_XDL            mXdlRef;
+    K2OS_XDL                mXdlRef;
 
-    K2LIST_ANCHOR       HeldCsList;
+    K2OSKERN_KERN_THREAD_IO Io;
+    K2LIST_LINK             IoClusterWaitListLink;
+
+    K2LIST_ANCHOR           HeldCsList;
+#if K2_TARGET_ARCH_IS_ARM
+    K2OSKERN_ARCH_EXEC_CONTEXT  ArchExecContext;
+#endif
 };
 
 struct _K2OSKERN_OBJ_THREAD
@@ -924,16 +949,35 @@ struct _K2OSKERN_OBJ_THREAD
 
     BOOL                            mIsKernelThread;
 
+    K2OSKERN_OBJREF                 RefProc;
+
+    K2OSKERN_OBJREF                 StackMapRef;
+
     UINT32                          mGlobalIx;
     UINT32                          mExitCode;
     char                            mName[K2OS_THREAD_NAME_BUFFER_CHARS];
 
-    K2LIST_LINK                     OwnerThreadListLink;
+    K2OSKERN_THREAD_EX              LastEx;
 
-    UINT32                          mTlsPagePhys;
+    K2LIST_LINK                     OwnerThreadListLink;
+    
+    struct
+    {
+        UINT32 volatile     mIngressNext;
+
+        K2TREE_NODE         PageAddrTreeNode;   // Invalid unless Link.Link.mpPrev is NULL
+
+        union
+        {
+            K2LIST_ANCHOR   Anchor;             // Valid if List.Link.mpPrev is NULL
+            K2LIST_LINK     Link;               // Always Valid
+        } List;
+    } Paging;
+
+    UINT32                          mThreadPagePhys;
     K2OS_THREAD_PAGE *              mpKernRwViewOfThreadPage;
 
-    K2OSKERN_CPUCORE_EVENT          CpuCoreEvent;
+    K2OSKERN_CPUCORE_EVENT volatile CpuCoreEvent;
 
     K2OSKERN_CPUCORE volatile *     mpLastRunCore;
     K2OSKERN_OBJ_THREAD *           mpMigratingNext;
@@ -954,8 +998,6 @@ struct _K2OSKERN_OBJ_THREAD
     };
 
     K2OSKERN_MACROWAIT              MacroWait;
-
-    K2_EXCEPTION_TRAP *             mpTrapStack;
 
     struct {
         K2LIST_ANCHOR               MacroWaitEntryList;
@@ -981,11 +1023,14 @@ struct _K2OSKERN_OBJ_THREAD
 typedef enum _KernPageArrayType KernPageArrayType;
 enum _KernPageArrayType
 {
-    KernPageArray_Error = 0,
+    KernPageArrayType_Invalid = 0,
+
     KernPageArray_Track,
     KernPageArray_PreMap,
     KernPageArray_Sparse,
-    KernPageArray_Spec
+    KernPageArray_Spec,
+
+    KernPageArrayType_Count
 };
 
 typedef struct _K2OSKERN_PAGEARRAY_TRACK K2OSKERN_PAGEARRAY_TRACK;
@@ -1003,9 +1048,8 @@ struct _K2OSKERN_PAGEARRAY_PREMAP
 typedef struct _K2OSKERN_PAGEARRAY_SPARSE K2OSKERN_PAGEARRAY_SPARSE;
 struct _K2OSKERN_PAGEARRAY_SPARSE
 {
-    K2OSKERN_PHYSRES        Res;
-    K2LIST_ANCHOR           TrackList;
-    UINT32                  mPages[1];
+    K2LIST_ANCHOR   TrackList;
+    UINT32          mPages[1];
 };
 
 typedef struct _K2OSKERN_PAGEARRAY_SPEC K2OSKERN_PAGEARRAY_SPEC;
@@ -1017,7 +1061,7 @@ struct _K2OSKERN_PAGEARRAY_SPEC
 struct _K2OSKERN_OBJ_PAGEARRAY
 {
     K2OSKERN_OBJ_HEADER     Hdr;
-    KernPageArrayType       mType;
+    KernPageArrayType       mPageArrayType;
     UINT32                  mUserPermit;        // PF_W, PF_R, K2OS_MEMPAGE_COPY_ON_WRITE
     UINT32                  mPageCount;
 
@@ -1103,7 +1147,6 @@ struct _K2OSKERN_OBJ_SEMUSER
 typedef struct _K2OSKERN_XDL_TRACK K2OSKERN_XDL_TRACK;
 struct _K2OSKERN_XDL_TRACK
 {
-    K2OSKERN_OBJ_HEADER     Hdr;
     XDL *                   mpXdl;
     char const *            mpName; // points into header mName field
 
@@ -1114,29 +1157,25 @@ struct _K2OSKERN_XDL_TRACK
 typedef struct _K2OSKERN_HOST_FILE K2OSKERN_HOST_FILE;
 struct _K2OSKERN_HOST_FILE
 {
-    BOOL                    mIsRofs;
-
-    UINT32 volatile         mCurSector;
-    BOOL                    mKeepSymbols;
-    K2_GUID128              ID;
-
-    K2OSKERN_OBJREF         RefXdlPageVirtMap;
-
-    K2OSKERN_XDL_TRACK      Track;
-
-    K2ROFS_FILE const *     mpRofsFile;
+    BOOL                mKeepSymbols;
+    K2_GUID128          ID;
+    K2OSKERN_OBJREF     RefXdlPageVirtMap;
+    K2OSKERN_XDL_TRACK  Track;
+    K2OS_FILE           mFile;
 };
 
-typedef enum _KernMapType KernMapType;
-enum _KernMapType
+typedef enum _KernSegType KernSegType;
+enum _KernSegType
 {
-    KernMap_Invalid = 0,
-    KernMap_PreMap,
-    KernMap_Xdl_Page,
-    KernMap_Xdl_Part,
-    KernMap_Dyn,
+    KernSegType_Invalid = 0,
 
-    KernMapType_Count
+    KernSeg_PreMap,
+    KernSeg_Xdl_Page,
+    KernSeg_Xdl_Part,
+    KernSeg_Thread_Stack,
+    KernSeg_Dyn,
+
+    KernSegType_Count
 };
 
 typedef struct _K2OSKERN_KERNMAP_XDL_PART K2OSKERN_KERNMAP_XDL_PART;
@@ -1152,15 +1191,21 @@ struct _K2OSKERN_KERNMAP_XDL_PAGE
     K2XDL_HOST_FILE         mOwnerHostFile;
 };
 
+typedef struct _K2OSKERN_KERNMAP_THREAD_STACK K2OSKERN_KERNMAP_THREAD_STACK;
+struct _K2OSKERN_KERNMAP_THREAD_STACK
+{
+    K2OSKERN_OBJ_THREAD *   mpThread;
+};
+
 typedef struct _K2OSKERN_KERN_MAP K2OSKERN_KERN_MAP;
 struct _K2OSKERN_KERN_MAP
 {
-    KernMapType                 mType;
+    KernSegType                 mSegType;
     UINT32                      mSizeBytes;
-    K2OSKERN_VIRTHEAP_NODE *    mpVirtHeapNode; // if non-null we hold a reference to this node
     union {
-        K2OSKERN_KERNMAP_XDL_PART   XdlPart;
-        K2OSKERN_KERNMAP_XDL_PAGE   XdlPage;
+        K2OSKERN_KERNMAP_XDL_PART       XdlPart;
+        K2OSKERN_KERNMAP_XDL_PAGE       XdlPage;
+        K2OSKERN_KERNMAP_THREAD_STACK   ThreadStack;
     };
 };
 
@@ -1169,7 +1214,6 @@ struct _K2OSKERN_USER_MAP
 {
     K2OSKERN_PROCHEAP_NODE *    mpProcHeapNode;
 };
-
 
 struct _K2OSKERN_OBJ_VIRTMAP
 {
@@ -1180,7 +1224,9 @@ struct _K2OSKERN_OBJ_VIRTMAP
 
     UINT32                  mPageCount;
 
-    K2OS_VirtToPhys_MapType mMapType;
+    BOOL                    mIsDemandPaged;
+
+    K2OS_VirtToPhys_MapType mVirtToPhysMapType;
 
     K2OSKERN_TLBSHOOT       TlbShoot;
     UINT32                  mIciSendMask;
@@ -1230,6 +1276,10 @@ struct _K2OSKERN_OBJ_MAILBOXOWNER
     K2OSKERN_OBJREF         RefProc;
     UINT32                  mProcVirt;
     K2OSKERN_OBJREF         RefProcMap;
+    struct
+    {
+        K2LIST_LINK         ListLink;
+    } OwnerMboxOwnerListLocked;
 };
 
 struct _K2OSKERN_OBJ_MAILSLOT
@@ -1301,14 +1351,14 @@ typedef struct _K2OSKERN_IPC_REQUEST    K2OSKERN_IPC_REQUEST;
 
 enum _KernIpcEndStateType
 {
-    KernIpcEndState_Invalid,
+    KernIpcEndStateType_Invalid,
 
     // during create, holding 4 mailbox reserve - create, connect, disconnect, delete
     KernIpcEndState_Disconnected,               // holding 3 mailbox reserve - connect, disconnect, delete
     KernIpcEndState_Connected,                  // holding 2 mailbox reserve - disconnect, delete
     KernIpcEndState_WaitDisAck,                 // holding 1 mailbox reserve - delete
 
-    KernIpcEndState_Count
+    KernIpcEndStateType_Count
 };
 
 struct _K2OSKERN_IPC_REQUEST
@@ -1367,31 +1417,6 @@ struct _K2OSKERN_OBJ_NOTIFYPROXY
 
 /* --------------------------------------------------------------------------------- */
 
-struct _K2OSKERN_OBJ_FOLDER
-{
-    K2OSKERN_OBJ_HEADER     Hdr;
-    K2OSKERN_OBJREF         RefParent;
-    K2OSKERN_SEQLOCK        SeqLock;
-    K2TREE_NODE             TreeNode;
-    K2TREE_ANCHOR           ChildTree;
-};
-
-struct _K2OSKERN_OBJ_FOLDERENUM_REC
-{
-    K2OS_FILE_INFO  FileInfo;
-    K2LIST_LINK     ListLink;
-};
-
-struct _K2OSKERN_OBJ_FOLDERENUM
-{
-    K2OSKERN_OBJ_HEADER     Hdr;
-    K2OSKERN_SEQLOCK        SeqLock;
-    K2LIST_ANCHOR           List;
-    K2LIST_LINK *           mpCurrent;
-};
-
-/* --------------------------------------------------------------------------------- */
-
 typedef struct _K2OSKERN_DBG_COMMAND K2OSKERN_DBG_COMMAND;
 struct _K2OSKERN_DBG_COMMAND
 {
@@ -1416,6 +1441,7 @@ typedef struct _KERN_DATA_PHYS      KERN_DATA_PHYS;
 typedef struct _KERN_DATA_VIRT      KERN_DATA_VIRT;
 typedef struct _KERN_DATA_OBJ       KERN_DATA_OBJ;
 typedef struct _KERN_DATA_PROC      KERN_DATA_PROC;
+typedef struct _KERN_DATA_BUILTIN   KERN_DATA_BUILTIN;
 typedef struct _KERN_DATA_FILESYS   KERN_DATA_FILESYS;
 typedef struct _KERN_DATA_SCHED     KERN_DATA_SCHED;
 typedef struct _KERN_DATA_USER      KERN_DATA_USER;
@@ -1429,7 +1455,11 @@ typedef struct _KERN_DATA_TOKEN     KERN_DATA_TOKEN;
 typedef struct _KERN_DATA_EXEC      KERN_DATA_EXEC;
 typedef struct _KERN_DATA_IFACE     KERN_DATA_IFACE;
 typedef struct _KERN_DATA_IPCEND    KERN_DATA_IPCEND;
+typedef struct _KERN_DATA_MBOXOWNER KERN_DATA_MBOXOWNER;
 typedef struct _KERN_DATA_SYSPROC   KERN_DATA_SYSPROC;
+typedef struct _KERN_DATA_RPC       KERN_DATA_RPC;
+typedef struct _KERN_DATA_PAGING    KERN_DATA_PAGING;
+typedef struct _KERN_DATA_FIRMWARE  KERN_DATA_FIRMWARE;
 
 struct _KERN_DATA_DEBUG
 {
@@ -1446,14 +1476,16 @@ struct _KERN_DATA_DEBUG
 
 struct _KERN_DATA_TIMER
 {
-    UINT32                  mFreq;
-    UINT32                  mIoPhys;
-    K2OSKERN_CPUCORE_EVENT  SchedEvent;
+    UINT32                          mFreq;
+    UINT32                          mIoPhys;
+    K2OSKERN_CPUCORE_EVENT volatile SchedCpuEvent;
 };
 
 struct _KERN_DATA_XDL
 {
     K2OS_CRITSEC        Sec;
+
+    K2OS_FSCLIENT       mFsClient;
 
     K2OSKERN_SEQLOCK    KernLoadedListSeqLock;
     K2LIST_ANCHOR       KernLoadedList;
@@ -1510,7 +1542,7 @@ struct _KERN_DATA_VIRT
 struct _KERN_DATA_OBJ
 {
     K2OSKERN_SEQLOCK    SeqLock;
-    K2TREE_ANCHOR       Tree;
+    K2LIST_ANCHOR       Cache[KernObjType_Count];
 };
 
 struct _KERN_DATA_PROC
@@ -1523,10 +1555,16 @@ struct _KERN_DATA_PROC
     UINT32              mLastThreadSlotIx;
 };
 
+struct _KERN_DATA_BUILTIN
+{
+    K2ROFS const *      mpRofs;
+    K2OSKERN_OBJREF     RefRofsVirtMap;
+};
+
 struct _KERN_DATA_FILESYS
 {
-    K2ROFS const *  mpRofs;
-    K2OSKERN_OBJREF RefRofsVirtMap;
+    K2OSKERN_FSNODE RootFsNode;
+    K2OSKERN_FSNODE FsRootFsNode;
 };
 
 struct _KERN_DATA_SCHED
@@ -1565,6 +1603,8 @@ struct _KERN_DATA_USER
     UINT32              mInitPageCount;
 
     UINT32              mEntrypoint;
+
+    K2OSKERN_OBJREF     RefVirtMapOfUserCrtDefaultDataSegment;
 
     K2OSKERN_OBJ_PAGEARRAY *mpKernUserCrtSeg[KernUserCrtSegType_Count];
     K2OSKERN_OBJ_PAGEARRAY  PublicApiPageArray;
@@ -1634,6 +1674,12 @@ struct _KERN_DATA_IPCEND
     K2LIST_ANCHOR       KernList;
 };
 
+struct _KERN_DATA_MBOXOWNER
+{
+    K2OSKERN_SEQLOCK    SeqLock;
+    K2LIST_ANCHOR       KernList;
+};
+
 struct _KERN_DATA_SYSPROC
 {
     K2OSKERN_OBJREF     RefKernVirtMap1;
@@ -1650,11 +1696,30 @@ struct _KERN_DATA_SYSPROC
     K2OS_SIGNAL_TOKEN   mTokReady2;
 };
 
+struct _KERN_DATA_RPC
+{
+    K2OS_RPC_CLASS  mKernelServerClass;
+};
+
+struct _KERN_DATA_PAGING
+{
+    K2OSKERN_OBJREF     NotifyRef;
+    K2OS_SIGNAL_TOKEN   mTokSignal;
+
+    UINT32 volatile     mListHead;
+};
+
+struct _KERN_DATA_FIRMWARE
+{
+    K2OSKERN_SEQLOCK    SeqLock;
+};
+
 struct _KERN_DATA
 {
     K2OSKERN_SHARED *       mpShared;
 	UINT32 			        mCpuCoreCount;
     BOOL                    mCore0MonitorStarted;
+    BOOL                    mSystemStarted;
 
     INT32 volatile          mSystemWideThreadCount;
     INT32 volatile          mSystemWideProcessCount;
@@ -1667,6 +1732,7 @@ struct _KERN_DATA
     KERN_DATA_VIRT          Virt;
     KERN_DATA_PROC          Proc;
     KERN_DATA_OBJ           Obj;
+    KERN_DATA_BUILTIN       BuiltIn;
     KERN_DATA_FILESYS       FileSys;
     KERN_DATA_SCHED         Sched;
     KERN_DATA_USER          User;
@@ -1678,7 +1744,11 @@ struct _KERN_DATA
     KERN_DATA_EXEC          Exec;
     KERN_DATA_IFACE         Iface;
     KERN_DATA_IPCEND        IpcEnd;
+    KERN_DATA_MBOXOWNER     MboxOwner;
     KERN_DATA_SYSPROC       SysProc;
+    KERN_DATA_RPC           Rpc;
+    KERN_DATA_PAGING        Paging;
+    KERN_DATA_FIRMWARE      Firm;
 };
 extern KERN_DATA gData;
 
@@ -1731,15 +1801,16 @@ void    KernArch_KernThreadPrep(K2OSKERN_OBJ_THREAD *apThread, UINT32 aEntryPoin
 void    KernArch_ResumeThread(K2OSKERN_CPUCORE volatile *apThisCore);
 void    KernArch_DumpThreadContext(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apThread);
 void    KernArch_SchedTimer_Arm(K2OSKERN_CPUCORE volatile * apThisCore, UINT64 const *apDeltaHfTicks);
-void    KernArch_TrapToContext(K2_TRAP_CONTEXT * apTrapContext, K2OSKERN_ARCH_EXEC_CONTEXT *apArchContext, UINT32 aOverwriteResult);
 void    KernArch_InstallDevIrqHandler(K2OSKERN_IRQ *apIrq);
 void    KernArch_SetDevIrqMask(K2OSKERN_IRQ *apIrq, BOOL aMask);
 void    KernArch_RemoveDevIrqHandler(K2OSKERN_IRQ *apIrq);
 void    KernArch_GetPhysTable(UINT32 *apRetCount, K2OS_PHYSADDR_RANGE const **appRetTable);
 void    KernArch_GetIoTable(UINT32 *apRetCount, K2OS_IOPORT_RANGE const **appRetTable);
 void    KernArch_GetHfTimerTick(UINT64 *apRetHfTick);
-void    KernArch_IntsOff_EnterMonitorFromKernelThread(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_THREAD *apThread);
-BOOL K2_CALLCONV_REGS KernArch_ExTrapMount(K2_EXCEPTION_TRAP *apTrap);
+void    KernArch_IntsOff_SaveKernelThreadStateAndEnterMonitor(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_THREAD *apThread);
+BOOL    K2_CALLCONV_REGS KernArch_ExTrapMount(K2_EXCEPTION_TRAP *apTrap);
+void    KernArch_PopKernelTrap(K2OSKERN_OBJ_THREAD *apThread);
+void    KernArch_PopUserTrap(K2OSKERN_OBJ_THREAD *apThread);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -1766,10 +1837,6 @@ UINT32  KernPte_BreakPageMap(K2OSKERN_OBJ_PROCESS *apProc, UINT32 aVirtAddr, UIN
 
 void    KernDbg_Emitter(void *apContext, char aCh);
 UINT32  KernDbg_OutputWithArgs(char const *apFormat, VALIST aList);
-void    KernDbg_BeginModeEntry(K2OSKERN_CPUCORE volatile *apThisCore);
-BOOL    KernDbg_Attached(void);
-void    KernDbg_RecvSlaveCommand(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_DBG_COMMAND *apRecvCmd);
-void    KernDbg_IoCheck(K2OSKERN_CPUCORE volatile *apThisCore);
 void    KernDbg_RawDumpLockStack(K2OSKERN_CPUCORE volatile *apThisCore);
 
 /* --------------------------------------------------------------------------------- */
@@ -1787,8 +1854,6 @@ K2STAT  KernPhys_AllocSparsePages(K2OSKERN_PHYSRES *apRes, UINT32 aPageCount, K2
 K2STAT  KernPhys_AllocPow2Bytes(K2OSKERN_PHYSRES *apRes, UINT32 aPow2Bytes, K2OSKERN_PHYSTRACK **appRetTrack);
 void    KernPhys_FreeTrack(K2OSKERN_PHYSTRACK *apTrack);
 void    KernPhys_FreeTrackList(K2LIST_ANCHOR *apTrackList);
-
-void    KernPhys_ZeroPage(UINT32 aPhysAddr);
 
 void    KernPhys_ScanInit(K2OSKERN_PHYSSCAN *apScan, K2LIST_ANCHOR *apTrackList, UINT32 aStartOffset);
 UINT32  KernPhys_ScanIter(K2OSKERN_PHYSSCAN *apScan);
@@ -1822,7 +1887,7 @@ void    KernCpu_AtXdlEntry(void);
 void    KernCpu_DrainEvents(K2OSKERN_CPUCORE volatile *apThisCore);
 BOOL    KernCpu_ExecOneDpc(K2OSKERN_CPUCORE volatile *apThisCore, KernDpcPrioType aPrio);
 void    KernCpu_QueueDpc(K2OSKERN_DPC *apDpc, K2OSKERN_pf_DPC *apKey, KernDpcPrioType aPrio);
-void    KernCpu_QueueEvent(K2OSKERN_CPUCORE_EVENT *apEvent);
+void    KernCpu_QueueEvent(K2OSKERN_CPUCORE_EVENT volatile *apEvent);
 void    KernCpu_CpuEvent_RecvIci(K2OSKERN_CPUCORE volatile *apThisCore, UINT64 const *apHfTick, UINT32 aSrcCoreIx);
 void    KernCpu_Schedule(K2OSKERN_CPUCORE volatile *apThisCore);
 void    KernCpu_TakeCurThreadOffThisCore(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_THREAD *apCurThread, KernThreadStateType aNewState);
@@ -1861,18 +1926,24 @@ void    KernIntr_Cleanup(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_INT
 //
 // object.c
 //
-void                KernObj_Init(void);
-char const * const  KernObj_Name(KernObjType aType);
-UINT32              KernObj_ReleaseRef(K2OSKERN_OBJREF *apRef);
+void                    KernObj_Init(void);
+
+K2OSKERN_OBJ_HEADER *   KernObj_Alloc(KernObjType aObjType);
+void                    KernObj_Free(K2OSKERN_OBJ_HEADER *apHdr);
+
+char const * const      KernObj_Name(KernObjType aType);
+UINT32                  KernObj_ReleaseRef(K2OSKERN_OBJREF *apRef);
 
 #if DEBUG_REF
 #define KernObj_CreateRef(r,t)   KernObj_DebugCreateRef(r,t,__FILE__,__LINE__);
 void KernObj_DebugCreateRef(K2OSKERN_OBJREF *apRef, K2OSKERN_OBJ_HEADER *apTarget, char const *apFile, int aLine);
+#define KernObj_ReleaseRef(r)    KernObj_DebugReleaseRef(r,__FILE__,__LINE__);
+UINT32 KernObj_DebugReleaseRef(K2OSKERN_OBJREF *apRef, char const *apFile, int aLine);
 #else
-void                KernObj_CreateRef(K2OSKERN_OBJREF *apRef, K2OSKERN_OBJ_HEADER *apTarget);
+void                    KernObj_CreateRef(K2OSKERN_OBJREF *apRef, K2OSKERN_OBJ_HEADER *apTarget);
 #endif
 
-K2STAT              KernObj_Share(K2OSKERN_OBJ_PROCESS *apSrcProc, K2OSKERN_OBJ_HEADER *apObjHdr, K2OSKERN_OBJ_PROCESS *apTargetProc, UINT32 *apRetTokenValue);
+K2STAT                  KernObj_Share(K2OSKERN_OBJ_PROCESS *apSrcProc, K2OSKERN_OBJ_HEADER *apObjHdr, K2OSKERN_OBJ_PROCESS *apTargetProc, UINT32 *apRetTokenValue);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -1892,12 +1963,9 @@ K2STAT  KernProc_UserVirtHeapFree(K2OSKERN_OBJ_PROCESS *apProc, UINT32 aVirtAddr
 void    KernProc_SysCall_TokenClone(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernProc_SysCall_TokenDestroy(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernProc_SysCall_TokenShare(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
-void    KernProc_SysCall_GetLaunchInfo(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernProc_SysCall_VirtReserve(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
 void    KernProc_SysCall_VirtGet(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
 void    KernProc_SysCall_VirtRelease(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
-void    KernProc_SysCall_TrapMount(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
-void    KernProc_SysCall_TrapDismount(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernProc_SysCall_AtStart(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernProc_SysCall_Exit(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernProc_SysCall_GetExitCode(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
@@ -1909,6 +1977,7 @@ BOOL    KernProc_SysCall_Fast_TlsAlloc(K2OSKERN_CPUCORE volatile * apThisCore, K
 BOOL    KernProc_SysCall_Fast_TlsFree(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernProc_SysCall_CacheOp(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
 K2STAT  KernProc_TokenLocked_Destroy(K2OSKERN_OBJ_PROCESS *apProc, K2OS_TOKEN aToken, BOOL *apRetHitZero, K2OSKERN_OBJREF *apRetObjRefIfHitZero);
+void    KernProc_SysCall_OutputDebug(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
 
 K2OS_VIRTMAP_TOKEN KernProc_Threaded_UserVirtMapCreate(UINT32 aProcessId, UINT32 aVirtResBase, UINT32 aVirtResPageCount, K2OS_PAGEARRAY_TOKEN aTokPageArray);
 K2STAT             KernProc_Threaded_UserMap(UINT32 aProcessId, K2OS_PAGEARRAY_TOKEN aKernTokPageArray, UINT32 aPageCount, UINT32 *apRetUserVirtAddr, K2OS_VIRTMAP_TOKEN *apRetTokUserVirtMap);
@@ -1924,15 +1993,25 @@ void    KernUser_Init(void);
 /* --------------------------------------------------------------------------------- */
 
 //
+// builtin.c
+//
+void    KernBuiltIn_Init(void);
+
+/* --------------------------------------------------------------------------------- */
+
+//
 // filesys.c
 //
 void    KernFileSys_Init(void);
+
 
 /* --------------------------------------------------------------------------------- */
 
 //
 // pagearray.c
 //
+
+K2STAT  KernPageArray_CreateSparseFromRes(K2OSKERN_PHYSRES *apRes, UINT32 aPageCount, UINT32 aUserPermit, K2OSKERN_OBJREF *apRetRef);
 K2STAT  KernPageArray_CreateSparse(UINT32 aPageCount, UINT32 aUserPermit, K2OSKERN_OBJREF *apRetRef);
 K2STAT  KernPageArray_CreateSpec(UINT32 aPhysAddr, UINT32 aPageCount, UINT32 aUserPermit, K2OSKERN_OBJREF *apRetRef);
 K2STAT  KernPageArray_CreateTrack(K2OSKERN_PHYSTRACK *apTrack, UINT32 aUserPermit, K2OSKERN_OBJREF *apRetRef);
@@ -1950,27 +2029,18 @@ UINT32               K2OSKERN_PageArray_GetPagePhys(K2OS_PAGEARRAY_TOKEN aTokPag
 
 //
 // usermap.c
+// virtmap.c
+// kernmap.c
 //
 K2STAT  KernVirtMap_CreateUser(K2OSKERN_OBJ_PROCESS *apProc, K2OSKERN_OBJ_PAGEARRAY *apPageArray, UINT32 aStartPageOffset, UINT32 aProcVirtAddr, UINT32 aPageCount, K2OS_VirtToPhys_MapType aMapType, K2OSKERN_OBJREF *apRetMapRef);
 void    KernVirtMap_SysCall_Create(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
 void    KernVirtMap_SysCall_Acquire(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
-void    KernVirtMap_SysCall_AcqPageArray(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
 void    KernVirtMap_SysCall_GetInfo(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD * apCurThread);
-
-/* --------------------------------------------------------------------------------- */
-
-//
-// virtmap.c
-//
+K2STAT  KernVirtMap_FindMapAndCreateRef(UINT32 aKernVirtAddr, K2OSKERN_OBJREF *apFillMapRef, UINT32 *apRetMapPageIx);
 void    KernVirtMap_Cleanup(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_VIRTMAP *apMap);
-
-/* --------------------------------------------------------------------------------- */
-
-//
-// kernmap.c
-//
 K2STAT  KernVirtMap_Create(K2OSKERN_OBJ_PAGEARRAY *apPageArray, UINT32 aPageOffset, UINT32 aPageCount, UINT32 aVirtAddr, K2OS_VirtToPhys_MapType aMapType, K2OSKERN_OBJREF *apRetRef);
 void    KernVirtMap_CreatePreMap(UINT32 aVirtAddr, UINT32 aPageCount, K2OS_VirtToPhys_MapType aMapType, K2OSKERN_OBJREF *apRetRef);
+K2STAT  KernVirtMap_CreateThreadStack(K2OSKERN_OBJ_THREAD *apThread);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -2007,6 +2077,8 @@ void    KernThread_RecvThreadTlbInv(K2OSKERN_CPUCORE volatile * apThisCore, K2OS
 void    KernTimer_Init(void);
 void    KernTimer_HfTickFromMsTick(UINT64 *apRetHfTick, UINT64 const *apMsTick);
 void    KernTimer_MsTickFromHfTick(UINT64 *apRetMs, UINT64 const *apHfTicks);
+void    KernTimer_GetTime(K2OS_TIME *apRetTime);
+void    KernTimer_SysCall_GetTime(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -2100,6 +2172,8 @@ void    KernAcpi_Init(void);
 // critsec.c
 //
 void    KernCritSec_Threaded_InitDeferred(void);
+K2STAT  KernCritSec_Init(K2OS_CRITSEC *apKernSec);
+void    KernCritSec_Destroy(K2OS_CRITSEC *apKernSec);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -2141,7 +2215,7 @@ BOOL    KernMailbox_InIntr_Fast_Check_SentFirst(K2OSKERN_CPUCORE volatile * apTh
 void    KernMailboxOwner_Cleanup(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_MAILBOXOWNER *apMailboxOwner);
 void    KernMailboxOwner_SysCall_RecvRes(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernMailboxOwner_SysCall_RecvLast(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
-
+void    KernMailboxOwner_AbortReserveHolders(K2OSKERN_OBJ_MAILBOXOWNER *apMailboxOwner);
 void    KernMailslot_Cleanup(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_MAILSLOT *apMailslot);
 void    KernMailslot_SysCall_Get(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 
@@ -2162,7 +2236,7 @@ K2STAT  KernIfInstId_GetDetail(K2OS_IFINST_ID aIfInstId, K2OS_IFINST_DETAIL *apR
 void    KernIfEnum_Cleanup(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_IFENUM *apIfInst);
 void    KernIfEnum_SysCall_Create(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void    KernIfEnum_SysCall_Reset(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
-void    KernIfEnum_SysCall_Next(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
+K2STAT  KernIfEnum_Next(K2OSKERN_OBJ_IFENUM *apIfEnum, K2OS_IFINST_DETAIL *apEntryBuffer, UINT32 *apIoEntryBufferCount);
 
 K2STAT  KernIfSubs_Create(K2OSKERN_OBJ_MAILBOX *apMailbox, UINT32 aClassCode, K2_GUID128 const *apSpecific, UINT32 aBacklogCount, BOOL aProcSelfNotify, UINT32 aContext, K2OSKERN_OBJREF *apRetRef);
 void    KernIfSubs_Cleanup(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_IFSUBS *apIfInst);
@@ -2189,6 +2263,7 @@ K2STAT KernIpcEnd_RejectRequest(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN
 K2STAT KernIpcEnd_Load(K2OSKERN_OBJ_IPCEND * apIpcEnd);
 K2STAT KernIpcEnd_Sent(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread, K2OSKERN_OBJ_IPCEND *apIpcEnd, UINT32 aByteCount);
 K2STAT KernIpcEnd_ManualDisconnect(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread, K2OSKERN_OBJ_IPCEND *apIpcEnd);
+void   KernIpcEnd_DisconnectAck(K2OSKERN_OBJ_IPCEND * apIpcEnd);
 
 void KernIpcEnd_SysCall_Create(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
 void KernIpcEnd_SysCall_Send(K2OSKERN_CPUCORE volatile * apThisCore, K2OSKERN_OBJ_THREAD *apCurThread);
@@ -2221,6 +2296,55 @@ void    K2OSKERN_WaitSysProcReady(void);
 
 BOOL    KernNotifyProxy_Fire(K2OSKERN_OBJ_NOTIFY * apNotify);
 void    KernNotifyProxy_Cleanup(K2OSKERN_CPUCORE volatile *apThisCore, K2OSKERN_OBJ_NOTIFYPROXY *apNotifyProxy);
+
+
+/* --------------------------------------------------------------------------------- */
+
+//
+// fsnode.c
+//
+
+void    KernFsNode_Dump(void);
+int     KernFsNode_CaseNameCompare(UINT_PTR aKey, K2TREE_NODE *apNode);
+int     KernFsNode_CaseInsNameCompare(UINT_PTR aKey, K2TREE_NODE *apNode);
+void    KernFsNode_Init(K2OSKERN_FILESYS * apFileSys, K2OSKERN_FSNODE *apFsNode);
+INT_PTR KernFsNode_AddRef(K2OSKERN_FSNODE *apFsNode);
+INT_PTR KernFsNode_Release(K2OSKERN_FSNODE *apFsNode);
+void    KernFsNode_DebugPrint(K2OSKERN_FSNODE *apFsNode);
+
+/* --------------------------------------------------------------------------------- */
+
+K2OSKERN_MAPUSER KernMapUser_Create(UINT32 aProcessId, K2OS_BUFDESC const *apBufDesc, UINT32 *apRetKernVirtAddr);
+void             KernMapUser_Destroy(K2OSKERN_MAPUSER aMapUser);
+
+/* --------------------------------------------------------------------------------- */
+
+//
+// firm.c
+//
+
+void KernFirm_Init(void);
+void KernFirm_GetTime(K2OS_TIME *apRetTime);
+
+/* --------------------------------------------------------------------------------- */
+
+//
+// rpc.c
+//
+
+K2STAT KernRpc_CreateObj(K2OS_RPC_OBJ aObject, K2OS_RPC_OBJ_CREATE const *apCreate, UINT32 *apRetContext);
+K2STAT KernRpc_Attach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aProcessId, UINT32 *apRetUseContext);
+K2STAT KernRpc_Detach(K2OS_RPC_OBJ aObject, UINT32 aObjContext, UINT32 aUseContext);
+K2STAT KernRpc_Call(K2OS_RPC_OBJ_CALL const *apCall, UINT32 *apRetUsedOutBytes);
+K2STAT KernRpc_DeleteObj(K2OS_RPC_OBJ aObject, UINT32 aObjContext);
+
+/* --------------------------------------------------------------------------------- */
+
+//
+// paging.c
+//
+
+void    KernPaging_Init(void);
 
 /* --------------------------------------------------------------------------------- */
 
@@ -2262,9 +2386,6 @@ void    KernTrace_Dump(void);
 #define KTRACE_THREAD_MIGRATE                           19
 #define KTRACE_THREAD_EXIT                              20
 #define KTRACE_THREAD_START                             21
-#define KTRACE_THREAD_COW_SENDICI_DPC                   22
-#define KTRACE_THREAD_COW_CHECK_DPC                     23
-#define KTRACE_THREAD_COW_COPY_DPC                      24
 #define KTRACE_THREAD_KERNPAGE_CHECK_DPC                25
 #define KTRACE_THREAD_KERNPAGE_SENDICI_DPC              26
 #define KTRACE_THREAD_USERPAGE_CHECK_DPC                27
@@ -2295,7 +2416,6 @@ void    KernTrace_Dump(void);
 #define KTRACE_SEM_POST_CLEANUP_DPC                     52
 #define KTRACE_KERN_TLBSHOOT_ICI                        53
 #define KTRACE_PROC_TLBSHOOT_ICI_IGNORED                54
-#define KTRACE_THREAD_COW_COMPLETE                      55
 #define KTRACE_MAP_CLEAN_DONE                           56
 #define KTRACE_CORE_ENTERED_DEBUG                       57
 #define KTRACE_DEBUG_ENTER_CHECK_DPC                    58 

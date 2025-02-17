@@ -124,7 +124,7 @@ WorkerThread_Get(
                 return NULL;
             }
 
-            tokThread = K2OS_Thread_Create("WorkerThread", WorkerThread, pHead, NULL, &pHead->mThreadId);
+            tokThread = K2OS_Thread_Create("DevMgr WorkerThread", WorkerThread, pHead, NULL, &pHead->mThreadId);
             if (NULL == tokThread)
             {
                 K2OS_Token_Destroy(pHead->mTokWorkNotify);

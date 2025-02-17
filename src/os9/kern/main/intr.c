@@ -37,6 +37,9 @@ KernIntr_Init(
     void
 )
 {
+    K2OSKERN_SeqInit(&gData.Intr.SeqLock);
+    K2LIST_Init(&gData.Intr.Locked.IntrList);
+    K2TREE_Init(&gData.Intr.Locked.IrqTree, NULL);
 }
 
 void    
@@ -46,12 +49,12 @@ KernIntr_OnIci(
     UINT32                      aSrcCoreIx
 )
 {
-    K2OSKERN_CPUCORE_ICI volatile * pIci;
-    K2OSKERN_CPUCORE_EVENT *        pEvent;
-    K2OSKERN_OBJ_PROCESS *          pTargetProc;
-    K2OSKERN_TLBSHOOT volatile *    pTlbShoot;
-    UINT32                          pagesLeft;
-    UINT32                          virtAddr;
+    K2OSKERN_CPUCORE_ICI volatile *     pIci;
+    K2OSKERN_CPUCORE_EVENT volatile *   pEvent;
+    K2OSKERN_OBJ_PROCESS *              pTargetProc;
+    K2OSKERN_TLBSHOOT volatile *        pTlbShoot;
+    UINT32                              pagesLeft;
+    UINT32                              virtAddr;
 
     //
     // this is not a cpucore event (yet)
@@ -77,7 +80,7 @@ KernIntr_OnIci(
             // 
             // tlb shootdown is for a process, not for the kernel
             //
-            if ((NULL == apCurThread) || (pTargetProc != apCurThread->User.ProcRef.AsProc))
+            if ((NULL == apCurThread) || (pTargetProc != apCurThread->RefProc.AsProc))
             {
                 //
                 // tlb shootdown is for a different process than 
@@ -85,7 +88,7 @@ KernIntr_OnIci(
                 // and ignore it
                 //
                 K2ATOMIC_And(&pTlbShoot->mCoresRemaining, ~(1 << apThisCore->mCoreIx));
-                pIci->mIciType = KernIci_None;
+                pIci->mIciType = KernIciType_Invalid;
                 KTRACE(apThisCore, 1, KTRACE_PROC_TLBSHOOT_ICI_IGNORED);
                 return;
             }
@@ -111,7 +114,7 @@ KernIntr_OnIci(
                 KernArch_InvalidateTlbPageOnCurrentCore(virtAddr);
                 virtAddr += K2_VA_MEMPAGE_BYTES;
             } while (--pagesLeft);
-            pIci->mIciType = KernIci_None;
+            pIci->mIciType = KernIciType_Invalid;
             K2ATOMIC_And(&pTlbShoot->mCoresRemaining, ~(1 << apThisCore->mCoreIx));
             return;
         }
@@ -121,7 +124,7 @@ KernIntr_OnIci(
     // promote this to a cpucore event, which will cause the monitor to be 
     // entered if we're not already in the monitor
     //
-    pEvent = (K2OSKERN_CPUCORE_EVENT *)&pIci->CpuCoreEvent;
+    pEvent = (K2OSKERN_CPUCORE_EVENT volatile *)&pIci->CpuCoreEvent;
     pEvent->mEventType = KernCpuCoreEvent_Ici;
     pEvent->mSrcCoreIx = aSrcCoreIx;
     KernArch_GetHfTimerTick((UINT64 *)&pEvent->mEventHfTick);
@@ -156,8 +159,10 @@ KernIntr_OnSystemCall(
     UINT32 *                    apRetFastResult
 )
 {
-    K2OSKERN_CPUCORE_EVENT *    pEvent;
-    UINT32                      callId;
+    K2OSKERN_CPUCORE_EVENT volatile *   pEvent;
+    UINT32                              callId;
+
+    K2_ASSERT(!apCallingThread->mIsKernelThread);
 
     //
     // thread state NOT saved to its context (yet)
@@ -169,7 +174,7 @@ KernIntr_OnSystemCall(
     switch (callId)
     {
     case K2OS_SYSCALL_ID_CRT_INITXDL:
-        apCallingThread->User.ProcRef.AsProc->mpUserXdlList = (K2LIST_ANCHOR *)apCallingThread->User.mSysCall_Arg0;
+        apCallingThread->RefProc.AsProc->mpUserXdlList = (K2LIST_ANCHOR *)apCallingThread->User.mSysCall_Arg0;
         *apRetFastResult = 1;
         return;
 
@@ -216,8 +221,6 @@ KernIntr_OnSystemCall(
     pEvent->mSrcCoreIx = apThisCore->mCoreIx;
     KernArch_GetHfTimerTick((UINT64 *)&pEvent->mEventHfTick);
     KernCpu_QueueEvent(pEvent);
-
-    return;
 }
 
 void    
@@ -245,7 +248,7 @@ KernIntr_CpuEvent_Fired(
     // Scheduler will put interrupt into service when
     // it pulses the interrupt gate
     //
-    apInterrupt->SchedItem.mType = KernSchedItem_Interrupt;
+    apInterrupt->SchedItem.mSchedItemType = KernSchedItem_Interrupt;
     K2_ASSERT(apInterrupt->SchedItem.ObjRef.AsInterrupt == apInterrupt);
     apInterrupt->SchedItem.mHfTick = *apHfTick;
     KernSched_QueueItem(&apInterrupt->SchedItem);

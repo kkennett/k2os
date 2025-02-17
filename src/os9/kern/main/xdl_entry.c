@@ -52,6 +52,7 @@ xdl_entry(
     K2MEM_Zero(&gData, sizeof(KERN_DATA));
 
     gData.mpShared = (K2OSKERN_SHARED *)aReason;
+//    gData.mCpuCoreCount = 1;
     gData.mCpuCoreCount = gData.mpShared->LoadInfo.mCpuCoreCount;
 
     K2LIST_Init(&gData.Thread.DeferredCsInitList);
@@ -67,6 +68,8 @@ xdl_entry(
     K2TREE_Init(&gData.Iface.RequestTree, NULL);
     K2OSKERN_SeqInit(&gData.IpcEnd.SeqLock);
     K2LIST_Init(&gData.IpcEnd.KernList);
+    K2OSKERN_SeqInit(&gData.MboxOwner.SeqLock);
+    K2LIST_Init(&gData.MboxOwner.KernList);
     K2OSKERN_SeqInit(&gData.VirtMap.SeqLock);
     K2TREE_Init(&gData.VirtMap.Tree, NULL);
     K2OSKERN_SeqInit(&gData.Intr.SeqLock);

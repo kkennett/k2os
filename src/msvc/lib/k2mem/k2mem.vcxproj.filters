@@ -98,5 +98,11 @@
     <ClCompile Include="..\..\..\shared\lib\k2mem\vector.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\shared\lib\k2mem\asbytes.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\shared\lib\k2mem\touch.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

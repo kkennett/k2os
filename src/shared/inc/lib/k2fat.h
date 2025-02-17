@@ -48,11 +48,11 @@ extern "C" {
 typedef enum _K2FAT_Type K2FAT_Type;
 enum _K2FAT_Type
 {
-    K2FAT_Invalid=0,
+    K2FAT_Type_Invalid=0,
     K2FAT_Type12,
     K2FAT_Type16,
     K2FAT_Type32,
-    K2FAT_TypeCount,
+    K2FAT_Type_Count,
 };
 
 typedef struct _K2FAT_PART K2FAT_PART;
@@ -65,29 +65,27 @@ struct _K2FAT_PART
 
     UINT32 mBytesPerSector;
     UINT32 mSectorsPerTrack;
-
-    UINT64 mNumTotalSectors64;
-
-    UINT64 mFirstFATSector64;
-
+    UINT32 mNumTotalSectors;
+    UINT32 mNumReservedSectors;
     UINT32 mNumFATs;
     UINT32 mNumSectorsPerFAT;
-
-    UINT64 mFirstRootDirSector64;
-
+    UINT32 mFirstRootDirSector;
     UINT32 mNumRootDirEntries;
     UINT32 mNumRootDirSectors;
-
-    UINT64 mFirstDataSector64;
-
-    UINT64 mNumDataSectors64;
-
-    UINT32 mCountOfClusters;
-
+    UINT32 mDataAreaStartSector;
+    UINT32 mNumDataSectors;
+    UINT32 mLastValidClusterIndex;
     UINT32 mSectorsPerCluster;
 };
 
-K2STAT K2FAT_DetermineFromBootSector(FAT_GENERIC_BOOTSECTOR const * apBootSector, K2FAT_PART *apPart);
+K2STAT K2FAT_CreateBootSector(UINT32 aBytesPerSector, UINT32 aMediaType, UINT32 aSectorCount, UINT32 aFatDateTime, FAT_GENERIC_BOOTSECTOR *apRetBootSector);
+
+K2STAT K2FAT_ParseBootSector(FAT_GENERIC_BOOTSECTOR const * apBootSector, K2FAT_PART *apPart);
+
+UINT16 K2FAT_MakeDate(UINT_PTR aYear, UINT_PTR aMonth, UINT_PTR aDay);
+UINT16 K2FAT_MakeTime(UINT_PTR aHour, UINT_PTR aMinute, UINT_PTR aSecond);
+UINT32 K2FAT_OsTimeToDateTime(K2_DATETIME const * apOsTime);
+BOOL   K2FAT_DateTimeToOsTime(UINT32 aFatDateTime, K2_DATETIME *apRetOsTime);
 
 UINT8  K2FAT_LFN_Checksum(UINT8 const * apDirEntry83Name);
 

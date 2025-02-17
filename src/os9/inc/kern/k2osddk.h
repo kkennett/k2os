@@ -51,7 +51,7 @@ typedef K2OS_DEVCTX_OPAQUE *    K2OS_DEVCTX;
 typedef struct _K2OSDDK_RESDEF K2OSDDK_RESDEF;
 struct _K2OSDDK_RESDEF
 {
-    UINT32  mType;
+    UINT32  mResType;
     UINT32  mId;
     union {
         struct {
@@ -73,6 +73,7 @@ struct _K2OSDDK_RES
     union {
         struct {
             K2OS_PAGEARRAY_TOKEN    mTokPageArray;
+            UINT32                  mFirstPageOffset;
         } Phys;
     };
 };
@@ -112,7 +113,16 @@ K2STAT K2OSDDK_GetPciIrqRoutingTable(K2OS_DEVCTX aDevCtx, void **appRetTable);
 // {8A1CA0E4-59B3-435D-B32F-FA08903A3FC8}
 #define K2OS_IFACE_ACPIBUS  { 0x8a1ca0e4, 0x59b3, 0x435d, { 0xb3, 0x2f, 0xfa, 0x8, 0x90, 0x3a, 0x3f, 0xc8 } }
 
-#define K2OS_ACPIBUS_METHOD_RUNMETHOD   1
+typedef enum _K2OS_AcpiBus_Method K2OS_AcpiBus_Method;
+enum _K2OS_AcpiBus_Method
+{
+    K2OS_AcpiBus_Method_Invalid = 0,
+
+    K2OS_AcpiBus_Method_RunMethod,
+
+    K2OS_AcpiBus_Method_Count
+};
+
 typedef struct _K2OS_ACPIBUS_RUNMETHOD_IN K2OS_ACPIBUS_RUNMETHOD_IN;
 struct _K2OS_ACPIBUS_RUNMETHOD_IN
 {
@@ -135,6 +145,17 @@ struct _K2OS_ACPIBUS_RUNMETHOD_OUT
 // {8EDB0B70-55B9-49F9-AB80-BB086763109A}
 #define K2OS_IFACE_PCIBUS   { 0x8edb0b70, 0x55b9, 0x49f9, { 0xab, 0x80, 0xbb, 0x8, 0x67, 0x63, 0x10, 0x9a } }
 
+typedef enum _K2OS_PciBus_Method K2OS_PciBus_Method;
+enum _K2OS_PciBus_Method
+{
+    K2OS_PciBus_Method_Invalid = 0,
+
+    K2OS_PciBus_Method_Read,
+    K2OS_PciBus_Method_Write,
+
+    K2OS_PciBus_Method_Count
+};
+
 typedef struct _K2OS_PCIBUS_CFG_LOC K2OS_PCIBUS_CFG_LOC;
 struct _K2OS_PCIBUS_CFG_LOC
 {
@@ -156,9 +177,6 @@ struct _K2OS_PCIBUS_CFG_WRITE_IN
     K2OS_PCIBUS_CFG_LOC Loc;
     UINT64              mValue;
 };
-
-#define K2OS_PCIBUS_METHOD_CFG_READ     1   // in = CFG_READ_IN,  out = UINT64
-#define K2OS_PCIBUS_METHOD_CFG_WRITE    2   // in = CFG_WRITE_IN, out = nothing
 
 //
 //------------------------------------------------------------------------

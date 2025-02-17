@@ -52,6 +52,7 @@ KernVirtMap_CreateUser(
     UINT32                  ixPage;
     UINT32                  mapAttr;
     K2OSKERN_PROCHEAP_NODE *pProcHeapNode;
+    UINT32                  physAddr;
 
     apRetMapRef->AsAny = NULL;
 
@@ -71,7 +72,6 @@ KernVirtMap_CreateUser(
         mapAttr = K2OS_MEMPAGE_ATTR_EXEC | K2OS_MEMPAGE_ATTR_READABLE;
         break;
     case K2OS_MapType_Data_ReadOnly:
-    case K2OS_MapType_Data_CopyOnWrite:
         mapAttr = K2OS_MEMPAGE_ATTR_READABLE;
         break;
     case K2OS_MapType_Data_ReadWrite:
@@ -98,20 +98,15 @@ KernVirtMap_CreateUser(
 
     mapAttr |= K2OS_MEMPAGE_ATTR_USER;
 
-    pMap = (K2OSKERN_OBJ_VIRTMAP *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_VIRTMAP));
+    pMap = (K2OSKERN_OBJ_VIRTMAP *)KernObj_Alloc(KernObj_VirtMap);
     if (NULL == pMap)
     {
         return K2STAT_ERROR_OUT_OF_MEMORY;
     }
 
-    K2MEM_Zero(pMap, sizeof(K2OSKERN_OBJ_VIRTMAP));
-
-    pMap->Hdr.mObjType = KernObj_VirtMap;
-    K2LIST_Init(&pMap->Hdr.RefObjList);
-
     pMap->OwnerMapTreeNode.mUserVal = aProcVirtAddr;
     pMap->mPageCount = aPageCount;
-    pMap->mMapType = aMapType;
+    pMap->mVirtToPhysMapType = aMapType;
 
     disp = K2OSKERN_SeqLock(&apProc->Virt.SeqLock);
 
@@ -179,7 +174,9 @@ KernVirtMap_CreateUser(
 
                     for (ixPage = 0; ixPage < aPageCount; ixPage++)
                     {
-                        KernPte_MakePageMap(apProc, aProcVirtAddr, KernPageArray_PagePhys(apPageArray, aStartPageOffset + ixPage), mapAttr);
+                        physAddr = KernPageArray_PagePhys(apPageArray, aStartPageOffset + ixPage);
+                        KernPte_MakePageMap(apProc, aProcVirtAddr, physAddr, mapAttr);
+//                        K2OSKERN_Debug("U %08X->%08X\n", aProcVirtAddr, physAddr);
                         aProcVirtAddr += K2_VA_MEMPAGE_BYTES;
                     }
 
@@ -195,7 +192,7 @@ KernVirtMap_CreateUser(
 
     if (K2STAT_IS_ERROR(stat))
     {
-        KernHeap_Free(pMap);
+        KernObj_Free(&pMap->Hdr);
     }
 
     return stat;
@@ -214,7 +211,7 @@ KernVirtMap_SysCall_Create(
     K2OS_TOKEN              virtMapToken;
     K2OSKERN_OBJREF         pageArrayRef;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     pageArrayRef.AsAny = NULL;
@@ -257,50 +254,6 @@ KernVirtMap_SysCall_Create(
 }
 
 void    
-KernVirtMap_SysCall_AcqPageArray(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    K2OSKERN_OBJ_THREAD * apCurThread
-)
-{
-    K2STAT                  stat;
-    K2OSKERN_OBJ_PROCESS *  pProc;
-    K2OSKERN_OBJREF         mapRef;
-    K2OS_PAGEARRAY_TOKEN    tokPageArray;
-    K2OS_THREAD_PAGE * pThreadPage;
-
-    pProc = apCurThread->User.ProcRef.AsProc;
-
-    pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
-
-    mapRef.AsAny = NULL;
-    stat = KernProc_TokenTranslate(pProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &mapRef);
-    if (!K2STAT_IS_ERROR(stat))
-    {
-        if (KernObj_VirtMap != mapRef.AsAny->mObjType)
-        {
-//            K2OSKERN_Debug("MapAcqPageArray - token does not refer to a map\n");
-            stat = K2STAT_ERROR_BAD_TOKEN;
-        }
-        else
-        {
-            stat = KernProc_TokenCreate(pProc, mapRef.AsVirtMap->PageArrayRef.AsAny, &tokPageArray);
-            if (!K2STAT_IS_ERROR(stat))
-            {
-                apCurThread->User.mSysCall_Result = (UINT32)tokPageArray;
-                pThreadPage->mSysCall_Arg7_Result0 = mapRef.AsVirtMap->mPageArrayStartPageIx;
-            }
-        }
-        KernObj_ReleaseRef(&mapRef);
-    }
-
-    if (K2STAT_IS_ERROR(stat))
-    {
-        apCurThread->User.mSysCall_Result = 0;
-        pThreadPage->mLastStatus = stat;
-    }
-}
-
-void    
 KernVirtMap_SysCall_GetInfo(
     K2OSKERN_CPUCORE volatile * apThisCore,
     K2OSKERN_OBJ_THREAD * apCurThread
@@ -311,7 +264,7 @@ KernVirtMap_SysCall_GetInfo(
     K2OSKERN_OBJREF         mapRef;
     K2OS_THREAD_PAGE * pThreadPage;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     mapRef.AsAny = NULL;
@@ -326,7 +279,7 @@ KernVirtMap_SysCall_GetInfo(
         else
         {
             apCurThread->User.mSysCall_Result = mapRef.AsVirtMap->OwnerMapTreeNode.mUserVal;
-            pThreadPage->mSysCall_Arg7_Result0 = mapRef.AsVirtMap->mMapType;
+            pThreadPage->mSysCall_Arg7_Result0 = mapRef.AsVirtMap->mVirtToPhysMapType;
             pThreadPage->mSysCall_Arg6_Result1 = mapRef.AsVirtMap->mPageCount;
         }
 
@@ -353,7 +306,7 @@ KernVirtMap_SysCall_Acquire(
     K2OS_THREAD_PAGE *      pThreadPage;
     K2OSKERN_OBJREF         mapRef;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
     procVirtAddr = apCurThread->User.mSysCall_Arg0;
 
@@ -371,7 +324,7 @@ KernVirtMap_SysCall_Acquire(
             stat = KernProc_TokenCreate(pProc, mapRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
             if (!K2STAT_IS_ERROR(stat))
             {
-                pThreadPage->mSysCall_Arg7_Result0 = mapRef.AsVirtMap->mMapType;
+                pThreadPage->mSysCall_Arg7_Result0 = mapRef.AsVirtMap->mVirtToPhysMapType;
                 pThreadPage->mSysCall_Arg6_Result1 = pageIx;
             }
             KernObj_ReleaseRef(&mapRef);

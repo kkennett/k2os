@@ -56,7 +56,7 @@ K2OS_Thread_WaitMany(
     }
 
     threadIx = CRT_GET_CURRENT_THREAD_INDEX;
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (threadIx * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (threadIx * K2_VA_MEMPAGE_BYTES));
 
     if (aCount > 0)
     {

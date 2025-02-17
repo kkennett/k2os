@@ -55,6 +55,16 @@ K2OSKERN_IrqSetEnable
 K2OSKERN_IntrVoteIrqEnable
 K2OSKERN_IntrDone
 K2OSKERN_PrepIo
+#K2OSKERN_DirEntAddRef
+#K2OSKERN_DirEntRelease
+K2OSKERN_GetFirmwareTable
+K2OSKERN_RwLockInit
+K2OSKERN_RwLockDone
+K2OSKERN_RwLockReadLock
+K2OSKERN_RwLockReadUnlock
+K2OSKERN_RwLockUpgradeReadLockToWriteLock
+K2OSKERN_RwLockWriteLock
+K2OSKERN_RwLockWriteUnlock
 
 #
 # k2os exports for kernel
@@ -71,6 +81,7 @@ K2OS_System_HfTickFromMsTick
 K2OS_System_MsTickFromHfTick
 K2OS_System_HfTickFromMsTick32
 K2OS_System_MsTick32FromHfTick
+K2OS_System_GetTime
 K2OS_System_CreateProcess
 
 K2OS_Process_GetId
@@ -126,7 +137,6 @@ K2OS_Virt_Get
 K2OS_Virt_Release
 
 K2OS_VirtMap_Create
-K2OS_VirtMap_AcquirePageArray
 K2OS_VirtMap_Acquire
 K2OS_VirtMap_GetInfo
 
@@ -169,17 +179,59 @@ K2OS_Ipc_RejectRequest
 K2OS_RpcServer_GetIfInstId
 K2OS_RpcServer_Register
 K2OS_RpcServer_Deregister
-K2OS_RpcObj_GetContext
+K2OS_RpcObj_GetDetail
 K2OS_RpcObj_SendNotify
 K2OS_RpcObj_AddIfInst
 K2OS_RpcObj_RemoveIfInst
 K2OS_Rpc_CreateObj
 K2OS_Rpc_AttachByObjId
 K2OS_Rpc_AttachByIfInstId
+K2OS_Rpc_Acquire
 K2OS_Rpc_GetObjId
+K2OS_Rpc_GetObjClass
 K2OS_Rpc_SetNotifyTarget
 K2OS_Rpc_Call
 K2OS_Rpc_Release
+
+K2OS_FsMgr_FormatVolume
+K2OS_FsMgr_CleanVolume
+K2OS_FsMgr_Mount
+K2OS_FsMgr_Dismount
+K2OS_FsMgr_SetNotifyMailbox
+
+K2OS_FsClient_Create
+K2OS_FsClient_GetBaseDir
+K2OS_FsClient_SetBaseDir
+K2OS_FsClient_CreateDir
+K2OS_FsClient_RemoveDir
+K2OS_FsClient_OpenFile
+K2OS_FsClient_GetAttrib
+K2OS_FsClient_SetAttrib
+K2OS_FsClient_DeleteFile
+K2OS_FsClient_GetIoBlockAlign
+K2OS_FsClient_Destroy
+K2OS_FsClient_CreateEnum
+
+K2OS_FsEnum_Next
+K2OS_FsEnum_Destroy
+
+K2OS_File_GetInfo
+K2OS_File_GetPos
+K2OS_File_SetPos
+K2OS_File_GetSize
+K2OS_File_Read
+K2OS_File_Write
+K2OS_File_SetEnd
+K2OS_File_GetAccess
+K2OS_File_GetShare
+K2OS_File_GetAttrib
+K2OS_File_GetOpenFlags
+K2OS_File_GetBlockAlign
+K2OS_File_Close
+
+K2OS_FileMap_Create
+K2OS_FileMap_Map
+K2OS_FileMap_Unmap
 
 #########################################################
 [Data]

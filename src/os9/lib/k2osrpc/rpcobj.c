@@ -202,7 +202,7 @@ K2OSRPC_AcquireHandle(
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
         FUNC_EXIT;
-        return FALSE;
+        return NULL;
     }
 
     pHdr = NULL;
@@ -220,6 +220,35 @@ K2OSRPC_AcquireHandle(
 
     FUNC_EXIT;
     return pHdr;
+}
+
+K2OS_IFINST_ID      
+K2OS_Rpc_GetObjRpcServerIfInstId(
+    K2OS_RPC_OBJ_HANDLE aObjHandle
+)
+{
+    return K2OSRPC_GetObjIds(aObjHandle, NULL);
+}
+
+K2OS_RPC_OBJ_HANDLE 
+K2OS_Rpc_Acquire(
+    K2OS_RPC_OBJ_HANDLE aObjHandle
+)
+{
+    K2OS_IFINST_ID  serverIfInstId;
+    UINT32          objId;
+
+    FUNC_ENTER;
+
+    objId = 0;
+    serverIfInstId = K2OSRPC_GetObjIds(aObjHandle, &objId);
+    if ((0 == serverIfInstId) || (0 == objId))
+    {
+        FUNC_EXIT;
+        return NULL;
+    }
+
+    return K2OS_Rpc_AttachByObjId(serverIfInstId, objId);
 }
 
 BOOL                
@@ -254,6 +283,46 @@ K2OS_Rpc_GetObjId(
     else
     {
         *apRetObjId = K2OSRPC_Client_GetObjectId((K2OSRPC_CLIENT_OBJ_HANDLE *)pHdr);
+    }
+
+    K2OS_Rpc_Release((K2OS_RPC_OBJ_HANDLE)pHdr);
+
+    FUNC_EXIT;
+    return TRUE;
+}
+
+BOOL                
+K2OS_Rpc_GetObjClass(
+    K2OS_RPC_OBJ_HANDLE aObjHandle,
+    K2_GUID128 *        apRetClassId
+)
+{
+    K2OSRPC_OBJ_HANDLE_HDR * pHdr;
+
+    FUNC_ENTER;
+
+    if ((NULL == aObjHandle) || (NULL == apRetClassId))
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
+        FUNC_EXIT;
+        return FALSE;
+    }
+
+    pHdr = K2OSRPC_AcquireHandle(aObjHandle);
+    if (NULL == pHdr)
+    {
+        K2OS_Thread_SetLastStatus(K2STAT_ERROR_NOT_FOUND);
+        FUNC_EXIT;
+        return FALSE;
+    }
+
+    if (pHdr->mIsServer)
+    {
+        K2MEM_Copy(apRetClassId, &((K2OSRPC_SERVER_OBJ_HANDLE *)pHdr)->mpObj->mpClass->Def.ClassId, sizeof(K2_GUID128));
+    }
+    else
+    {
+        K2MEM_Copy(apRetClassId, &((K2OSRPC_CLIENT_OBJ_HANDLE *)pHdr)->ClassId, sizeof(K2_GUID128));
     }
 
     K2OS_Rpc_Release((K2OS_RPC_OBJ_HANDLE)pHdr);
@@ -445,6 +514,49 @@ K2OSRPC_ReleaseInternal(
 
     FUNC_EXIT;
     return TRUE;
+}
+
+K2OS_IFINST_ID
+K2OSRPC_GetObjIds(
+    K2OS_RPC_OBJ_HANDLE aObjHandle,
+    UINT32 *            apRetObjId
+)
+{
+    K2OSRPC_OBJ_HANDLE_HDR *    pHandleHdr;
+    K2OSRPC_CLIENT_OBJ_HANDLE * pClientHandle;
+    K2OS_IFINST_ID              ifInstId;
+
+    pHandleHdr = K2OSRPC_AcquireHandle(aObjHandle);
+    if (NULL == pHandleHdr)
+    {
+        FUNC_EXIT;
+        return 0;
+    }
+
+    if (pHandleHdr->mIsServer)
+    {
+        // local object
+        ifInstId = gRpcServerIfInstId;
+        if (NULL != apRetObjId)
+        {
+            *apRetObjId = ((K2OSRPC_SERVER_OBJ_HANDLE *)pHandleHdr)->mpObj->ServerObjIdTreeNode.mUserVal;
+        }
+    }
+    else
+    {
+        // remote object
+        pClientHandle = (K2OSRPC_CLIENT_OBJ_HANDLE *)pHandleHdr;
+        if (NULL != apRetObjId)
+        {
+            *apRetObjId = pClientHandle->mServerObjId;
+        }
+        ifInstId = pClientHandle->mpConnToServer->ConnTreeNode.mUserVal;
+    }
+
+    K2OS_Rpc_Release((K2OS_RPC_OBJ_HANDLE)pHandleHdr);
+
+    FUNC_EXIT;
+    return ifInstId;
 }
 
 BOOL                

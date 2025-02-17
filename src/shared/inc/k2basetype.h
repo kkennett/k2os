@@ -223,6 +223,21 @@ struct _K2_CHUNK_HDR
 typedef struct _K2_CHUNK_HDR K2_CHUNK_HDR;
 
 K2_PACKED_PUSH
+struct _K2_DATETIME
+{
+    UINT16  mYear;
+    UINT16  mMonth;
+    UINT16  mTimeZoneId;    // in WIN32 direct conversion this is day of week
+    UINT16  mDay;
+    UINT16  mHour;
+    UINT16  mMinute;
+    UINT16  mSecond;
+    UINT16  mMillisecond;
+} K2_PACKED_ATTRIB;
+K2_PACKED_POP
+typedef struct _K2_DATETIME K2_DATETIME;
+
+K2_PACKED_PUSH
 struct _K2_GUID128
 {
     UINT32  mData1;
@@ -348,6 +363,9 @@ typedef enum _K2Rot K2Rot;
         ((contType *)(((UINT8 *)(pField)) - K2_FIELDOFFSET(contType,fieldName)))
 #endif
 
+#define K2_BYTEREAD(p,o)        (*(((UINT8 const *)(p)) + (o)))
+#define K2_BYTEWRITE(p,o,v)     ((*(((UINT8 *)(p)) + (o))) = ((UINT8)(v)))
+
 #ifdef __cplusplus
 };  // extern "C"
 #endif
@@ -397,13 +415,6 @@ typedef enum _K2Rot K2Rot;
 
 #define K2STAT_OK                               0
 #define K2STAT_NO_ERROR                         0
-
-#define K2STAT_THREAD_WAITED                    1
-#define K2STAT_OPENED                           2
-#define K2STAT_CLOSED                           3
-#define K2STAT_PENDING                          4
-#define K2STAT_ALREADY_EXISTS                   5
-#define K2STAT_COMPLETED                        6
 
 #define K2STAT_EX_UNKNOWN                       K2STAT_MAKE_EXCEPTION(0)
 #define K2STAT_EX_ACCESS                        K2STAT_MAKE_EXCEPTION(1)
@@ -509,6 +520,10 @@ typedef enum _K2Rot K2Rot;
 #define K2STAT_ERROR_CONFIGURED                 K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x0005C)
 #define K2STAT_ERROR_NOT_SHARED                 K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x0005D)
 #define K2STAT_ERROR_NOT_ENABLED                K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x0005E)
+#define K2STAT_ERROR_NO_PATH                    K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x0005F)
+#define K2STAT_ERROR_EXISTS                     K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00060)
+#define K2STAT_ERROR_BAD_NAME                   K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00061)
+#define K2STAT_ERROR_SLEEP_FOREVER              K2STAT_MAKE_ERROR(K2STAT_FACILITY_SYSTEM, 0x00062)
 
 //
 //------------------------------------------------------------------------
@@ -1457,7 +1472,7 @@ struct _K2_NET_ADAPTER_ADDR
 typedef struct _K2_NET_ADAPTER_DESC K2_NET_ADAPTER_DESC;
 struct _K2_NET_ADAPTER_DESC
 {
-    K2_NetAdapterType   mType;
+    K2_NetAdapterType   mNetAdapterType;
     K2_NET_ADAPTER_ADDR Addr;
     UINT32              mPhysicalMTU; // full frame including headers/trailers
     char                mName[K2_NET_ADAPTER_NAME_MAX_LEN + 1];

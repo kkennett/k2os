@@ -66,7 +66,7 @@ K2OS_Semaphore_Inc(
     result = (BOOL)CrtKern_SysCall2(K2OS_SYSCALL_ID_SEM_INC, (UINT32)aTokSemaphore, aIncCount);
     if (FALSE != result)
     {
-        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
         *apRetNewCount = pThreadPage->mSysCall_Arg7_Result0;
     }
 

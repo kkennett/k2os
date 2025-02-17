@@ -64,6 +64,7 @@ X32_LDTENTRY __attribute__((aligned(16))) gX32Kern_UserLDT[K2OS_MAX_CPU_COUNT];
 // interrupt mappings and flags, configs
 //
 K2OSKERN_SEQLOCK    gX32Kern_IntrSeqLock;
+K2OSKERN_SEQLOCK    gX32Kern_SchedTimerSeqLock;
 BOOL                gX32Kern_ApicReady;
 UINT16              gX32Kern_GlobalSystemIrqOverrideMap[X32_DEVIRQ_MAX_COUNT];
 UINT16              gX32Kern_GlobalSystemIrqOverrideFlags[X32_DEVIRQ_MAX_COUNT];
@@ -154,9 +155,10 @@ KernArch_AtXdlEntry(
     X32Kern_IDTSetup();
 
     //
-    // we are off bootloader mapping structures now and can
+    // we are off bootloader mapping structures now
     //
     K2OSKERN_SeqInit(&gX32Kern_IntrSeqLock);
+    K2OSKERN_SeqInit(&gX32Kern_SchedTimerSeqLock);
 
     //
     // confirm local apic support

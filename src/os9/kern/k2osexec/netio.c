@@ -750,7 +750,7 @@ K2OSEXEC_NetIoRpc_Call(
     
     switch (apCall->Args.mMethodId)
     {
-    case K2OS_NETIO_METHOD_CONFIG:
+    case K2OS_NetIo_Method_Config:
         if ((0 != apCall->Args.mOutBufByteCount) ||
             (sizeof(K2OS_NETIO_CONFIG_IN) != apCall->Args.mInBufByteCount))
         {
@@ -762,7 +762,7 @@ K2OSEXEC_NetIoRpc_Call(
         }
         break;
 
-    case K2OS_NETIO_METHOD_GET_DESC:
+    case K2OS_NetIo_Method_GetDesc:
         if ((0 != apCall->Args.mInBufByteCount) ||
             (sizeof(K2_NET_ADAPTER_DESC) != apCall->Args.mOutBufByteCount))
         {
@@ -778,7 +778,7 @@ K2OSEXEC_NetIoRpc_Call(
         }
         break;
 
-    case K2OS_NETIO_METHOD_GET_STATE:
+    case K2OS_NetIo_Method_GetState:
         if ((0 != apCall->Args.mInBufByteCount) ||
             (sizeof(K2OS_NETIO_ADAPTER_STATE) != apCall->Args.mOutBufByteCount))
         {
@@ -794,7 +794,7 @@ K2OSEXEC_NetIoRpc_Call(
         }
         break;
 
-    case K2OS_NETIO_METHOD_BUFSTATS:
+    case K2OS_NetIo_Method_BufStats:
         if ((0 != apCall->Args.mInBufByteCount) ||
             ((sizeof(K2OS_NETIO_BUFCOUNTS) * 2) != apCall->Args.mOutBufByteCount))
         {
@@ -812,7 +812,7 @@ K2OSEXEC_NetIoRpc_Call(
         }
         break;
 
-    case K2OS_NETIO_METHOD_ACQBUFFER:
+    case K2OS_NetIo_Method_AcqBuffer:
         if ((0 != apCall->Args.mInBufByteCount) ||
             (sizeof(K2OS_NETIO_ACQBUFFER_OUT) != apCall->Args.mOutBufByteCount))
         {
@@ -828,7 +828,7 @@ K2OSEXEC_NetIoRpc_Call(
         }
         break;
 
-    case K2OS_NETIO_METHOD_SEND:
+    case K2OS_NetIo_Method_Send:
         if ((0 != apCall->Args.mOutBufByteCount) ||
             (sizeof(K2OS_NETIO_SEND_IN) != apCall->Args.mInBufByteCount))
         {
@@ -840,7 +840,7 @@ K2OSEXEC_NetIoRpc_Call(
         }
         break;
 
-    case K2OS_NETIO_METHOD_RELBUFFER:
+    case K2OS_NetIo_Method_RelBuffer:
         if ((0 != apCall->Args.mOutBufByteCount) ||
             (sizeof(UINT32) != apCall->Args.mInBufByteCount))
         {
@@ -853,7 +853,7 @@ K2OSEXEC_NetIoRpc_Call(
         }
         break;
 
-    case K2OS_NETIO_METHOD_SETENABLE:
+    case K2OS_NetIo_Method_SetEnable:
         if ((0 != apCall->Args.mOutBufByteCount) ||
             (sizeof(BOOL) != apCall->Args.mInBufByteCount))
         {
@@ -866,7 +866,7 @@ K2OSEXEC_NetIoRpc_Call(
         }
         break;
 
-    case K2OS_NETIO_METHOD_GETENABLE:
+    case K2OS_NetIo_Method_GetEnable:
         if ((0 != apCall->Args.mInBufByteCount) ||
             (sizeof(BOOL) != apCall->Args.mOutBufByteCount))
         {
@@ -1004,7 +1004,7 @@ NetIo_Recv(
 
     if (NULL != pUser)
     {
-        netMsg.mType = K2OS_NETIO_MSGTYPE;
+        netMsg.mMsgType = K2OS_NETIO_MSGTYPE;
         netMsg.mShort = K2OS_NetIoMsgShort_Recv;
         netMsg.mPayload[0] += (aPhysBufAddr - pNetIo->Register.mBufsPhysBaseAddr);
         netMsg.mPayload[1] = aByteCount;
@@ -1131,8 +1131,8 @@ K2OSDDK_NetIoRegister(
 
     K2MEM_Copy(&regis, apRegister, sizeof(K2OSDDK_NETIO_REGISTER));
 
-    if ((regis.Desc.mType == K2_NetAdapter_Invalid) ||
-        (regis.Desc.mType >= K2_NetAdapterType_Count) ||
+    if ((regis.Desc.mNetAdapterType == K2_NetAdapter_Invalid) ||
+        (regis.Desc.mNetAdapterType >= K2_NetAdapterType_Count) ||
         (regis.Desc.mPhysicalMTU == 0) ||
         (regis.Desc.Addr.mLen == 0) ||
         (NULL == regis.Xmit))

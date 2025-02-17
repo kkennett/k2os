@@ -54,6 +54,9 @@
     <source>a32cpuasm.s</source>
     <source>a32auxcoreasm.s</source>
     <source>a32threadasm.s</source>
+    <source>a32kernex.c</source>
+    <source>a32kernexasm.s</source>
+    <source>a32kerndbg.c</source>
 
     <lib>@shared/lib/k2archa32</lib>
     <lib>@shared/lib/k2rofshelp</lib>
@@ -62,9 +65,12 @@
     <lib>@shared/lib/k2ring</lib>
     <lib>@shared/lib/k2xdl</lib>
     <lib>@shared/lib/k2frame</lib>
+    <lib>@shared/lib/k2dis</lib>
     
     <lib>~kern/main</lib>
-                                                             s
+    <lib>~lib/k2osrpc</lib>
+    <lib>~lib/k2osfs</lib>
+
 </k2build>
 
 

@@ -57,20 +57,6 @@ struct _K2OS_STORAGE_MEDIA
     char    mFriendly[K2OS_STORAGE_MEDIA_FRIENDLY_BUFFER_CHARS];
 };
 
-#define K2OS_STORAGE_VOLUME_ATTRIB_READ_ONLY    1
-#define K2OS_STORAGE_VOLUME_ATTRIB_BOOT         2   // boot volume containing OS
-
-typedef struct _K2OS_STORAGE_VOLUME K2OS_STORAGE_VOLUME;
-struct _K2OS_STORAGE_VOLUME
-{
-    K2_GUID128  mUniqueId;
-    UINT64      mBlockCount;
-    UINT64      mTotalBytes;
-    UINT64      mAttributes;
-    UINT32      mBlockSizeBytes;
-    UINT32      mPartitionCount;
-};
-
 //
 //------------------------------------------------------------------------
 //

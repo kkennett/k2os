@@ -55,11 +55,16 @@
     <source>fsmgr.c</source>
     <source>netio.c</source>
     <source>rofs.c</source>
+    <source>fsclient.c</source>
+    <source>fsfileuse.c</source>
+    <source>kernfile.c</source>
 
     <lib>~lib/k2osblockio</lib>
     <lib>~lib/k2osstorvol</lib>
     <lib>~lib/k2rundown</lib>
+    <lib>@shared/lib/k2rofshelp</lib>
     <lib>@shared/lib/k2fat</lib>
+    <lib>@shared/lib/k2vfs</lib>
 
     <xdl>~kern/k2osacpi</xdl>
     <xdl arch="x32">~kern/main/x32/k2oskern</xdl>

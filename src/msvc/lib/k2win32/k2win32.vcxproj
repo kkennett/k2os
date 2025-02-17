@@ -146,6 +146,7 @@
     <ClInclude Include="..\..\..\shared\inc\lib\k2win32.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\shared\k2time.c" />
     <ClCompile Include="ArgParser.cpp" />
     <ClCompile Include="CreateTemp.cpp" />
     <ClCompile Include="Environ.cpp" />

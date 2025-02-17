@@ -40,6 +40,7 @@
     <source>a32exception.c</source>>
     <source>a32divzero.c</source>
     <source>a32trapasm.s</source>
+    <source>@shared/k2time.c</source>
 
     <lib>@shared/lib/k2mem</lib>
     <lib>@shared/lib/k2asc</lib>
@@ -59,5 +60,7 @@
     <lib>@shared/lib/k2archa32</lib>
 
     <lib>~user/crt</lib>
+    <lib>~lib/k2osrpc</lib>
+    <lib>~lib/k2osfs</lib>
 
 </k2build>

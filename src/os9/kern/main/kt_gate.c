@@ -80,7 +80,7 @@ KernGate_Threaded_KernelChange(
     // thread has to not exec again until after the Gate is processed
     //
     pSchedItem = &apThisThread->SchedItem;
-    pSchedItem->mType = KernSchedItem_KernThread_ChangeGate;
+    pSchedItem->mSchedItemType = KernSchedItem_KernThread_ChangeGate;
     pSchedItem->Args.Gate_Change.mNewState = aNewState;
     KernObj_CreateRef(&pSchedItem->ObjRef, &apGate->Hdr);
 

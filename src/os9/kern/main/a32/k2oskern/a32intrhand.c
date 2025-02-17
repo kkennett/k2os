@@ -36,8 +36,6 @@ static BOOL sgInIntr[K2OS_MAX_CPU_COUNT] = { 0, };
 
 static K2OSKERN_IRQ * sgpIrqObjByIrqIx[A32KERN_MAX_IRQ] = { 0, };
 
-static char sgSymDump[A32_SYM_NAME_MAX_LEN * K2OS_MAX_CPU_COUNT];
-
 BOOL
 A32Kern_CheckSvcInterrupt(
     UINT32 aStackPtr
@@ -68,6 +66,8 @@ A32Kern_CheckSvcInterrupt(
     pEx = (K2OSKERN_ARCH_EXEC_CONTEXT*)aStackPtr;
     pCurThread->User.mSysCall_Id = pEx->R[0];
     pCurThread->User.mSysCall_Arg0 = pEx->R[1];
+
+    KTRACE(pThisCore, 2, KTRACE_CORE_SYSCALL, pEx->R[0]);
 
     KernIntr_OnSystemCall(pThisCore, pCurThread, &pEx->R[0]);
 
@@ -123,6 +123,7 @@ A32Kern_CheckIrqInterrupt(
         //
         // cpu this ici is from is ((ackVal>>10) & 0x3)
         //
+        KTRACE(pThisCore, 2, KTRACE_CORE_ICI, (ackVal>>10) & 3);
         KernIntr_OnIci(pThisCore, pThisCore->mpActiveThread, intrId);
     }
     else
@@ -139,6 +140,7 @@ A32Kern_CheckIrqInterrupt(
             //
             // this will add a pending event to the CPU if we need to enter the monitor
             //
+            KTRACE(pThisCore, 2, KTRACE_CORE_TIMER_FIRED, intrId);
             forceEnterMonitor = A32Kern_CoreTimerInterrupt(pThisCore);
         }
         else
@@ -146,6 +148,7 @@ A32Kern_CheckIrqInterrupt(
             //
             // if this is a valid irq this will go through plat logic to deal with it
             //
+            KTRACE(pThisCore, 2, KTRACE_CORE_DEVICE_IRQ, intrId);
             K2OSKERN_Debug("Core %d recv IRQ %d\n", pThisCore->mCoreIx, intrId);
             pThisCore->mActiveIrq = intrId;
             KernIntr_OnIrq(pThisCore, sgpIrqObjByIrqIx[intrId]);
@@ -168,208 +171,32 @@ A32Kern_CheckIrqInterrupt(
     return (pThisCore->PendingEventList.mNodeCount != 0) ? TRUE : FALSE;
 }
 
-static void
-sEmitSymbolName(
-    K2OSKERN_OBJ_PROCESS *  apProc,
-    UINT32                  aAddr,
-    char *                  pBuffer
-)
-{
-    *pBuffer = 0;
-    KernXdl_FindClosestSymbol(apProc, aAddr, pBuffer, A32_SYM_NAME_MAX_LEN);
-    if (*pBuffer == 0)
-    {
-        K2OSKERN_Debug("?(%08X)", aAddr);
-        return;
-    }
-    K2OSKERN_Debug("%s", pBuffer);
-}
-
-void A32Kern_DumpStackTrace(K2OSKERN_OBJ_PROCESS *apProc, UINT32 aPC, UINT32 aSP, UINT32* apBackPtr, UINT32 aLR, char *apBuffer)
-{
-    K2OSKERN_Debug("StackTrace:\n");
-    K2OSKERN_Debug("------------------\n");
-    K2OSKERN_Debug("SP       %08X\n", aSP);
-
-    K2OSKERN_Debug("PC       ");
-    sEmitSymbolName(apProc, aPC, apBuffer);
-    K2OSKERN_Debug("\n");
-
-    K2OSKERN_Debug("LR       %08X ", aLR);
-    sEmitSymbolName(apProc, aLR, apBuffer);
-    K2OSKERN_Debug("\n");
-
-#if 0
-
-each frame:
-
-pc  <-- fp points here : contains pointer to 8 bytes after the push instruction at the start of the function that is saving these 4 registers
-lr  -4  (saved Link register which holds the return address this routine will return to)
-sp  -8  (saved stack pointer in function that is returned at the point of the call)
-fp  -12 (next frame pointer in stack)
-
-#endif
-
-    K2OSKERN_Debug("%08X ", apBackPtr);
-    if (apBackPtr == NULL)
-    {
-        K2OSKERN_Debug("Stack Ends\n");
-        return;
-    }
-    K2OSKERN_Debug("%08X ", apBackPtr[-1]);
-    sEmitSymbolName(apProc, apBackPtr[-1], apBuffer);
-    K2OSKERN_Debug("\n");
-    // saved stack pointer is at -2;  don't really care what that is
-    do {
-        apBackPtr = (UINT32*)apBackPtr[-3];
-        K2OSKERN_Debug("%08X ", apBackPtr);
-        if (apBackPtr == NULL)
-        {
-            K2OSKERN_Debug("\n");
-            return;
-        }
-        if (apBackPtr[0] == 0)
-        {
-            K2OSKERN_Debug("00000000 Stack Ends\n");
-            return;
-        }
-        K2OSKERN_Debug("%08X ", apBackPtr[-1]);
-        sEmitSymbolName(apProc, apBackPtr[-1], apBuffer);
-        K2OSKERN_Debug("\n");
-    } while (1);
-}
-
-void
-A32Kern_DumpExecContext(
-    K2OSKERN_ARCH_EXEC_CONTEXT * apExContext
-)
-{
-    K2OSKERN_Debug("SPSR      %08X\n", apExContext->PSR);
-    K2OSKERN_Debug("  r0=%08X   r8=%08X\n", apExContext->R[0], apExContext->R[8]);
-    K2OSKERN_Debug("  r1=%08X   r9=%08X\n", apExContext->R[1], apExContext->R[9]);
-    K2OSKERN_Debug("  r2=%08X  r10=%08X\n", apExContext->R[2], apExContext->R[10]);
-    K2OSKERN_Debug("  r3=%08X  r11=%08X\n", apExContext->R[3], apExContext->R[11]);
-    K2OSKERN_Debug("  r4=%08X  r12=%08X\n", apExContext->R[4], apExContext->R[12]);
-    K2OSKERN_Debug("  r5=%08X   sp=%08X\n", apExContext->R[5], apExContext->R[13]);
-    K2OSKERN_Debug("  r6=%08X   lr=%08X\n", apExContext->R[6], apExContext->R[14]);
-    K2OSKERN_Debug("  r7=%08X   pc=%08X\n", apExContext->R[7], apExContext->R[15]);
-}
-
-void A32Kern_DumpExceptionContext(K2OSKERN_CPUCORE volatile* apCore, UINT32 aReason, K2OSKERN_ARCH_EXEC_CONTEXT* pEx)
-{
-    K2OSKERN_Debug("Exception %d (", aReason);
-    switch (aReason)
-    {
-    case A32KERN_EXCEPTION_REASON_UNDEFINED_INSTRUCTION:
-        K2OSKERN_Debug("Undefined Instruction");
-        break;
-    case A32KERN_EXCEPTION_REASON_SYSTEM_CALL:
-        K2OSKERN_Debug("System Call");
-        break;
-    case A32KERN_EXCEPTION_REASON_PREFETCH_ABORT:
-        K2OSKERN_Debug("Prefetch Abort");
-        break;
-    case A32KERN_EXCEPTION_REASON_DATA_ABORT:
-        K2OSKERN_Debug("Data Abort");
-        break;
-    case A32KERN_EXCEPTION_REASON_IRQ:
-        K2OSKERN_Debug("IRQ");
-        break;
-    case A32KERN_EXCEPTION_REASON_RAISE_EXCEPTION:
-        K2OSKERN_Debug("RaiseException");
-        break;
-    default:
-        K2OSKERN_Debug("Unknown");
-        break;
-    }
-    K2OSKERN_Debug(") in Arm32.");
-    switch (pEx->PSR & A32_PSR_MODE_MASK)
-    {
-    case A32_PSR_MODE_USR:
-        K2OSKERN_Debug("USR");
-        break;
-    case A32_PSR_MODE_SYS:
-        K2OSKERN_Debug("SYS");
-        break;
-    case A32_PSR_MODE_SVC:
-        K2OSKERN_Debug("SVC");
-        break;
-    case A32_PSR_MODE_UNDEF:
-        K2OSKERN_Debug("UND");
-        break;
-    case A32_PSR_MODE_ABT:
-        K2OSKERN_Debug("ABT");
-        break;
-    case A32_PSR_MODE_IRQ:
-        K2OSKERN_Debug("IRQ");
-        break;
-    case A32_PSR_MODE_FIQ:
-        K2OSKERN_Debug("FIQ");
-        break;
-    default:
-        K2OSKERN_Debug("???");
-        break;
-    }
-    K2OSKERN_Debug(" mode. ExContext @ 0x%08X\n", pEx);
-    K2OSKERN_Debug("------------------\n");
-    K2OSKERN_Debug("Core      %d\n", apCore->mCoreIx);
-    K2OSKERN_Debug("DFAR      %08X\n", A32_ReadDFAR());
-    K2OSKERN_Debug("DFSR      %08X\n", A32_ReadDFSR());
-    K2OSKERN_Debug("IFAR      %08X\n", A32_ReadIFAR());
-    K2OSKERN_Debug("IFSR      %08X\n", A32_ReadIFSR());
-    K2OSKERN_Debug("STACK     %08X\n", A32_ReadStackPointer());
-    K2OSKERN_Debug("SCTLR     %08X\n", A32_ReadSCTRL());
-    K2OSKERN_Debug("ACTLR     %08X\n", A32_ReadAUXCTRL());
-    K2OSKERN_Debug("SCU       %08X\n", *((UINT32*)K2OS_KVA_A32_PERIPHBASE));
-    //    K2OSKERN_Debug("SCR       %08X\n", A32_ReadSCR());    // will fault in NS mode
-    K2OSKERN_Debug("DACR      %08X\n", A32_ReadDACR());
-    K2OSKERN_Debug("TTBCR     %08X\n", A32_ReadTTBCR());
-    K2OSKERN_Debug("TTBR0     %08X\n", A32_ReadTTBR0());
-    K2OSKERN_Debug("TTBR1     %08X\n", A32_ReadTTBR1());
-    K2OSKERN_Debug("CPSR      %08X\n", A32_ReadCPSR());
-    K2OSKERN_Debug("------------------\n");
-    A32Kern_DumpExecContext(pEx);
-}
-
 void
 A32Kern_OnException(
     K2OSKERN_CPUCORE volatile*  apThisCore,
-    UINT32                      aReason,
+    UINT32                      aArmReason,
     K2OSKERN_ARCH_EXEC_CONTEXT* apEx
 )
 {
-    K2OSKERN_OBJ_THREAD *       pCurThread;
-    K2OSKERN_CPUCORE_EVENT *    pEvent;
-    K2OSKERN_THREAD_EX  *       pThreadEx;
-    UINT32                      fsr;
+    K2OSKERN_OBJ_THREAD *               pCurThread;
+    K2OSKERN_CPUCORE_EVENT volatile *   pEvent;
+    K2OSKERN_THREAD_EX  *               pThreadEx;
+    UINT32                              fsr;
 
-    if (A32_PSR_MODE_USR != (apEx->PSR & A32_PSR_MODE_MASK))
+    if (apThisCore->mIsInMonitor)
     {
-        // 
-        // kernel mode exception = panic
-        //
-//        K2OSKERN_Panic("Exception while not in user mode\n");
-        K2OSKERN_Debug("Exception while not in user mode\n");
-        A32Kern_DumpExceptionContext(apThisCore, aReason, apEx);
-        A32Kern_DumpStackTrace(NULL, apEx->R[15], apEx->R[13], (UINT32 *)apEx->R[11], apEx->R[14], &sgSymDump[apThisCore->mCoreIx * A32_SYM_NAME_MAX_LEN]);
-        while (1);
+        K2OSKERN_Debug("Core %d, Exception %d in monitor. Context @ %08X\n", apThisCore->mCoreIx, aArmReason, apEx);
+        A32Kern_DumpExceptionContext(apThisCore, aArmReason, apEx);
+        A32Kern_DumpStackTrace(apThisCore, NULL, apEx->R[15], apEx->R[13], (UINT32 *)apEx->R[11], apEx->R[14]);
+        K2OSKERN_Panic(NULL);
     }
 
     pCurThread = apThisCore->mpActiveThread;
     K2_ASSERT(NULL != pCurThread);
 
-    pThreadEx = &pCurThread->User.LastEx;
-    if ((aReason != A32KERN_EXCEPTION_REASON_UNDEFINED_INSTRUCTION) &&
-        (aReason != A32KERN_EXCEPTION_REASON_PREFETCH_ABORT) &&
-        (aReason != A32KERN_EXCEPTION_REASON_DATA_ABORT))
-    {
-        K2OSKERN_Debug("Unhandled exception reason (%d)\n", aReason);
-        A32Kern_DumpExceptionContext(apThisCore, aReason, apEx);
-        A32Kern_DumpStackTrace(NULL, apEx->R[15], apEx->R[13], (UINT32 *)apEx->R[11], apEx->R[14], &sgSymDump[apThisCore->mCoreIx * A32_SYM_NAME_MAX_LEN]);
-        while (1);
-    }
+    pThreadEx = &pCurThread->LastEx;
 
-    if (aReason != A32KERN_EXCEPTION_REASON_DATA_ABORT)
+    if (aArmReason != A32KERN_EXCEPTION_REASON_DATA_ABORT)
     {
         // IFAR, IFSR
         pThreadEx->mFaultAddr = A32_ReadIFAR();
@@ -426,9 +253,21 @@ A32Kern_OnException(
         //
         // no idea what to do with this
         //
-        K2OSKERN_Debug("Core %d Exception, reason %d, fsr = %02X\n", apThisCore->mCoreIx, aReason, fsr);
+        K2OSKERN_Debug("Core %d Exception, reason %d, fsr = %02X\n", apThisCore->mCoreIx, aArmReason, fsr);
         pThreadEx->mExCode = K2STAT_EX_UNKNOWN;
         pThreadEx->mPageWasPresent = FALSE;
+    }
+
+    pThreadEx->mArchSpec[0] = aArmReason;
+    pThreadEx->mArchSpec[1] = fsr;
+
+    if (A32_PSR_MODE_USR == (apEx->PSR & A32_PSR_MODE_MASK))
+    {
+        K2_ASSERT(!pCurThread->mIsKernelThread);
+    }
+    else
+    {
+        K2_ASSERT(pCurThread->mIsKernelThread);
     }
 
     pEvent = &pCurThread->CpuCoreEvent;
@@ -440,7 +279,7 @@ A32Kern_OnException(
 
 UINT32
 A32Kern_InterruptHandler(
-    UINT32 aReason,
+    UINT32 aArmReason,
     UINT32 aStackPtr,
     UINT32 aCPSR
 )
@@ -465,7 +304,7 @@ A32Kern_InterruptHandler(
 
     pCoreMem = K2OSKERN_GET_CURRENT_COREMEMORY;
 
-    pEx = (K2OSKERN_ARCH_EXEC_CONTEXT*)aStackPtr;
+    pEx = (K2OSKERN_ARCH_EXEC_CONTEXT*)aStackPtr;   // in whatever mode
 
     if (sgInIntr[pCoreMem->CpuCore.mCoreIx])
     {
@@ -477,14 +316,30 @@ A32Kern_InterruptHandler(
     pCurThread = pCoreMem->CpuCore.mpActiveThread;
     if (NULL != pCurThread)
     {
-        K2MEM_Copy(&pCurThread->User.ArchExecContext, (void *)aStackPtr, sizeof(K2OSKERN_ARCH_EXEC_CONTEXT));
+        if (pCurThread->mIsKernelThread)
+        {
+            // we will never be in sys mode here as that is our native mode
+            // outside of interrupt
+            K2_ASSERT((aCPSR & A32_PSR_MODE_MASK) != A32_PSR_MODE_SYS);
+            // we should always be coming from SYS mode into here, otherwise
+            // there was an error while we were in one of the other modes
+            // which is not recoverable.
+            K2_ASSERT((pEx->PSR & A32_PSR_MODE_MASK) == A32_PSR_MODE_SYS);
+            K2MEM_Copy(&pCurThread->Kern.ArchExecContext, (void*)aStackPtr, sizeof(K2OSKERN_ARCH_EXEC_CONTEXT));
+        }
+        else
+        {
+            K2_ASSERT((pEx->PSR & A32_PSR_MODE_MASK) == A32_PSR_MODE_USR);
+            K2MEM_Copy(&pCurThread->User.ArchExecContext, (void *)aStackPtr, sizeof(K2OSKERN_ARCH_EXEC_CONTEXT));
+        }
     }
 
-    if (aReason != A32KERN_EXCEPTION_REASON_IRQ)
+    if (aArmReason != A32KERN_EXCEPTION_REASON_IRQ)
     {
-        if (aReason != A32KERN_EXCEPTION_REASON_SYSTEM_CALL)
+        if (aArmReason != A32KERN_EXCEPTION_REASON_SYSTEM_CALL)
         {
-            A32Kern_OnException(&pCoreMem->CpuCore, aReason, pEx);
+            KTRACE(&pCoreMem->CpuCore, 2, KTRACE_CORE_EXCEPTION, aArmReason);
+            A32Kern_OnException(&pCoreMem->CpuCore, aArmReason, pEx);
         }
         else
         {
@@ -500,57 +355,12 @@ A32Kern_InterruptHandler(
     K2_ASSERT(!pCoreMem->CpuCore.mIsInMonitor);
     sgInIntr[pCoreMem->CpuCore.mCoreIx] = FALSE;
     pCoreMem->CpuCore.mIsInMonitor = TRUE;
+    A32Kern_StopCoreTimer(&pCoreMem->CpuCore);
 
     //
     // returns stack pointer to use when jumping into monitor
     //
     return ((UINT32)&pCoreMem->mStacks[K2OSKERN_COREMEMORY_STACKS_BYTES]) - 8;
-}
-
-void
-KernArch_Panic(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    BOOL                        aDumpStack
-)
-{
-    if (aDumpStack)
-    {
-        A32Kern_DumpStackTrace(
-            NULL,
-            (UINT32)KernArch_Panic,
-            A32_ReadStackPointer(),
-            (UINT32 *)A32_ReadFramePointer(),
-            (UINT32)K2_RETURN_ADDRESS,
-            &sgSymDump[apThisCore->mCoreIx * A32_SYM_NAME_MAX_LEN]
-        );
-    }
-    while (1);
-}
-
-void
-KernArch_DumpThreadContext(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    K2OSKERN_OBJ_THREAD *       apThread
-)
-{
-    K2OSKERN_Debug("Process %d Thread %d Context\n", apThread->User.ProcRef.AsProc->mId, apThread->mGlobalIx);
-    A32Kern_DumpExecContext(&apThread->User.ArchExecContext);
-    if (K2STAT_IS_ERROR(apThread->User.LastEx.mExCode))
-    {
-        K2OSKERN_Debug("Last Exception:\n");
-        K2OSKERN_Debug("  Code    = %08X\n", apThread->User.LastEx.mExCode);
-        K2OSKERN_Debug("  Address = %08X\n", apThread->User.LastEx.mFaultAddr);
-        K2OSKERN_Debug("  Write   = %s\n", apThread->User.LastEx.mWasWrite ? "TRUE" : "FALSE");
-        K2OSKERN_Debug("  Present = %s\n", apThread->User.LastEx.mPageWasPresent ? "TRUE" : "FALSE");
-    }
-    A32Kern_DumpStackTrace(
-        apThread->User.ProcRef.AsProc,
-        apThread->User.ArchExecContext.R[15],
-        apThread->User.ArchExecContext.R[13],
-        (UINT32 *)apThread->User.ArchExecContext.R[11],
-        apThread->User.ArchExecContext.R[14],
-        &sgSymDump[apThisCore->mCoreIx * A32_SYM_NAME_MAX_LEN]
-        );
 }
 
 void

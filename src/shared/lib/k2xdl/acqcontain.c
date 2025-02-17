@@ -46,25 +46,51 @@ IXDL_AcqContain(
     UINT_PTR            v;
 
     pListLink = gpXdlGlobal->LoadedList.mpHead;
-    if (NULL == pListLink)
-        return K2STAT_ERROR_NOT_FOUND;
-
-    do {
-        pXdl = K2_GET_CONTAINER(XDL, pListLink, ListLink);
-        pHeader = pXdl->mpHeader;
-        for (ixSeg = XDLSegmentIx_Text; ixSeg <= XDLSegmentIx_Data; ixSeg++)
-        {
-            v = (UINT_PTR)pHeader->Segment[ixSeg].mLinkAddr;
-            if ((v <= aAddr) && ((aAddr - v) < pHeader->Segment[ixSeg].mMemActualBytes))
+    if (NULL != pListLink)
+    {
+        do {
+            pXdl = K2_GET_CONTAINER(XDL, pListLink, ListLink);
+            pHeader = pXdl->mpHeader;
+            for (ixSeg = XDLSegmentIx_Text; ixSeg <= XDLSegmentIx_Data; ixSeg++)
             {
-                ++pXdl->mRefs;
-                *appRetXdl = pXdl;
-                *apRetSegment = ixSeg;
-                return K2STAT_NO_ERROR;
+                v = (UINT_PTR)pHeader->Segment[ixSeg].mLinkAddr;
+                if ((v <= aAddr) && ((aAddr - v) < pHeader->Segment[ixSeg].mMemActualBytes))
+                {
+                    ++pXdl->mRefs;
+                    *appRetXdl = pXdl;
+                    *apRetSegment = ixSeg;
+                    return K2STAT_NO_ERROR;
+                }
             }
-        }
-        pListLink = pListLink->mpNext;
-    } while (NULL != pListLink);
+            pListLink = pListLink->mpNext;
+        } while (NULL != pListLink);
+    }
+
+    //
+    // this may be done during and xdl_entry callback. 
+    // we can addref an existing xdl assuming that whoever
+    // is acquiring it will release it if there is a failure.
+    //
+    pListLink = gpXdlGlobal->AcqList.mpHead;
+    if (NULL != pListLink)
+    {
+        do {
+            pXdl = K2_GET_CONTAINER(XDL, pListLink, ListLink);
+            pHeader = pXdl->mpHeader;
+            for (ixSeg = XDLSegmentIx_Text; ixSeg <= XDLSegmentIx_Data; ixSeg++)
+            {
+                v = (UINT_PTR)pHeader->Segment[ixSeg].mLinkAddr;
+                if ((v <= aAddr) && ((aAddr - v) < pHeader->Segment[ixSeg].mMemActualBytes))
+                {
+                    ++pXdl->mRefs;
+                    *appRetXdl = pXdl;
+                    *apRetSegment = ixSeg;
+                    return K2STAT_NO_ERROR;
+                }
+            }
+            pListLink = pListLink->mpNext;
+        } while (NULL != pListLink);
+    }
 
     return K2STAT_ERROR_NOT_FOUND;
 }

@@ -64,4 +64,7 @@
     <source>scatter.c</source>
     <source>gather.c</source>
     <source>vector.c</source>
+    <source>touch.c</source>
+    <source>asbytes.c</source>
+    
 </k2build>

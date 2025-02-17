@@ -101,7 +101,7 @@ K2OS_IfSubs_Create(
                         refSubs.AsIfSubs->mBacklogInit
                     );
                     KernObj_ReleaseRef(&refSubs.AsIfSubs->MailboxRef);
-                    KernHeap_Free(refSubs.AsAny);
+                    KernObj_Free(refSubs.AsAny);
                     refSubs.AsAny = NULL;
                 }
                 else
@@ -109,6 +109,8 @@ K2OS_IfSubs_Create(
                     disp = K2OSKERN_SeqLock(&gData.Iface.SeqLock);
                     K2LIST_AddAtTail(&gData.Iface.SubsList, &refSubs.AsIfSubs->ListLink);
                     K2OSKERN_SeqUnlock(&gData.Iface.SeqLock, disp);
+
+                    KernObj_ReleaseRef(&refSubs);
                 }
             }
         }

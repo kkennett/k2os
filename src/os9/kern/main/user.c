@@ -62,7 +62,7 @@ KernUser_AllocStockPageArray(
     pPageArray->Hdr.mObjType = KernObj_PageArray;
     pPageArray->Hdr.mObjFlags = K2OSKERN_OBJ_FLAG_PERMANENT;
     K2LIST_Init(&pPageArray->Hdr.RefObjList);
-    pPageArray->mType = KernPageArray_Sparse;
+    pPageArray->mPageArrayType = KernPageArray_Sparse;
     pPageArray->mPageCount = aPageCount;
     pPageArray->mUserPermit = aUserPermit;
     KernPhys_AllocSparsePages(&res, aPageCount, &pPageArray->Data.Sparse.TrackList);
@@ -133,6 +133,8 @@ KernUser_Init(
     BOOL                        ok;
     K2OSKERN_OBJ_PAGEARRAY *    pPageArray;
     XDL_FILE_HEADER const *     pHeader;
+    K2STAT                      stat;
+    UINT32                      userCrtKernVirt;
 
     //
     // top init pt for user space is where the per-process top pagetable maps
@@ -148,7 +150,7 @@ KernUser_Init(
     pPageArray->Hdr.mObjType = KernObj_PageArray;
     pPageArray->Hdr.mObjFlags = K2OSKERN_OBJ_FLAG_PERMANENT;
     K2LIST_Init(&pPageArray->Hdr.RefObjList);
-    pPageArray->mType = KernPageArray_Sparse;
+    pPageArray->mPageArrayType = KernPageArray_Sparse;
     pPageArray->mPageCount = 1;
     pPageArray->mUserPermit = K2OS_MEMPAGE_ATTR_READABLE | K2OS_MEMPAGE_ATTR_EXEC;
     ok = KernPhys_Reserve_Init(&res, pPageArray->mPageCount);
@@ -180,7 +182,7 @@ KernUser_Init(
     pPageArray->Hdr.mObjType = KernObj_PageArray;
     pPageArray->Hdr.mObjFlags = K2OSKERN_OBJ_FLAG_PERMANENT;
     K2LIST_Init(&pPageArray->Hdr.RefObjList);
-    pPageArray->mType = KernPageArray_Sparse;
+    pPageArray->mPageArrayType = KernPageArray_Sparse;
     pPageArray->mPageCount = 1;
     pPageArray->mUserPermit = K2OS_MEMPAGE_ATTR_READABLE | K2OS_MEMPAGE_ATTR_DEVICEIO;
     pPageArray->Data.Sparse.mPages[0] = (gData.Timer.mIoPhys & K2_VA_PAGEFRAME_MASK);
@@ -194,7 +196,7 @@ KernUser_Init(
     //
     // ROFS is mapped right under the timer io page
     //
-    gData.User.mTopInitVirtBar = K2OS_UVA_TIMER_IOPAGE_BASE - (gData.FileSys.RefRofsVirtMap.AsVirtMap->mPageCount * K2_VA_MEMPAGE_BYTES);
+    gData.User.mTopInitVirtBar = K2OS_UVA_TIMER_IOPAGE_BASE - (gData.BuiltIn.RefRofsVirtMap.AsVirtMap->mPageCount * K2_VA_MEMPAGE_BYTES);
 
     segAddr = K2OS_UVA_LOW_BASE;
 
@@ -208,12 +210,12 @@ KernUser_Init(
     // get sizes of user crt segments from the k2oscrt user mode file header in the ROFS
     //
     pFile = K2ROFSHELP_SubFile(
-        gData.FileSys.mpRofs,
-        K2ROFS_ROOTDIR(gData.FileSys.mpRofs),
-        "k2oscrt.xdl");
+        gData.BuiltIn.mpRofs,
+        K2ROFS_ROOTDIR(gData.BuiltIn.mpRofs),
+        "user/k2oscrt.xdl");
     K2_ASSERT(NULL != pFile);
 
-    pHeader = (XDL_FILE_HEADER const *)K2ROFS_FILEDATA(gData.FileSys.mpRofs, pFile);
+    pHeader = (XDL_FILE_HEADER const *)K2ROFS_FILEDATA(gData.BuiltIn.mpRofs, pFile);
 
     K2_ASSERT(0 == pHeader->mImportsOffset);
 
@@ -252,7 +254,7 @@ KernUser_Init(
     gData.User.mBotInitVirtBar = segAddr;
 
     //
-    // will need a page for the tls pagetable for the process (maps 0->K2OS_UVA_LOW_BASE)
+    // will need a page for the threadpages pagetable for the process (maps 0->K2OS_UVA_LOW_BASE)
     //
     gData.User.mInitPageCount++;
 
@@ -312,6 +314,14 @@ KernUser_Init(
         K2OS_MEMPAGE_ATTR_READWRITE
         );
     segAddr += (UINT32)pHeader->Segment[XDLSegmentIx_Data].mSectorCount;
+
+    userCrtKernVirt = KernVirt_Reserve(gData.User.mCrtDataPagesCount);
+    K2_ASSERT(0 != userCrtKernVirt);
+
+    stat = KernVirtMap_Create(gData.User.mpKernUserCrtSeg[KernUserCrtSeg_Data], 0,
+        gData.User.mCrtDataPagesCount, userCrtKernVirt, K2OS_MapType_Data_ReadOnly,
+        &gData.User.RefVirtMapOfUserCrtDefaultDataSegment);
+    K2_ASSERT(!K2STAT_IS_ERROR(stat));
 
     gData.User.mpKernUserCrtSeg[KernUserCrtSeg_Sym] = KernUser_AllocStockPageArray(
         gData.User.mCrtSymPagesCount,

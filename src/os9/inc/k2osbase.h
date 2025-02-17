@@ -130,7 +130,7 @@ typedef struct _K2OS_PHYSTRACK_UEFI K2OS_PHYSTRACK_UEFI;
 struct _K2OS_PHYSTRACK_UEFI
 {
     UINT32  mProp;
-    UINT32  mType;
+    UINT32  mEfiMemType;
     UINT32  mUnused0;
     UINT32  mUnused1;
 };

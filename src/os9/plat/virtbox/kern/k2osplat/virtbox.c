@@ -108,7 +108,27 @@ K2OSPLAT_DeviceCreate(
                 //
                 // this is the root pci bus. force to built-in pci bus driver
                 //
-                *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, ":pcibus.xdl");
+                *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, "/fs/0/kern/pcibus.xdl");
+                return (K2OSPLAT_DEV)++gCount;
+            }
+            pScan++;
+        } while ((*pScan) != 0);
+
+        //
+        // this device is not the pci bus. next forced driver is the ramdisk driver
+        //
+        pScan = (char const *)apMountInfoIo;
+        do
+        {
+            pScan = K2ASC_FindCharConstIns('R', pScan);
+            if (NULL == pScan)
+                break;
+            if (0 == K2ASC_CompInsLen(pScan, "RAMDISK;", 8))
+            {
+                //
+                // this is the ramdisk driver
+                //
+                *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, "/fs/0/kern/ramdisk.xdl");
                 return (K2OSPLAT_DEV)++gCount;
             }
             pScan++;
@@ -116,7 +136,7 @@ K2OSPLAT_DeviceCreate(
     }
 
     //
-    // second forced driver is for the built-in IDE controller so we can load stuff
+    // next forced driver is for the built-in IDE controller so we can load stuff
     //
     if ((apDeviceIdent->mVendorId == 0x8086) &&
         (apDeviceIdent->mDeviceId == 0x7111))
@@ -124,26 +144,20 @@ K2OSPLAT_DeviceCreate(
         //
         // this is the ide controller. force the driver to the built in ide driver
         //
-        *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, ":ide.xdl");
+        *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, "/fs/0/kern/ide.xdl");
         return (K2OSPLAT_DEV)++gCount;
     }
 
     //
-    // third forced driver is the ramdisk
+    // temporary - next forced driver is the network driver
     //
-//    if (0 == K2ASC_CompInsLen((char const *)apMountInfoIo, "RAMDISK;", 8))
-//    {
-//        *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, ":ramdisk.xdl");
-//        return (K2OSPLAT_DEV)++gCount;
-//    }
-
     if ((apDeviceIdent->mVendorId == 0x1022) &&
         (apDeviceIdent->mDeviceId == 0x2000))
     {
         //
-        // this is the ide controller. force the driver to the built in ide driver
+        // this is the ethernet controller. force the driver to the built in ide driver
         //
-        *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, ":pcnet32.xdl");
+        *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, "/fs/0/kern/pcnet32.xdl");
         return (K2OSPLAT_DEV)++gCount;
     }
 

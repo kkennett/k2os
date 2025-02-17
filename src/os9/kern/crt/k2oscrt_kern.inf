@@ -41,6 +41,8 @@ ID {BA4BE89E-D7DC-423E-8947-B1848160EF9F}
 #
 __cxa_atexit
 __call_dtors
+K2_IsLeapYear
+K2_IsOsTimeValid
 
 #
 # ATOMIC
@@ -117,6 +119,7 @@ K2TREE_FirstNode
 K2TREE_LastNode
 K2TREE_Find
 K2TREE_FindOrAfter
+K2TREE_SwapNode
 
 # 
 # MEM
@@ -147,6 +150,11 @@ K2MEM_Compare
 K2MEM_Scatter
 K2MEM_Gather
 K2MEM_CountVectorsBytes
+K2MEM_Touch
+K2MEM_ReadAsBytes_UINT16
+K2MEM_WriteAsBytes_UINT16
+K2MEM_ReadAsBytes_UINT32
+K2MEM_WriteAsBytes_UINT32
 
 #
 # K2OSBASE

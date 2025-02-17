@@ -32,6 +32,9 @@
 
 #include "kern.h"
 
+#define WIN32_EPOCH_64                  116444736000000000LL
+#define WIN32_FILETIME_TICKS_PER_SEC    10000000
+
 void
 KernTimer_Init(
     void
@@ -61,3 +64,37 @@ KernTimer_MsTickFromHfTick(
 {
     *apRetMs = (((*apHfTicks) * 1000ull) / ((UINT64)gData.Timer.mFreq));
 }
+
+void    
+KernTimer_GetTime(
+    K2OS_TIME *apRetTime
+)
+{
+    //
+    // convert current millisecond to calendar date
+    //
+
+    //
+    // if we don't have one or its been too long since we
+    // did a dead reckoning, do a dead reckoning
+    // but make sure time doesn't go backwards.
+    //
+
+    KernFirm_GetTime(apRetTime);
+}
+
+void    
+KernTimer_SysCall_GetTime(
+    K2OSKERN_CPUCORE volatile * apThisCore,
+    K2OSKERN_OBJ_THREAD *       apCurThread
+)
+{
+    K2OS_THREAD_PAGE *pThreadPage;
+
+    pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
+
+    KernTimer_GetTime((K2OS_TIME *)&pThreadPage->mMiscBuffer);
+
+    apCurThread->User.mSysCall_Result = 1;
+}
+

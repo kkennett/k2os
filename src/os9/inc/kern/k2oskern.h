@@ -42,12 +42,14 @@
 #include <lib/k2archa32.h>
 #endif
 
+#include <lib/k2rwlock.h>
+
 #if __cplusplus
 extern "C" {
 #endif
 
 //
-//------------------------------s------------------------------------------
+//------------------------------------------------------------------------
 //
 
 typedef UINT32 (K2_CALLCONV_REGS *K2OSKERN_pf_GetCpuIndex)(void);
@@ -81,6 +83,42 @@ BOOL K2_CALLCONV_REGS K2OSKERN_SeqLock(K2OSKERN_SEQLOCK * apLock);
 
 typedef void  (K2_CALLCONV_REGS *K2OSKERN_pf_SeqUnlock)(K2OSKERN_SEQLOCK * apLock, BOOL aDisp);
 void K2_CALLCONV_REGS K2OSKERN_SeqUnlock(K2OSKERN_SEQLOCK * apLock, BOOL aLockDisp);
+
+//
+//------------------------------------------------------------------------
+//
+
+#define K2OSKERN_THREADED_RWLOCK_SLOT_COUNT 8
+
+struct _K2OSKERN_THREADED_RWLOCK
+{
+    K2RWLOCK            RwLock;
+    K2OSKERN_SEQLOCK    SeqLock;
+    UINT8               mSlotsMem[K2OS_CACHELINE_BYTES * (K2OSKERN_THREADED_RWLOCK_SLOT_COUNT + 1)];
+};
+
+typedef struct _K2OSKERN_THREADED_RWLOCK K2OSKERN_THREADED_RWLOCK;
+
+typedef void (*K2OSKERN_pf_RwLockInit)(K2OSKERN_THREADED_RWLOCK *apLock);
+void K2OSKERN_RwLockInit(K2OSKERN_THREADED_RWLOCK *apLock);
+
+typedef void (*K2OSKERN_pf_RwLockDone)(K2OSKERN_THREADED_RWLOCK *apLock);
+void K2OSKERN_RwLockDone(K2OSKERN_THREADED_RWLOCK *apLock);
+
+typedef void (*K2OSKERN_pf_RwLockReadLock)(K2OSKERN_THREADED_RWLOCK *apLock);
+void K2OSKERN_RwLockReadLock(K2OSKERN_THREADED_RWLOCK *apLock);
+
+typedef void (*K2OSKERN_pf_RwLockReadUnlock)(K2OSKERN_THREADED_RWLOCK *apLock);
+void K2OSKERN_RwLockReadUnlock(K2OSKERN_THREADED_RWLOCK *apLock);
+
+typedef void (*K2OSKERN_pf_RwLockUpgradeReadLockToWriteLock)(K2OSKERN_THREADED_RWLOCK *apLock);
+void K2OSKERN_RwLockUpgradeReadLockToWriteLock(K2OSKERN_THREADED_RWLOCK *apLock);
+
+typedef void (*K2OSKERN_pf_RwLockWriteLock)(K2OSKERN_THREADED_RWLOCK *apLock);
+void K2OSKERN_RwLockWriteLock(K2OSKERN_THREADED_RWLOCK *apLock);
+
+typedef void (*K2OSKERN_pf_RwLockWriteUnlock)(K2OSKERN_THREADED_RWLOCK *apLock);
+void K2OSKERN_RwLockWriteUnlock(K2OSKERN_THREADED_RWLOCK *apLock);
 
 //
 //------------------------------------------------------------------------
@@ -180,6 +218,161 @@ BOOL K2OSKERN_IntrDone(K2OS_INTERRUPT_TOKEN aTokIntr);
 
 typedef K2STAT (*K2OSKERN_pf_PrepIo)(BOOL aUseHwDma, BOOL aIsWrite, UINT32 aProcId, UINT32 *apAddr, UINT32 *apSizeBytes, K2OS_TOKEN *apRetToken);
 K2STAT K2OSKERN_PrepIo(BOOL aUseHwDma, BOOL aIsWrite, UINT32 aProcId, UINT32 *apAddr, UINT32 *apSizeBytes, K2OS_TOKEN *apRetToken);
+
+typedef BOOL (*K2OSKERN_pf_GetFirmwareTable)(K2_GUID128 const *apId, UINT32 *apIoBytes, void *apBuffer);
+BOOL K2OSKERN_GetFirmwareTable(K2_GUID128 const *apId, UINT32 *apIoBytes, void *apBuffer);
+
+//
+//------------------------------------------------------------------------
+//
+
+typedef struct _K2OSKERN_FILE           K2OSKERN_FILE;
+
+typedef struct _K2OSKERN_FSNODE         K2OSKERN_FSNODE;
+typedef struct _K2OSKERN_FSNODE_OPS     K2OSKERN_FSNODE_OPS;
+
+typedef struct _K2OSKERN_FSPROV         K2OSKERN_FSPROV;
+typedef struct _K2OSKERN_FSPROV_OPS     K2OSKERN_FSPROV_OPS;
+
+typedef struct _K2OSKERN_FILESYS        K2OSKERN_FILESYS;
+typedef struct _K2OSKERN_FILESYS_OPS    K2OSKERN_FILESYS_OPS;
+
+typedef void    (*K2OSKERN_pf_FsNodeInit)(K2OSKERN_FILESYS *apFileSys, K2OSKERN_FSNODE *apFsNode);
+typedef void    (*K2OSKERN_pf_FsShutdown)(K2OSKERN_FILESYS *apFileSys);
+typedef K2STAT  (*K2OSKERN_pf_FsAcquireChild)(K2OSKERN_FILESYS *apFileSys, K2OSKERN_FSNODE *apFsNode, char const *apChildName, K2OS_FileOpenType aOpenType, UINT32 aAccess, UINT32 aNewFileAttrib, K2OSKERN_FSNODE **appRetFsNode);
+typedef void    (*K2OSKERN_pf_FsFreeClosedNode)(K2OSKERN_FILESYS *apFileSys, K2OSKERN_FSNODE *apFsNode);
+
+struct _K2OSKERN_FILESYS_OPS
+{
+    // provided by kernel
+    struct
+    {
+        K2OSKERN_pf_FsNodeInit      FsNodeInit;
+        K2OSKERN_pf_FsShutdown      FsShutdown;
+    } Kern;
+    // filesys fills these in
+    struct
+    {
+        K2OSKERN_pf_FsAcquireChild      AcquireChild;
+        K2OSKERN_pf_FsFreeClosedNode    FreeClosedNode;
+    } Fs;
+};
+
+struct _K2OSKERN_FILESYS
+{
+    struct
+    {
+        K2OSKERN_FSPROV *   mpKernFsProv;
+        void *              mpAttachContext;
+    } Kern;
+    struct
+    {
+        UINT32  mProvInstanceContext;
+        BOOL    mReadOnly;
+        BOOL    mCaseSensitive;
+        BOOL    mDoNotUseForPaging;
+    } Fs;
+    K2OSKERN_FILESYS_OPS    Ops;
+};
+
+typedef struct _K2OSKERN_FSFILE_LOCK K2OSKERN_FSFILE_LOCK;
+struct _K2OSKERN_FSFILE_LOCK
+{
+    K2OSKERN_FSNODE *   mpFsNode;
+    UINT8 *             mpData;
+    UINT32              mLockedByteCount;
+};
+
+typedef INT_PTR (*K2OSKERN_pf_FsNode_AddRef)(K2OSKERN_FSNODE *apFsNode);
+typedef INT_PTR (*K2OSKERN_pf_FsNode_Release)(K2OSKERN_FSNODE *apFsNode);
+typedef K2STAT  (*K2OSKERN_pf_FsNode_GetSizeBytes)(K2OSKERN_FSNODE *apFsNode, UINT64 *apRetSizeBytes);
+typedef K2STAT  (*K2OSKERN_pf_FsNode_GetTime)(K2OSKERN_FSNODE *apFsNode, UINT64 *apRetTime);
+typedef K2STAT  (*K2OSKERN_pf_FsNode_LockData)(K2OSKERN_FSNODE *apFsNode, UINT64 const *apOffset, UINT32 aByteCount, BOOL aWriteable, K2OSKERN_FSFILE_LOCK **appRetFileLock);
+typedef void    (*K2OSKERN_pf_FsNode_UnlockData)(K2OSKERN_FSFILE_LOCK *apLock);
+
+struct _K2OSKERN_FSNODE_OPS
+{
+    struct
+    {
+        K2OSKERN_pf_FsNode_AddRef       AddRef;
+        K2OSKERN_pf_FsNode_Release      Release;
+    } Kern;
+    struct
+    {
+        K2OSKERN_pf_FsNode_GetSizeBytes GetSizeBytes;
+        K2OSKERN_pf_FsNode_GetTime      GetTime;
+        K2OSKERN_pf_FsNode_LockData     LockData;
+        K2OSKERN_pf_FsNode_UnlockData   UnlockData;
+    } Fs;
+};
+
+struct _K2OSKERN_FSNODE
+{
+    INT_PTR volatile        mRefCount;
+
+    K2OSKERN_SEQLOCK        ChangeSeqLock;
+
+    struct
+    {
+        K2TREE_NODE         ParentsChildTreeNode;
+    } ParentLocked;
+
+    struct
+    {
+        K2TREE_ANCHOR   ChildTree;
+        UINT32          mCurrentShare;
+        UINT32          mFsAttrib;      // dir bit is never changeable. see Static.mIsDir
+    } Locked;
+
+    struct
+    {
+        K2OSKERN_FILESYS *  mpFileSys;
+        K2OSKERN_FSNODE *   mpParentDir;
+        BOOL                mIsDir;
+        K2OSKERN_FSNODE_OPS Ops;
+        UINT32              mFsContext;
+        char                mName[K2OS_FSITEM_MAX_COMPONENT_NAME_LENGTH + 1];
+    } Static;
+};
+
+//
+//------------------------------------------------------------------------
+//
+
+// {DFCE881F-24CE-4EF3-9AEC-1524D07F2C1D}
+#define K2OS_IFACE_FSPROV               { 0xdfce881f, 0x24ce, 0x4ef3, { 0x9a, 0xec, 0x15, 0x24, 0xd0, 0x7f, 0x2c, 0x1d } }
+
+typedef enum _K2OS_FsProv_Method K2OS_FsProv_Method;
+enum _K2OS_FsProv_Method
+{
+    K2OS_FsProv_Method_Invalid = 0,
+
+    K2OS_FsProv_Method_GetCount,
+    K2OS_FsProv_Method_GetEntry,
+
+    K2OS_FsProv_Method_Count
+};
+
+#define K2OSKERN_FSPROV_NAME_MAX_LEN    63
+
+typedef K2STAT (*K2OSKERN_FsProv_pf_Probe)(K2OSKERN_FSPROV *apProv, void *apAttachContext, BOOL *apRetMatch);
+typedef K2STAT (*K2OSKERN_FsProv_pf_Attach)(K2OSKERN_FSPROV *apProv, K2OSKERN_FILESYS *apFileSys, K2OSKERN_FSNODE *apRootFsNode);
+
+struct _K2OSKERN_FSPROV_OPS
+{
+    K2OSKERN_FsProv_pf_Probe    Probe;
+    K2OSKERN_FsProv_pf_Attach   Attach;
+};
+
+#define K2OSKERN_FSPROV_FLAG_USE_VOLUME_IFINSTID    1
+#define K2OSKERN_FSPROV_FLAG_USE_SMBCONN_IFINSTID   2
+
+struct _K2OSKERN_FSPROV
+{
+    char                mName[K2OSKERN_FSPROV_NAME_MAX_LEN + 1];
+    UINT_PTR            mFlags;
+    K2OSKERN_FSPROV_OPS Ops;
+};
 
 //
 //------------------------------------------------------------------------

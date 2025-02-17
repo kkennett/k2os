@@ -62,6 +62,12 @@ At initialization:
 
 */
 
+#define CHECK_LOGIC_FAULT   1
+
+#if CHECK_LOGIC_FAULT
+BOOL sgFault = FALSE;
+#endif
+
 #define HEAPNODES_PER_PAGE (K2_VA_MEMPAGE_BYTES / sizeof(K2OSKERN_VIRTHEAP_NODE))
 
 K2HEAP_NODE * KernVirt_HeapAcqNode(K2HEAP_ANCHOR *apHeap);
@@ -360,13 +366,12 @@ KernHeap_NewHeapMap(
     K2LIST_Init(&pVirtMap->Hdr.RefObjList);
     KernObj_CreateRef(&pVirtMap->PageArrayRef, refPageArray.AsAny);
     KernObj_ReleaseRef(&refPageArray);
-    pVirtMap->mMapType = K2OS_MapType_Data_ReadWrite;
+    pVirtMap->mVirtToPhysMapType = K2OS_MapType_Data_ReadWrite;
     pVirtMap->mPageArrayStartPageIx = 0;
     pVirtMap->mPageCount = pageCount;
     pVirtMap->OwnerMapTreeNode.mUserVal = virtAddr;
-    pVirtMap->Kern.mpVirtHeapNode = apVirtHeapNode;
     pVirtMap->Kern.mSizeBytes = pageCount * K2_VA_MEMPAGE_BYTES;
-    pVirtMap->Kern.mType = KernMap_PreMap;
+    pVirtMap->Kern.mSegType = KernSeg_PreMap;
     pVirtMap->mpPte = (UINT32 *)K2OS_KVA_TO_PTE_ADDR(virtAddr);
     
     disp = K2OSKERN_SeqLock(&gData.VirtMap.SeqLock);
@@ -383,6 +388,10 @@ KernHeap_Alloc(
     void *                      retPtr;
     BOOL                        disp;
     K2OSKERN_VIRTHEAP_NODE *    pVirtHeapNode;
+
+#if CHECK_LOGIC_FAULT
+    K2_ASSERT(!sgFault);
+#endif
 
     disp = K2OSKERN_SeqLock(&gData.Virt.HeapSeqLock);
 
@@ -500,7 +509,6 @@ KernVirt_ReplenishTracking(
         K2LIST_Remove(&trackList, &pTrack->ListLink);
         K2LIST_AddAtTail(&gData.Virt.PhysTrackList, &pTrack->ListLink);
         physPageAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack);
-        KernPhys_ZeroPage(physPageAddr);
         //        K2OSKERN_Debug("Install PT for va %08X\n", gData.Virt.mTopPt - K2_VA32_PAGETABLE_MAP_BYTES);
         KernArch_InstallPageTable(NULL, gData.Virt.mTopPt - K2_VA32_PAGETABLE_MAP_BYTES, physPageAddr);
 
@@ -518,10 +526,10 @@ KernVirt_ReplenishTracking(
         K2LIST_Remove(&trackList, &pTrack->ListLink);
         K2LIST_AddAtTail(&gData.Virt.PhysTrackList, &pTrack->ListLink);
         physPageAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack);
-        KernPhys_ZeroPage(physPageAddr);
 
         //        K2OSKERN_Debug("Map v%08X -> p%08X\n", (UINT32)pHeapNode, physPageAddr);
         KernPte_MakePageMap(NULL, (UINT32)pVirtHeapNode, physPageAddr, K2OS_MAPTYPE_KERN_DATA);
+        K2MEM_Zero(pVirtHeapNode, K2_VA_MEMPAGE_BYTES);
         for (ix = 0; ix < HEAPNODES_PER_PAGE; ix++)
         {
             K2LIST_AddAtTail(&gData.Virt.HeapFreeNodeList, (K2LIST_LINK *)&pVirtHeapNode[ix]);
@@ -548,7 +556,6 @@ KernVirt_ReplenishTracking(
         }
         K2LIST_AddAtTail(&gData.Virt.PhysTrackList, &pTrack->ListLink);
         physPageAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack);
-        KernPhys_ZeroPage(physPageAddr);
 
         //
         // there is space in the heap to alloc a page - take it from the start of the smallest size chunk
@@ -562,6 +569,7 @@ KernVirt_ReplenishTracking(
 
         //        K2OSKERN_Debug("Map v%08X -> p%08X\n", (UINT32)pHeapNode, physPageAddr);
         KernPte_MakePageMap(NULL, (UINT32)pVirtHeapNode, physPageAddr, K2OS_MAPTYPE_KERN_DATA);
+        K2MEM_Zero(pVirtHeapNode, K2_VA_MEMPAGE_BYTES);
         for (ix = 0; ix < HEAPNODES_PER_PAGE; ix++)
         {
             K2LIST_AddAtTail(&gData.Virt.HeapFreeNodeList, (K2LIST_LINK *)&pVirtHeapNode[ix]);
@@ -697,7 +705,6 @@ KernVirt_Locked_Alloc(
         K2LIST_AddAtTail(&gData.Virt.PhysTrackList, &pTrack->ListLink);
 
         physPageAddr = K2OS_PHYSTRACK_TO_PHYS32((UINT32)pTrack);
-        KernPhys_ZeroPage(physPageAddr);
         KernArch_InstallPageTable(NULL, gData.Virt.mBotPt, physPageAddr);
 
         K2HEAP_AddFreeSpaceNode(&gData.Virt.Heap, gData.Virt.mBotPt, K2_VA32_PAGETABLE_MAP_BYTES, NULL);
@@ -829,55 +836,195 @@ KernVirt_Threaded_Init(
 )
 {
     K2HEAP_NODE *           pHeapNode;
-    K2OSKERN_VIRTHEAP_NODE *pVirtHeapNode;
-    BOOL                    disp;
     K2TREE_NODE *           pTreeNode;
+    UINT32                  virtAddr;
+    UINT32                  pageCount;
+    K2OSKERN_OBJREF         refMap;
+    K2EFI_MEMORY_DESCRIPTOR desc;
+    UINT32                  entCount;
+    UINT8 const *           pWork;
 
     //
-    // any virtual allocations that do not have a K2OSKERN_OBJ_VIRTMAP need one
-    // this is running threaded but is the first thread in the system and it has
-    // not done anything yet
+    // go through EFI map and register runtime virtual ranges
+    // as maps so we can see offsets in case of exceptions
     //
+#if CHECK_LOGIC_FAULT
+    sgFault = TRUE;
+#endif
 
-    do {
-        disp = K2OSKERN_SeqLock(&gData.Virt.HeapSeqLock);
+    do
+    {
+        entCount = gData.mpShared->LoadInfo.mEfiMapSize / gData.mpShared->LoadInfo.mEfiMemDescSize;
+        pWork = (UINT8 const *)K2OS_KVA_EFIMAP_BASE;
+        do
+        {
+            K2MEM_Copy(&desc, pWork, sizeof(K2EFI_MEMORY_DESCRIPTOR));
+
+            if (0 != (desc.Attribute & K2EFI_MEMORYFLAG_RUNTIME))
+            {
+                if ((desc.Type == K2EFI_MEMTYPE_Run_Code) || 
+                    (desc.Type == K2EFI_MEMTYPE_Run_Data))
+                {
+                    virtAddr = (UINT32)desc.VirtualStart;
+                    pTreeNode = K2TREE_Find(&gData.VirtMap.Tree, virtAddr);
+                    if (NULL == pTreeNode)
+                    {
+                        pageCount = (UINT32)desc.NumberOfPages;
+//                        K2OSKERN_Debug("%08X %08X UEFI_NEED_MAP\n", virtAddr, pageCount * K2_VA_MEMPAGE_BYTES);
+                        refMap.AsAny = NULL;
+                        KernVirtMap_CreatePreMap(virtAddr, pageCount, 
+                            (desc.Type == K2EFI_MEMTYPE_Run_Code) ? K2OS_MapType_Text : K2OS_MapType_Data_ReadWrite,
+                            &refMap);
+                        refMap.AsVirtMap->Hdr.mObjFlags |= K2OSKERN_OBJ_FLAG_PERMANENT;
+                        KernObj_ReleaseRef(&refMap);
+                        break;
+                    }
+                }
+            }
+            pWork += gData.mpShared->LoadInfo.mEfiMemDescSize;
+        } while (--entCount > 0);
+    } while (entCount > 0);
+
+#if 0
+    UINT32 ptAddr;
+    UINT32 ptPteAddr;
+    UINT32 pte;
+    UINT32 ptPte;
+    UINT32 pteAddr;
+
+    //
+    // dump mappings from kernel base to arena low
+    //
+    virtAddr = K2OS_KVA_KERN_BASE;
+    do
+    {
+        ptAddr = K2OS_KVA_TO_PT_ADDR(virtAddr);
+        ptPteAddr = K2OS_KVA_TO_PTE_ADDR(ptAddr);
+        ptPte = *((UINT32 *)ptPteAddr);
+        if (0 == (ptPte & K2OSKERN_PTE_PRESENT_BIT))
+        {
+            K2OSKERN_Debug("%08X %08X UNMAPPPED PT\n", virtAddr, K2_VA32_PAGETABLE_MAP_BYTES);
+            virtAddr += K2_VA32_PAGETABLE_MAP_BYTES;
+        }
+        else
+        {
+            pageCount = K2_VA32_ENTRIES_PER_PAGETABLE;
+            pteAddr = ptAddr;
+            do
+            {
+                pte = *((UINT32 *)pteAddr);
+                if ((0 != (pte & K2OSKERN_PTE_PRESENT_BIT)) &&
+                    ((pte & K2_VA_PAGEFRAME_MASK) != gData.mpShared->LoadInfo.mZeroPagePhys))
+                {
+                    K2OSKERN_Debug("  %08X %08X\n", virtAddr, pte);
+                }
+                virtAddr += K2_VA_MEMPAGE_BYTES;
+                pteAddr += sizeof(pte);
+            } while (--pageCount);
+        }
+    } while (virtAddr < gData.mpShared->LoadInfo.mKernArenaLow);
+#endif
+    //
+    // make sure all virtual heap allocations that are not
+    // tracking structures have virtuap map objects
+    //
+//    K2OSKERN_Debug("%08X ARENA_LOW\n", gData.mpShared->LoadInfo.mKernArenaLow);
+    do
+    {
+//        K2OSKERN_Debug("\nITERATE\n");
 
         pHeapNode = K2HEAP_GetFirstNode(&gData.Virt.Heap);
         K2_ASSERT(NULL != pHeapNode);
 
-        do {
-            pVirtHeapNode = K2_GET_CONTAINER(K2OSKERN_VIRTHEAP_NODE, pHeapNode, HeapNode);
-
-            if (0 != K2TREE_NODE_USERBIT(&pVirtHeapNode->HeapNode.AddrTreeNode))
+        do
+        {
+            if (!K2HEAP_NodeIsFree(pHeapNode))
             {
-                //
-                // this is a RAMHEAP allocation
-                //
-                pTreeNode = K2TREE_Find(&gData.VirtMap.Tree, pVirtHeapNode->HeapNode.AddrTreeNode.mUserVal);
-                if (NULL == pTreeNode)
+                if (0 == K2HEAP_NODE_USERBIT(pHeapNode))
                 {
-                    break;
+                    // not a tracking alloc and not free
+                    virtAddr = pHeapNode->AddrTreeNode.mUserVal;
+                    pageCount = pHeapNode->SizeTreeNode.mUserVal / K2_VA_MEMPAGE_BYTES;
+                    pTreeNode = K2TREE_Find(&gData.VirtMap.Tree, pHeapNode->AddrTreeNode.mUserVal);
+                    if (NULL == pTreeNode)
+                    {
+//                        K2OSKERN_Debug("%08X %08X NEED_MAP\n", pHeapNode->AddrTreeNode.mUserVal, pHeapNode->SizeTreeNode.mUserVal);
+                        refMap.AsAny = NULL;
+                        KernVirtMap_CreatePreMap(virtAddr, pageCount, K2OS_MapType_Data_ReadWrite, &refMap);
+                        refMap.AsVirtMap->Hdr.mObjFlags |= K2OSKERN_OBJ_FLAG_PERMANENT;
+                        KernObj_ReleaseRef(&refMap);
+                        break;
+                    }
+//                    else
+//                    {
+//                        K2OSKERN_Debug("%08X %08X IN_TREE\n", pHeapNode->AddrTreeNode.mUserVal, pHeapNode->SizeTreeNode.mUserVal);
+//                    }
                 }
+                else
+                {
+//                    K2OSKERN_Debug("%08X %08X TRACKING\n", pHeapNode->AddrTreeNode.mUserVal, pHeapNode->SizeTreeNode.mUserVal);
+                }
+            }
+            else
+            {
+//                K2OSKERN_Debug("%08X %08X FREE\n", pHeapNode->AddrTreeNode.mUserVal, pHeapNode->SizeTreeNode.mUserVal);
             }
 
             pHeapNode = K2HEAP_GetNextNode(&gData.Virt.Heap, pHeapNode);
 
         } while (NULL != pHeapNode);
 
-        K2OSKERN_SeqUnlock(&gData.Virt.HeapSeqLock, disp);
+    } while (NULL != pHeapNode);
+//    K2OSKERN_Debug("%08X ARENA_HIGH\n", gData.mpShared->LoadInfo.mKernArenaHigh);
 
-        if (NULL == pHeapNode)
-            break;
+#if 0
+    virtAddr = gData.mpShared->LoadInfo.mKernArenaHigh;
+    pageCount = ((virtAddr + (K2_VA32_PAGETABLE_MAP_BYTES - 1)) / K2_VA32_PAGETABLE_MAP_BYTES) * K2_VA32_PAGETABLE_MAP_BYTES;
+    pteAddr = K2OS_KVA_TO_PTE_ADDR(virtAddr);
+    while (virtAddr < pageCount)
+    {
+        pte = *((UINT32 *)pteAddr);
+        if ((0 != (pte & K2OSKERN_PTE_PRESENT_BIT)) &&
+            ((pte & K2_VA_PAGEFRAME_MASK) != gData.mpShared->LoadInfo.mZeroPagePhys))
+        {
+            K2OSKERN_Debug("  %08X %08X\n", virtAddr, pte);
+        }
+        pteAddr += sizeof(pte);
+        virtAddr += K2_VA_MEMPAGE_BYTES;
+    }
+    do
+    {
+        ptAddr = K2OS_KVA_TO_PT_ADDR(virtAddr);
+        ptPteAddr = K2OS_KVA_TO_PTE_ADDR(ptAddr);
+        ptPte = *((UINT32 *)ptPteAddr);
+        if (0 == (ptPte & K2OSKERN_PTE_PRESENT_BIT))
+        {
+            K2OSKERN_Debug("%08X %08X UNMAPPPED PT\n", virtAddr, K2_VA32_PAGETABLE_MAP_BYTES);
+            virtAddr += K2_VA32_PAGETABLE_MAP_BYTES;
+        }
+        else
+        {
+            pageCount = K2_VA32_ENTRIES_PER_PAGETABLE;
+            pteAddr = ptAddr;
+            do
+            {
+                pte = *((UINT32 *)pteAddr);
+                if ((0 != (pte & K2OSKERN_PTE_PRESENT_BIT)) &&
+                    ((pte & K2_VA_PAGEFRAME_MASK) != gData.mpShared->LoadInfo.mZeroPagePhys))
+                {
+                    K2OSKERN_Debug("  %08X %08X\n", virtAddr, pte);
+                }
+                virtAddr += K2_VA_MEMPAGE_BYTES;
+                pteAddr += sizeof(pte);
+            } while (--pageCount);
+        }
+    } while (virtAddr > 0);
+#endif
 
-        //
-        // need to add a kernel virtual map for pVirtHeapNode
-        // so that things in the kernel can do I/O to it
-        //
-        KernHeap_NewHeapMap(pVirtHeapNode);
-
-    } while (1);
-
+#if CHECK_LOGIC_FAULT
+    sgFault = FALSE;
+#endif
     gData.Virt.mKernHeapThreaded = TRUE;
+    K2_CpuWriteBarrier();
 }
-
 

@@ -101,9 +101,9 @@ BuildFileUser_SrcXml::Construct_Img(
                         break;
                 }
             }
-            else if (pSubNode->Name.mLen == 7)
+            else if (pSubNode->Name.mLen == 12)
             {
-                if (0 == K2ASC_CompInsLen(pSubNode->Name.mpChars, "builtin", 7))
+                if (0 == K2ASC_CompInsLen(pSubNode->Name.mpChars, "user_builtin", 12))
                 {
                     pProjDep = AddProject(apFullPath, pSubNode, ProjectType_Xdl, &Proj.Img.BuiltInXdlProjList);
                     if (NULL == pProjDep)
@@ -112,6 +112,18 @@ BuildFileUser_SrcXml::Construct_Img(
                         (pProjDep->mpDependOn->mIsKernelTarget))
                     {
                         printf("*** XML for IMG specifies supplemental user XDL that is not targeted at user mode [%s]\n", apFullPath);
+                        break;
+                    }
+                }
+                else if (0 == K2ASC_CompInsLen(pSubNode->Name.mpChars, "kern_builtin", 12))
+                {
+                    pProjDep = AddProject(apFullPath, pSubNode, ProjectType_Xdl, &Proj.Img.BuiltInKernXdlProjList);
+                    if (NULL == pProjDep)
+                        break;
+                    if ((ProjectType_Invalid != pProjDep->mpDependOn->mProjectType) &&
+                        (!pProjDep->mpDependOn->mIsKernelTarget))
+                    {
+                        printf("*** XML for IMG specifies supplemental kernel XDL that is not targeted at kernel mode [%s]\n", apFullPath);
                         break;
                     }
                 }

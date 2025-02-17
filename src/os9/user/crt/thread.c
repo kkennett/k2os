@@ -38,7 +38,7 @@ K2OS_Thread_GetLastStatus(
 {
     K2OS_THREAD_PAGE * pThreadPage;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     return pThreadPage->mLastStatus;
 }
@@ -51,7 +51,7 @@ K2OS_Thread_SetLastStatus(
     K2OS_THREAD_PAGE * pThreadPage;
     UINT32                  result;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     result = pThreadPage->mLastStatus;
     pThreadPage->mLastStatus = aStatus;
@@ -107,7 +107,7 @@ K2OS_Thread_Create(
     pClear--;
     *pClear = 0;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     if (NULL != apName)
     {
@@ -150,7 +150,7 @@ K2OS_Thread_SetName(
 {
     K2OS_THREAD_PAGE * pThreadPage;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     if (NULL != apName)
     {
@@ -175,7 +175,7 @@ K2OS_Thread_GetName(
     if (NULL == apRetNameBuffer)
         return;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
 
     CrtKern_SysCall1(K2OS_SYSCALL_ID_THREAD_GET_NAME, 0);
 

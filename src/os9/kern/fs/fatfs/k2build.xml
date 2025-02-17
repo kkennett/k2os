@@ -40,10 +40,14 @@
     <include>~inc/kern</include>
 
     <source>xdl_entry.c</source>
-    <source>fsmgrif.c</source>
     <source>fsobj.c</source>
+    <source>fatcom.c</source>
+    <source>fat32.c</source>
+    <source>fat16.c</source>
+    <source>fat12.c</source>
 
     <lib>~lib/k2osstorvol</lib>
+    <lib>~lib/k2osblockio</lib>
     <lib>@shared/lib/k2fat</lib>
 
     <xdl>~kern/k2osexec</xdl>

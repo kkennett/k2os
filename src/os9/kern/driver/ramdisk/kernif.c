@@ -31,9 +31,148 @@
 //
 
 #include "ramdisk.h"
+#include <spec/gpt.h>
 
 #define RAMDISK_PAGES       (256 * 4)  // 4MB
 #define RAMDISK_BLOCKSIZE   512
+#define RAMDISK_BLOCKCOUNT  ((RAMDISK_PAGES * K2_VA_MEMPAGE_BYTES) / RAMDISK_BLOCKSIZE)
+
+static const K2_GUID128 sgDiskGuid = K2OS_RAMDISK_GUID;
+static K2_GUID128 const sgBasicPartGuid = GPT_BASIC_DATA_PART_GUID;
+
+K2STAT 
+RAMDISK_FatWrite(
+    K2FATFS_OPS const * apOps,
+    const UINT8 *       apBuffer,
+    UINT32              aStartSector,
+    UINT32              aSectorCount
+)
+{
+    RAMDISK_DEVICE *    pDevice;
+    UINT32              v;
+
+    pDevice = K2_GET_CONTAINER(RAMDISK_DEVICE, apOps, FatOps);
+
+    if (aStartSector >= (RAMDISK_BLOCKCOUNT - 5))
+        return K2STAT_ERROR_OUT_OF_BOUNDS;
+
+    if (((RAMDISK_BLOCKCOUNT - 5) - aStartSector) < aSectorCount)
+        return K2STAT_ERROR_OUT_OF_BOUNDS;
+
+    v = pDevice->mVirtBase + ((3 + aStartSector) * RAMDISK_BLOCKSIZE);
+
+    K2MEM_Copy((void *)v, apBuffer, aSectorCount * RAMDISK_BLOCKSIZE);
+
+    return K2STAT_NO_ERROR;
+}
+
+K2STAT 
+RAMDISK_FatSync(
+    K2FATFS_OPS const *apOps
+)
+{
+    return K2STAT_NO_ERROR;
+}
+
+UINT32 
+RAMDISK_FatTime(
+    K2FATFS_OPS const *apOps
+)
+{
+    return 0;
+}
+
+void * RAMDISK_FatAlloc(K2FATFS_OPS const *apOps, UINT32 aSizeBytes)
+{
+    return K2OS_Heap_Alloc(aSizeBytes);
+}
+
+void   RAMDISK_FatFree(K2FATFS_OPS const *apOps, void * aPtr)
+{
+    K2OS_Heap_Free(aPtr);
+}
+
+K2STAT
+RAMDISK_PartitionAndFormat(
+    RAMDISK_DEVICE * apDevice
+)
+{
+    GPT_HEADER *            pHdr;
+    GPT_HEADER *            pHdr2;
+    GPT_ENTRY *             pParts;
+    GPT_ENTRY *             pParts2;
+    K2FATFS                 fatFs;
+    K2_STORAGE_VOLUME       storVol;
+    K2STAT                  stat;
+    K2FATFS_FORMAT_PARAM    formatParam;
+
+    pHdr = (GPT_HEADER *)(apDevice->mVirtBase + RAMDISK_BLOCKSIZE);
+    K2MEM_Zero(pHdr, RAMDISK_BLOCKSIZE);
+
+    K2ASC_Copy((char *)&pHdr->Signature, "EFI PART");
+    pHdr->Revision = 0x00010000;
+    pHdr->HeaderSize = sizeof(GPT_HEADER);
+    pHdr->MyLBA = 1;
+    pHdr->AlternateLBA = RAMDISK_BLOCKCOUNT - 1;
+    pHdr->FirstUsableLBA = 3;
+    pHdr->LastUsableLBA = RAMDISK_BLOCKCOUNT - 3;
+    K2MEM_Copy(&pHdr->DiskGuid, &sgDiskGuid, sizeof(K2_GUID128));
+    pHdr->PartitionEntryLBA = 2;
+    pHdr->NumberOfPartitionEntries = RAMDISK_BLOCKSIZE / sizeof(GPT_ENTRY);
+    pHdr->SizeOfPartitionEntry = sizeof(GPT_ENTRY);
+
+    pParts = (GPT_ENTRY *)(apDevice->mVirtBase + (RAMDISK_BLOCKSIZE * 2));
+
+    K2MEM_Zero(pParts, RAMDISK_BLOCKSIZE);
+    K2MEM_Copy(&pParts->PartitionTypeGuid, &sgBasicPartGuid, sizeof(K2_GUID128));
+    K2MEM_Copy(&pParts->UniquePartitionGuid, &sgDiskGuid, sizeof(K2_GUID128));
+    pParts->StartingLBA = pHdr->FirstUsableLBA;
+    pParts->EndingLBA = pHdr->LastUsableLBA;
+    K2MEM_Copy(&pParts->UnicodePartitionName, L"RAMDISK", 8 * sizeof(UINT16));
+
+    pHdr->PartitionEntryArrayCRC32 = K2CRC_Calc32(0, pParts, RAMDISK_BLOCKSIZE);
+
+    pHdr->HeaderCRC32 = K2CRC_Calc32(0, pHdr, pHdr->HeaderSize);
+
+    pHdr2 = (GPT_HEADER *)(apDevice->mVirtBase + (((UINT32)pHdr->AlternateLBA) * RAMDISK_BLOCKSIZE));
+    K2MEM_Copy(pHdr2, pHdr, sizeof(GPT_HEADER));
+    pHdr2->HeaderCRC32 = 0;
+    pHdr2->MyLBA = pHdr->AlternateLBA;
+    pHdr2->AlternateLBA = pHdr->MyLBA;
+    pHdr2->PartitionEntryLBA = pHdr2->MyLBA - 1;
+
+    pParts2 = (GPT_ENTRY *)(((UINT32)pHdr2) - RAMDISK_BLOCKSIZE);
+    K2MEM_Copy(pParts2, pParts, RAMDISK_BLOCKSIZE);
+
+    pHdr2->HeaderCRC32 = K2CRC_Calc32(0, pHdr2, pHdr2->HeaderSize);
+
+    K2MEM_Zero(&storVol, sizeof(storVol));
+    storVol.mBlockCount = (UINT32)(pHdr->LastUsableLBA - pHdr->FirstUsableLBA + 1);
+    storVol.mBlockSizeBytes = RAMDISK_BLOCKSIZE;
+    storVol.mPartitionCount = 1;
+    storVol.mTotalBytes = ((UINT64)storVol.mBlockCount) * ((UINT64)storVol.mBlockSizeBytes);
+    K2MEM_Copy(&storVol.mUniqueId, &sgDiskGuid, sizeof(K2_GUID128));
+
+    apDevice->FatOps.MemAlloc = RAMDISK_FatAlloc;
+    apDevice->FatOps.MemFree = RAMDISK_FatFree;
+    apDevice->FatOps.DiskWrite = RAMDISK_FatWrite;
+    apDevice->FatOps.DiskSync = RAMDISK_FatSync;
+    apDevice->FatOps.GetFatTime = RAMDISK_FatTime;
+
+    K2MEM_Zero(&fatFs, sizeof(fatFs));
+    K2FATFS_init(&fatFs, &apDevice->FatOps, &storVol);
+
+    K2MEM_Zero(&formatParam, sizeof(formatParam));
+    formatParam.mFatCount = 2;
+    formatParam.mFormatType = K2FATFS_FORMAT_ANY;
+    formatParam.mRootDirEntCount = 64;
+    formatParam.mSectorsPerCluster = 8;
+
+    stat = K2FATFS_formatvolume(&fatFs, &formatParam, NULL, formatParam.mSectorsPerCluster * RAMDISK_BLOCKSIZE);
+    K2_ASSERT(!K2STAT_IS_ERROR(stat));
+
+    return K2STAT_NO_ERROR;
+}
 
 K2STAT
 RAMDISK_GetMedia(
@@ -41,11 +180,11 @@ RAMDISK_GetMedia(
     K2OS_STORAGE_MEDIA *    apRetMedia
 )
 {
-    apRetMedia->mBlockCount = (apDevice->mPageCount * K2_VA_MEMPAGE_BYTES) / RAMDISK_BLOCKSIZE;
+    apRetMedia->mBlockCount = RAMDISK_BLOCKCOUNT;
     apRetMedia->mBlockSizeBytes = RAMDISK_BLOCKSIZE;
     K2ASC_Copy(apRetMedia->mFriendly, "RAMDISK");
     apRetMedia->mTotalBytes = ((UINT64)apRetMedia->mBlockCount) * ((UINT64)RAMDISK_BLOCKSIZE);
-    apRetMedia->mUniqueId = 0xFEEDF00D + (UINT32)apDevice;
+    K2MEM_Copy(&apRetMedia->mUniqueId, &sgDiskGuid, sizeof(K2_GUID128));
     return K2STAT_NO_ERROR;
 }
 
@@ -150,24 +289,28 @@ StartDriver(
         apDevice->mVirtBase = 0;
     }
 
-    stat = K2OSDDK_DriverStarted(apDevice->mDevCtx);
+    stat = RAMDISK_PartitionAndFormat(apDevice);
     if (!K2STAT_IS_ERROR(stat))
     {
-        stat = K2OSDDK_BlockIoRegister(apDevice->mDevCtx, apDevice, &sgBlockIoFuncTab, &apDevice->mpNotifyKey);
-
+        stat = K2OSDDK_DriverStarted(apDevice->mDevCtx);
         if (!K2STAT_IS_ERROR(stat))
         {
-            stat = K2OSDDK_SetEnable(apDevice->mDevCtx, TRUE);
-        
+            stat = K2OSDDK_BlockIoRegister(apDevice->mDevCtx, apDevice, &sgBlockIoFuncTab, &apDevice->mpNotifyKey);
+
+            if (!K2STAT_IS_ERROR(stat))
+            {
+                stat = K2OSDDK_SetEnable(apDevice->mDevCtx, TRUE);
+
+                if (K2STAT_IS_ERROR(stat))
+                {
+                    K2OSDDK_BlockIoDeregister(apDevice->mDevCtx, apDevice);
+                }
+            }
+
             if (K2STAT_IS_ERROR(stat))
             {
-                K2OSDDK_BlockIoDeregister(apDevice->mDevCtx, apDevice);
+                K2OSDDK_DriverStopped(apDevice->mDevCtx, stat);
             }
-        }
-
-        if (K2STAT_IS_ERROR(stat))
-        {
-            K2OSDDK_DriverStopped(apDevice->mDevCtx, stat);
         }
     }
 
@@ -210,3 +353,4 @@ DeleteInstance(
 
     return K2STAT_NO_ERROR;
 }
+

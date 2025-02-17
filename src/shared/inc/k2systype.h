@@ -87,6 +87,12 @@ K2ATOMIC_CompareExchange64(
 );
 
 
+//
+// Time Validity
+//
+BOOL K2_IsLeapYear(UINT_PTR aYear);
+BOOL K2_IsOsTimeValid(K2_DATETIME const *apTime);
+
 
 //
 // Exception Trap
@@ -131,6 +137,32 @@ extern K2_pf_RAISE_EXCEPTION   K2_RaiseException;
 #ifdef __cplusplus
 }
 #endif
+
+//
+// Storage
+//
+
+#define K2_STORAGE_VOLUME_ATTRIB_READ_ONLY    1
+#define K2_STORAGE_VOLUME_ATTRIB_BOOT         2
+
+typedef struct _K2_STORAGE_VOLUME K2_STORAGE_VOLUME;
+struct _K2_STORAGE_VOLUME
+{
+    K2_GUID128  mUniqueId;
+    UINT64      mBlockCount;
+    UINT64      mTotalBytes;
+    UINT64      mAttributes;
+    UINT32      mBlockSizeBytes;
+    UINT32      mPartitionCount;
+};
+
+#define K2_FSATTRIB_NORMAL      0
+#define K2_FSATTRIB_READONLY    1
+#define K2_FSATTRIB_HIDDEN      2
+#define K2_FSATTRIB_SYSTEM      4
+#define K2_FSATTRIB_DIR         16
+#define K2_FSATTRIB_ARCHIVE     32
+#define K2_FSATTRIB_INVALID     0xFFFFFFFF
 
 //
 //------------------------------------------------------------------------

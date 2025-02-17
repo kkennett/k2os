@@ -33,10 +33,12 @@
 #include "kern.h"
 
 void
-KernIpcEnd_ConnLocked_DisconnectAck(
+KernIpcEnd_DisconnectAck(
     K2OSKERN_OBJ_IPCEND * apIpcEnd
 )
 {
+    BOOL disp;
+
     // may be happening inside or outside of monitor
     if (apIpcEnd->Connection.Locked.Connected.mTookPartnerReserve)
     {
@@ -46,8 +48,12 @@ KernIpcEnd_ConnLocked_DisconnectAck(
     }
     KernObj_ReleaseRef(&apIpcEnd->Connection.Locked.Connected.WriteMapRef);
     KernObj_ReleaseRef(&apIpcEnd->Connection.Locked.Connected.PartnerIpcEndRef);
+
+    disp = K2OSKERN_SeqLock(&apIpcEnd->Connection.SeqLock);
+    K2_ASSERT(KernIpcEndState_WaitDisAck == apIpcEnd->Connection.Locked.mState);
     // this is the only place where this happens (set to disconnected)
     apIpcEnd->Connection.Locked.mState = KernIpcEndState_Disconnected;
+    K2OSKERN_SeqUnlock(&apIpcEnd->Connection.SeqLock, disp);
 }
 
 void
@@ -59,6 +65,7 @@ KernIpcEnd_Cleanup(
     BOOL                    disp;
     K2OSKERN_IPC_REQUEST *  pReq;
     K2OSKERN_OBJ_PROCESS *  pProc;
+    BOOL                    ackDis;
 
     K2_ASSERT(0 != (apIpcEnd->Hdr.mObjFlags & K2OSKERN_OBJ_FLAG_REFS_DEC_TO_ZERO));
 
@@ -68,7 +75,11 @@ KernIpcEnd_Cleanup(
 
     if (apIpcEnd->Connection.Locked.mState == KernIpcEndState_WaitDisAck)
     {
-        KernIpcEnd_ConnLocked_DisconnectAck(apIpcEnd);
+        ackDis = TRUE;
+    }
+    else
+    {
+        ackDis = FALSE;
     }
 
     pReq = apIpcEnd->Connection.Locked.mpOpenRequest;
@@ -82,10 +93,15 @@ KernIpcEnd_Cleanup(
         K2OSKERN_SeqUnlock(&gData.Iface.SeqLock, FALSE);
     }
 
+    K2OSKERN_SeqUnlock(&apIpcEnd->Connection.SeqLock, disp);
+
+    if (ackDis)
+    {
+        KernIpcEnd_DisconnectAck(apIpcEnd);
+    }
+
     K2_ASSERT(NULL == apIpcEnd->Connection.Locked.Connected.WriteMapRef.AsAny);
     K2_ASSERT(NULL == apIpcEnd->Connection.Locked.Connected.PartnerIpcEndRef.AsAny);
-
-    K2OSKERN_SeqUnlock(&apIpcEnd->Connection.SeqLock, disp);
 
     if (NULL != pReq)
     {
@@ -111,9 +127,7 @@ KernIpcEnd_Cleanup(
 
     KernObj_ReleaseRef(&apIpcEnd->MailboxOwnerRef);
 
-    K2MEM_Zero(apIpcEnd, sizeof(K2OSKERN_OBJ_IPCEND));
-
-    KernHeap_Free(apIpcEnd);
+    KernObj_Free(&apIpcEnd->Hdr);
 }
 
 K2STAT 
@@ -146,7 +160,7 @@ KernIpcEnd_Create(
     }
     else
     {
-        K2_ASSERT(apCurThread->User.ProcRef.AsProc == pProc);
+        K2_ASSERT(apCurThread->RefProc.AsProc == pProc);
         K2_ASSERT(apVirtMap->ProcRef.AsProc == pProc);
         K2_ASSERT(apMailboxOwner->RefProc.AsProc == pProc);
     }
@@ -157,7 +171,7 @@ KernIpcEnd_Create(
         return K2STAT_ERROR_BAD_ARGUMENT;
     }
 
-    pIpcEnd = (K2OSKERN_OBJ_IPCEND *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_IPCEND));
+    pIpcEnd = (K2OSKERN_OBJ_IPCEND *)KernObj_Alloc(KernObj_IpcEnd);
     if (NULL == pIpcEnd)
     {
         return K2STAT_ERROR_OUT_OF_MEMORY;
@@ -165,17 +179,12 @@ KernIpcEnd_Create(
 
     do
     {
-        K2MEM_Zero(pIpcEnd, sizeof(K2OSKERN_OBJ_IPCEND));
-
         // reserved single-use mailbox messages - create, connect, disconnect, delete = 4
         if (!KernMailbox_Reserve(apMailboxOwner->RefMailbox.AsMailbox, 4))
         {
             stat = K2STAT_ERROR_OUT_OF_RESOURCES;
             break;
         }
-
-        pIpcEnd->Hdr.mObjType = KernObj_IpcEnd;
-        K2LIST_Init(&pIpcEnd->Hdr.RefObjList);
 
         pIpcEnd->mpUserKey = apKey;
 
@@ -199,7 +208,7 @@ KernIpcEnd_Create(
         // it wants to do anything, so the message contains the token
         // for the endpoint.  
         // 
-        createMsg.mType = K2OS_SYSTEM_MSGTYPE_IPCEND;
+        createMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_IPCEND;
         createMsg.mShort = K2OS_SYSTEM_MSG_IPCEND_SHORT_CREATED;
         createMsg.mPayload[0] = (UINT32)apKey;
 
@@ -245,7 +254,7 @@ KernIpcEnd_Create(
                     // in system call from user thread.  go into scheduler
                     K2_ASSERT(NULL != apThisCore);
                     pSchedItem = &apCurThread->SchedItem;
-                    pSchedItem->mType = KernSchedItem_Thread_SysCall;
+                    pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
                     KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
                     KernObj_CreateRef(&pSchedItem->ObjRef, apMailboxOwner->RefMailbox.AsAny);
                     KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
@@ -264,7 +273,7 @@ KernIpcEnd_Create(
 
                     pSchedItem = &apCurThread->SchedItem;
 
-                    pSchedItem->mType = KernSchedItem_KernThread_MailboxSentFirst;
+                    pSchedItem->mSchedItemType = KernSchedItem_KernThread_MailboxSentFirst;
                     KernObj_CreateRef(&pSchedItem->ObjRef, apMailboxOwner->RefMailbox.AsAny);
 
                     KernThread_CallScheduler(apThisCore);
@@ -285,7 +294,7 @@ KernIpcEnd_Create(
 
     if (K2STAT_IS_ERROR(stat))
     {
-        KernHeap_Free(pIpcEnd);
+        KernObj_Free(&pIpcEnd->Hdr);
     }
 
     return stat;
@@ -346,7 +355,7 @@ KernIpcEnd_Accept(
     // we need to create a remote map of the local buffer
     // we need to create a local map of the remote buffer
     //
-    pLocalProc = apCurThread->mIsKernelThread ? NULL : apCurThread->User.ProcRef.AsProc;
+    pLocalProc = apCurThread->mIsKernelThread ? NULL : apCurThread->RefProc.AsProc;
     pRemoteProc = ipcRemoteEndRef.AsIpcEnd->MailboxOwnerRef.AsMailboxOwner->RefProc.AsProc;
     pLocalVirtMap = apIpcEnd->VirtMapRef.AsVirtMap;
     pRemoteVirtMap = ipcRemoteEndRef.AsIpcEnd->VirtMapRef.AsVirtMap;
@@ -540,7 +549,7 @@ KernIpcEnd_Accept(
     {
         K2_ASSERT(NULL != apThisCore);
 
-        pSchedItem->mType = KernSchedItem_Thread_SysCall;
+        pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
 
         KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
         KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
@@ -557,7 +566,7 @@ KernIpcEnd_Accept(
         apThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
         K2_ASSERT(apCurThread == apThisCore->mpActiveThread);
 
-        pSchedItem->mType = KernSchedItem_KernThread_IpcAccept;
+        pSchedItem->mSchedItemType = KernSchedItem_KernThread_IpcAccept;
 
         KernThread_CallScheduler(apThisCore);
 
@@ -647,7 +656,7 @@ KernIpcEnd_RejectRequest(
         if (!apCurThread->mIsKernelThread)
         {
             K2_ASSERT(NULL != apThisCore);
-            pSchedItem->mType = KernSchedItem_Thread_SysCall;
+            pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
             KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
             KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
             KernSched_QueueItem(pSchedItem);
@@ -663,7 +672,7 @@ KernIpcEnd_RejectRequest(
             apThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
             K2_ASSERT(apCurThread == apThisCore->mpActiveThread);
 
-            pSchedItem->mType = KernSchedItem_KernThread_IpcRejectRequest;
+            pSchedItem->mSchedItemType = KernSchedItem_KernThread_IpcRejectRequest;
 
             KernThread_CallScheduler(apThisCore);
 
@@ -699,7 +708,7 @@ KernIpcEnd_Sent(
     BOOL                    doSchedCall;
 
     K2MEM_Zero(&sendMsg, sizeof(sendMsg));
-    sendMsg.mType = K2OS_SYSTEM_MSGTYPE_IPCEND;
+    sendMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_IPCEND;
     sendMsg.mShort = K2OS_SYSTEM_MSG_IPCEND_SHORT_RECV;
     sendMsg.mPayload[1] = aByteCount;
     sendMsg.mPayload[2] = 0;
@@ -760,7 +769,7 @@ KernIpcEnd_Sent(
                         // in system call from user thread.  go into scheduler
                         K2_ASSERT(NULL != apThisCore);
                         K2_ASSERT(apCurThread->User.mIsInSysCall);
-                        pSchedItem->mType = KernSchedItem_Thread_SysCall;
+                        pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
                         KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
                         KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
                         KernSched_QueueItem(pSchedItem);
@@ -789,7 +798,7 @@ KernIpcEnd_Sent(
         apThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
         K2_ASSERT(apCurThread == apThisCore->mpActiveThread);
 
-        pSchedItem->mType = KernSchedItem_KernThread_MailboxSentFirst;
+        pSchedItem->mSchedItemType = KernSchedItem_KernThread_MailboxSentFirst;
 
         KernThread_CallScheduler(apThisCore);
 
@@ -829,6 +838,7 @@ KernIpcEnd_Load(
         else
         {
             apIpcEnd->Connection.Locked.Connected.mTookPartnerReserve = TRUE;
+            stat = K2STAT_NO_ERROR;
         }
     }
 
@@ -873,7 +883,7 @@ KernIpcEnd_ManualDisconnect(
         {
             K2_ASSERT(NULL != apThisCore);
             K2_ASSERT(apCurThread->User.mIsInSysCall);
-            pSchedItem->mType = KernSchedItem_Thread_SysCall;
+            pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
             KernArch_GetHfTimerTick(&apCurThread->SchedItem.mHfTick);
             KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
             KernSched_QueueItem(&apCurThread->SchedItem);
@@ -901,7 +911,7 @@ KernIpcEnd_ManualDisconnect(
         apThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
         K2_ASSERT(apCurThread == apThisCore->mpActiveThread);
 
-        pSchedItem->mType = KernSchedItem_KernThread_IpcEndManualDisconnect;
+        pSchedItem->mSchedItemType = KernSchedItem_KernThread_IpcEndManualDisconnect;
 
         KernThread_CallScheduler(apThisCore);
 
@@ -964,7 +974,7 @@ KernIpcEnd_SendRequest(
         else
         {
             if ((!apCurThread->mIsKernelThread) &&
-                (apCurThread->User.ProcRef.AsProc == pIfInst->RefMailboxOwner.AsMailboxOwner->RefProc.AsProc))
+                (apCurThread->RefProc.AsProc == pIfInst->RefMailboxOwner.AsMailboxOwner->RefProc.AsProc))
             {
                 // cannot send a request to yourself
                 stat = K2STAT_ERROR_NOT_ALLOWED;
@@ -978,6 +988,10 @@ KernIpcEnd_SendRequest(
             }
         }
     }
+    else
+    {
+        stat = K2STAT_NO_ERROR;
+    }
 
     K2OSKERN_SeqUnlock(&gData.Iface.SeqLock, disp);
 
@@ -985,10 +999,10 @@ KernIpcEnd_SendRequest(
     {
         firstReq = FALSE;
 
-        requestMsg.mType = K2OS_SYSTEM_MSGTYPE_IPC;
+        requestMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_IPC;
         requestMsg.mShort = K2OS_SYSTEM_MSG_IPC_SHORT_REQUEST;
         requestMsg.mPayload[0] = aIfInstId;
-        requestMsg.mPayload[1] = apCurThread->mIsKernelThread ? 0 : apCurThread->User.ProcRef.AsProc->mId;
+        requestMsg.mPayload[1] = apCurThread->mIsKernelThread ? 0 : apCurThread->RefProc.AsProc->mId;
         requestMsg.mPayload[2] = pReq->TreeNode.mUserVal;
 
         disp = K2OSKERN_SeqLock(&apIpcEnd->Connection.SeqLock);
@@ -1081,7 +1095,7 @@ KernIpcEnd_SendRequest(
                     K2_ASSERT(NULL != apThisCore);
                     K2_ASSERT(apCurThread->User.mIsInSysCall);
                     pSchedItem = &apCurThread->SchedItem;
-                    pSchedItem->mType = KernSchedItem_Thread_SysCall;
+                    pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
                     KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
                     KernObj_CreateRef(&pSchedItem->ObjRef, refTargetMailbox.AsAny);
                     KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
@@ -1099,7 +1113,7 @@ KernIpcEnd_SendRequest(
                     K2_ASSERT(apCurThread == apThisCore->mpActiveThread);
 
                     pSchedItem = &apCurThread->SchedItem;
-                    pSchedItem->mType = KernSchedItem_KernThread_MailboxSentFirst;
+                    pSchedItem->mSchedItemType = KernSchedItem_KernThread_MailboxSentFirst;
                     KernObj_CreateRef(&pSchedItem->ObjRef, refTargetMailbox.AsAny);
 
                     KernThread_CallScheduler(apThisCore);
@@ -1128,6 +1142,7 @@ KernIpcEnd_RecvRes(
 )
 {
     BOOL disp;
+    BOOL doDisAck;
 
     //
     // called from mailbox code when a reserve has completed receive
@@ -1137,6 +1152,7 @@ KernIpcEnd_RecvRes(
     // of the disconnect and allows the endpoint to be used again
     // for another purpose
     //
+    doDisAck = FALSE;
 
     disp = K2OSKERN_SeqLock(&apIpcEnd->Connection.SeqLock);
 
@@ -1146,16 +1162,21 @@ KernIpcEnd_RecvRes(
     //
     if (apIpcEnd->Connection.Locked.mState == KernIpcEndState_WaitDisAck)
     {
-        KernIpcEnd_ConnLocked_DisconnectAck(apIpcEnd);
+        doDisAck = TRUE;
     }
     else if (apIpcEnd->Connection.Locked.mState == KernIpcEndState_Connected)
     {
         // this reserve is the load the sender took before they completed their send
-//        K2OSKERN_Debug("undo reserve for load (received)\n");
+//        K2OSKERN_Debug("undo reserve for load (received ok)\n");
         KernMailbox_UndoReserve(apIpcEnd->MailboxOwnerRef.AsMailboxOwner->RefMailbox.AsMailbox, 1);
     }
 
     K2OSKERN_SeqUnlock(&apIpcEnd->Connection.SeqLock, disp);
+
+    if (doDisAck)
+    {
+        KernIpcEnd_DisconnectAck(apIpcEnd);
+    }
 }
 
 //
@@ -1181,7 +1202,7 @@ KernIpcEnd_SysCall_Create(
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refMailboxOwner.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)pThreadPage->mSysCall_Arg1, &refMailboxOwner);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)pThreadPage->mSysCall_Arg1, &refMailboxOwner);
     if (!K2STAT_IS_ERROR(stat))
     {
         if (KernObj_MailboxOwner != refMailboxOwner.AsAny->mObjType)
@@ -1191,7 +1212,7 @@ KernIpcEnd_SysCall_Create(
         else
         {
             refVirtMap.AsAny = NULL;
-            stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)pThreadPage->mSysCall_Arg2, &refVirtMap);
+            stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)pThreadPage->mSysCall_Arg2, &refVirtMap);
             if (!K2STAT_IS_ERROR(stat))
             {
                 if (KernObj_VirtMap != refVirtMap.AsAny->mObjType)
@@ -1240,7 +1261,7 @@ KernIpcEnd_SysCall_Send(
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refIpcEnd.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
     if (!K2STAT_IS_ERROR(stat))
     {
         if (KernObj_IpcEnd != refIpcEnd.AsAny->mObjType)
@@ -1279,7 +1300,7 @@ KernIpcEnd_SysCall_Accept(
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refIpcEnd.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
     if (!K2STAT_IS_ERROR(stat))
     {
         if (KernObj_IpcEnd != refIpcEnd.AsAny->mObjType)
@@ -1336,7 +1357,7 @@ KernIpcEnd_SysCall_ManualDisconnect(
     // arg0 endpoint token
 
     refIpcEnd.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
     if (!K2STAT_IS_ERROR(stat))
     {
         if (KernObj_IpcEnd != refIpcEnd.AsAny->mObjType)
@@ -1379,7 +1400,7 @@ KernIpcEnd_SysCall_Request(
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refIpcEnd.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
     if (!K2STAT_IS_ERROR(stat))
     {
         if (KernObj_IpcEnd != refIpcEnd.AsAny->mObjType)
@@ -1417,7 +1438,7 @@ KernIpcEnd_InIntr_SysCall_Load(
     K2STAT          stat;
 
     refIpcEnd.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refIpcEnd);
     if (!K2STAT_IS_ERROR(stat))
     {
         if (KernObj_IpcEnd != refIpcEnd.AsAny->mObjType)
@@ -1440,4 +1461,3 @@ KernIpcEnd_InIntr_SysCall_Load(
 
     return TRUE;
 }
-

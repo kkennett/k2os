@@ -113,7 +113,7 @@ K2OS_System_CreateProcess(
     pThisThread->Hdr.ObjDpc.Func = KernSystem_CreateProc_Dpc;
     KernCpu_QueueDpc(&pThisThread->Hdr.ObjDpc.Dpc, &pThisThread->Hdr.ObjDpc.Func, KernDpcPrio_Med);
 
-    KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
+    KernArch_IntsOff_SaveKernelThreadStateAndEnterMonitor(pThisCore, pThisThread);
     //
     // this is return point from entering the monitor to do the process create
     // interrupts will be on
@@ -141,7 +141,7 @@ K2OS_System_CreateProcess(
     // this will release the ResultRef reference
 
     pSchedItem = &pThisThread->SchedItem;
-    pSchedItem->mType = KernSchedItem_KernThread_StartProc;
+    pSchedItem->mSchedItemType = KernSchedItem_KernThread_StartProc;
 
     disp = K2OSKERN_SetIntr(FALSE);
     K2_ASSERT(disp);

@@ -107,3 +107,12 @@ K2OS_System_MsTick32FromHfTick(
 {
     return (UINT32)(((*apHfTick) * 1000ull) / ((UINT64)gData.Timer.mFreq));
 }
+
+void                
+K2OS_System_GetTime(
+    K2OS_TIME *apRetTime
+)
+{
+    KernTimer_GetTime(apRetTime);
+}
+

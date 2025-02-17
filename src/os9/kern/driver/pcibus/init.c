@@ -34,6 +34,9 @@
 
 void PciBus_DiscoverECAM(PCIBUS * apPciBus);
 
+K2STAT PciBus_ECAM_ConfigRead(PCIBUS *apPciBus, K2PCI_DEVICE_LOC *apLoc, UINT32 aReg, UINT64 *apRetValue, UINT32 aWidth);
+K2STAT PciBus_ECAM_ConfigWrite(PCIBUS *apPciBus, K2PCI_DEVICE_LOC *apLoc, UINT32 aReg, UINT64 const *apValue, UINT32 aWidth);
+
 #if K2_TARGET_ARCH_IS_INTEL
 
 void PciBus_DiscoverIo(PCIBUS * apPciBus);
@@ -167,9 +170,6 @@ PciBus_Io_ConfigWrite(
 
     return K2STAT_NO_ERROR;
 }
-
-K2STAT PciBus_ECAM_ConfigRead(PCIBUS *apPciBus, K2PCI_DEVICE_LOC *apLoc, UINT32 aReg, UINT64 *apRetValue, UINT32 aWidth);
-K2STAT PciBus_ECAM_ConfigWrite(PCIBUS *apPciBus, K2PCI_DEVICE_LOC *apLoc, UINT32 aReg, UINT64 const *apValue, UINT32 aWidth);
 
 void
 PciBus_InitAndDiscover(

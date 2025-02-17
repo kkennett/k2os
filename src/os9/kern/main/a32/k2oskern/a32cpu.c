@@ -145,6 +145,17 @@ void A32Kern_CpuLaunch2(UINT32 aCpuIx, UINT32 aSysStackPtr)
 
     A32Kern_IntrInitGicPerCore();
 
+    // ensure private timer disabled
+    A32Kern_IntrSetEnable(A32_MP_PTIMERS_IRQ, FALSE);
+    MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_CONTROL, 0);
+    do
+    {
+        v = MMREG_READ32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS);
+        if (0 == v)
+            break;
+        MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS, v);
+    } while (1);
+
 #if 0
     K2OSKERN_Debug("-CPU %d--(sys@ %08X)-----------\n", pThisCoreMem->CpuCore.mCoreIx, aSysStackPtr);
     K2OSKERN_Debug("STACK = %08X\n", A32_ReadStackPointer());

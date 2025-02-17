@@ -34,7 +34,8 @@
 
 static UINT64           sgTimeBias = 0;
 static UINT64           sgTimerDiv = 0;
-static BOOL volatile    sgArmed = FALSE;
+static K2OSKERN_SEQLOCK sgSeqLock;
+static volatile UINT32  sgTimerCore = (UINT32)-1;
 
 static
 UINT32
@@ -71,6 +72,8 @@ A32Kern_InitTiming(
 )
 {
     UINT32 reg;
+
+    K2OSKERN_SeqInit(&sgSeqLock);
 
     //
     // turn off the timer
@@ -110,7 +113,7 @@ A32Kern_InitTiming(
         A32_PERIF_GTIMER_CONTROL_ENABLE);
 
     //
-    // irq does not need configuration
+    // irq is a ppi, so no configuration is necessary or available
     //
 
     //
@@ -176,150 +179,19 @@ KernArch_GetHfTimerTick(
     *apRetCount = counterVal - sgTimeBias;
 }
 
-static void
-sDisableTimerInterrupts(
-    void
-)
-{
-    UINT32 reg;
-
-    sgArmed = FALSE;
-
-    //
-    // disable timer interrupt
-    //
-    reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_CONTROL);
-    reg &= ~(A32_PERIF_GTIMER_CONTROL_IRQ_ENABLE | A32_PERIF_GTIMER_CONTROL_COMP_ENABLE);
-    MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_CONTROL, reg);
-
-    //
-    // clear timer interrupt status
-    //
-    do
-    {
-        reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_INTSTATUS);
-        if (0 == reg)
-            break;
-        MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_INTSTATUS, reg);
-    } while (1);
-}
-
-void
-A32Kern_StartTime(
-    void
-)
-{
-    sReadGlobTimer64(&sgTimeBias);
-    sDisableTimerInterrupts();
-    //
-    // unmask at int distributor
-    //
-    A32Kern_IntrSetEnable(A32_MP_GTIMER_IRQ, TRUE);
-}
-
-void
-KernArch_SchedTimer_Arm(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    UINT64 const *              apDeltaHfTicks
-)
-{
-    UINT32 reg;
-    UINT32 deltaHfTicks;
-    UINT64 compTarget;
-
-    sDisableTimerInterrupts();
-
-    if (NULL == apDeltaHfTicks)
-    {
-//        K2OSKERN_Debug("SchedTimer(Disabled)\n");
-        return;
-    }
-
-    deltaHfTicks = (UINT32)((*apDeltaHfTicks) & 0x00000000FFFFFFFFull);
-
-//    K2OSKERN_Debug("SchedTimer(%d)\n", deltaHfTicks);
-
-    //
-    // arm the timer
-    //
-    reg = (UINT32)(gData.Timer.mFreq / 500);
-    if (deltaHfTicks < reg)
-        deltaHfTicks = reg;
-
-    sgArmed = TRUE;
-
-    sReadGlobTimer64(&compTarget);
-    compTarget += deltaHfTicks;
-
-    MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_COMPVALHIGH, (UINT32)((compTarget >> 32) & 0xFFFFFFFF));
-    MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_COMPVALLOW, (UINT32)(compTarget & 0xFFFFFFFF));
-
-    reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_CONTROL);
-    reg |= (A32_PERIF_GTIMER_CONTROL_IRQ_ENABLE | A32_PERIF_GTIMER_CONTROL_COMP_ENABLE);
-    MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_CONTROL, reg);
-}
-
-void
-A32Kern_TimerInterrupt(
-    K2OSKERN_CPUCORE volatile * apThisCore
-)
-{
-    K2OSKERN_CPUCORE_EVENT * pEvent;
-
-    if (!sgArmed)
-    {
-        K2OSKERN_Debug("--Unexpected timer interrupt\n");
-        return;
-    }
-
-    sDisableTimerInterrupts();
-
-    pEvent = &gData.Timer.SchedEvent;
-    K2_ASSERT(KernCpuCoreEvent_None == pEvent->mEventType);
-    pEvent->mEventType = KernCpuCoreEvent_SchedTimer_Fired;
-    pEvent->mSrcCoreIx = apThisCore->mCoreIx;
-    KernArch_GetHfTimerTick((UINT64 *)&pEvent->mEventHfTick);
-    KernCpu_QueueEvent(pEvent);
-}
-
-void
-A32Kern_StopCoreTimer(
-    K2OSKERN_CPUCORE volatile *apThisCore
-)
-{
-    UINT32 reg;
-
-    apThisCore->mIsTimerRunning = FALSE;
-
-    //
-    // disable the private timer interrupt at the distributor
-    //
-    A32Kern_IntrSetEnable(A32_MP_PTIMERS_IRQ, FALSE);
-
-    //
-    // clear the timer enable and interrupt status
-    //
-    MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_CONTROL, 0);
-    do
-    {
-        reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS);
-        if (0 == reg)
-            break;
-        MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS, reg);
-    } while (1);
-}
-
 void
 A32Kern_SetCoreTimer(
     K2OSKERN_CPUCORE volatile * apThisCore,
-    UINT32                      aHfTickDelay
+    UINT32                      aCpuTickDelay
 )
 {
     UINT32 reg;
 
     K2_ASSERT(!apThisCore->mIsTimerRunning);
 
-    if (0 == aHfTickDelay)
+    KTRACE(apThisCore, 2, KTRACE_CORE_TIMER_SET, aCpuTickDelay);
+
+    if (0 == aCpuTickDelay)
     {
         //
         // 0 means do not set a per-cpu timer interrupt
@@ -327,10 +199,10 @@ A32Kern_SetCoreTimer(
         MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_CONTROL, 0);
         do
         {
-            reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS);
+            reg = MMREG_READ32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS);
             if (0 == reg)
                 break;
-            MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS, reg);
+            MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS, reg);
         } while (1);
         return;
     }
@@ -338,13 +210,13 @@ A32Kern_SetCoreTimer(
     //
     // load and enable the private timer for the delay
     //
-    MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_LOAD, aHfTickDelay);
+    MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_LOAD, aCpuTickDelay);
     do
     {
-        reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS);
+        reg = MMREG_READ32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS);
         if (0 == reg)
             break;
-        MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS, reg);
+        MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS, reg);
     } while (1);
 
     //
@@ -354,9 +226,9 @@ A32Kern_SetCoreTimer(
         A32_PERIF_PTIMERS_CONTROL_ENABLE | 
         A32_PERIF_PTIMERS_CONTROL_IRQ_ENABLE);
 
-    A32Kern_IntrSetEnable(A32_MP_PTIMERS_IRQ, TRUE);
-
     apThisCore->mIsTimerRunning = TRUE;
+
+    A32Kern_IntrSetEnable(A32_MP_PTIMERS_IRQ, TRUE);
 }
 
 BOOL
@@ -377,14 +249,183 @@ A32Kern_CoreTimerInterrupt(
     MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_CONTROL, 0);
     do
     {
-        reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS);
+        reg = MMREG_READ32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS);
         if (0 == reg)
             break;
-        MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS, reg);
+        MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS, reg);
     } while (1);
 
     return TRUE;
 }
 
+void
+A32Kern_StopCoreTimer(
+    K2OSKERN_CPUCORE volatile *apThisCore
+)
+{
+    UINT32 reg;
 
+    apThisCore->mIsTimerRunning = FALSE;
+
+    KTRACE(apThisCore, 1, KTRACE_CORE_TIMER_STOP);
+
+    //
+    // disable the private timer interrupt at the distributor
+    //
+    A32Kern_IntrSetEnable(A32_MP_PTIMERS_IRQ, FALSE);
+
+    //
+    // clear the timer enable and interrupt status
+    //
+    MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_CONTROL, 0);
+    do
+    {
+        reg = MMREG_READ32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS);
+        if (0 == reg)
+            break;
+        MMREG_WRITE32(A32KERN_MP_PRIVATE_TIMERS_VIRT, A32_PERIF_PTIMERS_OFFSET_INTSTATUS, reg);
+    } while (1);
+}
+
+void
+A32Kern_StartTime(
+    void
+)
+{
+    sReadGlobTimer64(&sgTimeBias);
+}
+
+static
+void
+sDisableCoreGlobalTimer(
+    void
+)
+{
+    UINT32 reg;
+    //
+    // this only accesses banked registers on the global timer
+    // so locking is not necessary
+    //
+
+    //
+    // disable timer interrupt for this core (banked reg)
+    //
+    reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_CONTROL);
+    reg &= ~(A32_PERIF_GTIMER_CONTROL_IRQ_ENABLE | A32_PERIF_GTIMER_CONTROL_COMP_ENABLE);
+    MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_CONTROL, reg);
+
+    //
+    // clear timer interrupt status for this core (banked reg)
+    //
+    do
+    {
+        reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_INTSTATUS);
+        if (0 == reg)
+            break;
+        MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_INTSTATUS, reg);
+    } while (1);
+}
+
+static
+void
+sLocked_DisableGlobalTimer(
+    void
+)
+{
+    sgTimerCore = (UINT32)-1;
+    A32Kern_IntrSetEnable(A32_MP_GTIMER_IRQ, FALSE);
+    sDisableCoreGlobalTimer();
+}
+
+void
+KernArch_SchedTimer_Arm(
+    K2OSKERN_CPUCORE volatile * apThisCore,
+    UINT64 const *              apDeltaHfTicks
+)
+{
+    BOOL    disp;
+//    UINT32  timerCore;
+    UINT32  reg;
+    UINT32  deltaHfTicks;
+    UINT64  compTarget;
+
+    disp = K2OSKERN_SeqLock(&sgSeqLock);
+
+//    timerCore = sgTimerCore;
+
+    sLocked_DisableGlobalTimer();
+
+    if (NULL == apDeltaHfTicks)
+    {
+//        K2OSKERN_Debug("Core %d DISARM timer set by core %d\n", apThisCore->mCoreIx, timerCore);
+        KTRACE(apThisCore, 1, KTRACE_SCHED_TIMER_DISARM);
+    }
+    else
+    {
+        deltaHfTicks = (UINT32)((*apDeltaHfTicks) & 0x00000000FFFFFFFFull);
+
+        reg = (UINT32)(gData.Timer.mFreq / 500);
+        if (deltaHfTicks < reg)
+            deltaHfTicks = reg;
+
+        sReadGlobTimer64(&compTarget);
+        compTarget += deltaHfTicks;
+
+        KTRACE(apThisCore, 2, KTRACE_SCHED_TIMER_ARM, (UINT32)(deltaHfTicks & 0xFFFFFFFFull));
+
+        MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_COMPVALHIGH, (UINT32)((compTarget >> 32) & 0xFFFFFFFF));
+        MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_COMPVALLOW, (UINT32)(compTarget & 0xFFFFFFFF));
+
+        reg = MMREG_READ32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_CONTROL);
+        reg |= (A32_PERIF_GTIMER_CONTROL_IRQ_ENABLE | A32_PERIF_GTIMER_CONTROL_COMP_ENABLE);
+        MMREG_WRITE32(A32KERN_MP_GLOBAL_TIMER_VIRT, A32_PERIF_GTIMER_OFFSET_CONTROL, reg);
+
+#if 0
+        if (((UINT32)-1) != timerCore)
+        {
+            K2OSKERN_Debug("Core %d RE-ARM timer after taking it from core %d\n", apThisCore->mCoreIx, timerCore);
+        }
+        else
+        {
+            K2OSKERN_Debug("Core %d ARM timer\n", apThisCore->mCoreIx);
+        }
+#endif
+
+        sgTimerCore = apThisCore->mCoreIx;
+        A32Kern_IntrSetEnable(A32_MP_GTIMER_IRQ, TRUE);
+    }
+
+    K2OSKERN_SeqUnlock(&sgSeqLock, disp);
+}
+
+void
+A32Kern_TimerInterrupt(
+    K2OSKERN_CPUCORE volatile * apThisCore
+)
+{
+    K2OSKERN_CPUCORE_EVENT volatile *   pEvent;
+    BOOL                                disp;
+
+    if (apThisCore->mCoreIx != sgTimerCore)
+    {
+        sDisableCoreGlobalTimer();   // stop interrupting
+//        K2OSKERN_Debug("--Core %d ignored timer interrupt\n", apThisCore->mCoreIx);
+        return;
+    }
+
+    disp = K2OSKERN_SeqLock(&sgSeqLock);
+
+//    K2OSKERN_Debug("!!Core %d real timer interrupt\n", apThisCore->mCoreIx);
+
+    sLocked_DisableGlobalTimer();
+
+    K2OSKERN_SeqUnlock(&sgSeqLock, disp);
+
+    pEvent = &gData.Timer.SchedCpuEvent;
+    K2_ASSERT(KernCpuCoreEventType_Invalid == pEvent->mEventType);
+    pEvent->mEventType = KernCpuCoreEvent_SchedTimer_Fired;
+    pEvent->mSrcCoreIx = apThisCore->mCoreIx;
+    KernArch_GetHfTimerTick((UINT64 *)&pEvent->mEventHfTick);
+    KernCpu_QueueEvent(pEvent);
+}
 

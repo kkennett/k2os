@@ -42,6 +42,9 @@
     <source>xdl_entry.c</source>
     <source>kernif.c</source>
 
+    <lib>@shared/lib/k2fat</lib>
+    <lib>@shared/lib/k2fatfs</lib>
+
     <lib arch="x32">@shared/lib/k2archx32</lib>
     <lib arch="a32">@shared/lib/k2archa32</lib>
 

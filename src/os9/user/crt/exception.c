@@ -46,10 +46,15 @@ Crt_ExTrap_Dismount(
     K2_EXCEPTION_TRAP *apTrap
 )
 {
+    K2OS_THREAD_PAGE *  pThreadPage;
+
     //
     // if we get here then no exception during trap lifetime
     //
-    CrtKern_SysCall1(K2OS_SYSCALL_ID_TRAP_DISMOUNT, (UINT32)apTrap);
+
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage->mTrapStackTop = (UINT32)apTrap->mpNextTrap;
+
     return apTrap->mTrapResult;
 }
 

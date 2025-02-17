@@ -40,16 +40,11 @@ KernNotify_Create(
 {
     K2OSKERN_OBJ_NOTIFY *pNotify;
 
-    pNotify = (K2OSKERN_OBJ_NOTIFY *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_NOTIFY));
+    pNotify = (K2OSKERN_OBJ_NOTIFY *)KernObj_Alloc(KernObj_Notify);
     if (NULL == pNotify)
     {
         return K2STAT_ERROR_OUT_OF_MEMORY;
     }
-
-    K2MEM_Zero(pNotify, sizeof(K2OSKERN_OBJ_NOTIFY));
-
-    pNotify->Hdr.mObjType = KernObj_Notify;
-    K2LIST_Init(&pNotify->Hdr.RefObjList);
 
     pNotify->SchedLocked.mSignalled = aInitSignalled;
     K2LIST_Init(&pNotify->SchedLocked.MacroWaitEntryList);
@@ -65,10 +60,8 @@ KernNotify_Cleanup(
     K2OSKERN_OBJ_NOTIFY *       apNotify
 )
 {
-    K2_ASSERT(0 == apNotify->Hdr.RefObjList.mNodeCount);
     K2_ASSERT(0 == apNotify->SchedLocked.MacroWaitEntryList.mNodeCount);
-    K2MEM_Zero(apNotify, sizeof(K2OSKERN_OBJ_NOTIFY));
-    KernHeap_Free(apNotify);
+    KernObj_Free(&apNotify->Hdr);
 }
 
 void    
@@ -92,7 +85,7 @@ KernNotify_SysCall_Create(
         return;
     }
 
-    stat = KernProc_TokenCreate(apCurThread->User.ProcRef.AsProc, notifyRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
+    stat = KernProc_TokenCreate(apCurThread->RefProc.AsProc, notifyRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
 
     KernObj_ReleaseRef(&notifyRef);
 

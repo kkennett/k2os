@@ -150,13 +150,13 @@ KernXdl_FindClosestSymbol(
 
         if (pVirtMap != NULL)
         {
-            if (pVirtMap->Kern.mType == KernMap_Xdl_Part)
+            if (pVirtMap->Kern.mSegType == KernSeg_Xdl_Part)
             {
                 pXdlTrack = pVirtMap->Kern.XdlPart.mpOwnerTrack;
                 K2_ASSERT(NULL != pXdlTrack->mpXdl);
                 XDL_FindAddrName(pXdlTrack->mpXdl, aAddr, apRetSymName, aRetSymNameBufLen);
             }
-            else if (pVirtMap->Kern.mType == KernMap_Xdl_Page)
+            else if (pVirtMap->Kern.mSegType == KernSeg_Xdl_Page)
             {
                 pHostFile = (K2OSKERN_HOST_FILE *)pVirtMap->Kern.XdlPage.mOwnerHostFile;
                 K2_ASSERT(NULL != pHostFile->Track.mpXdl);
@@ -262,6 +262,8 @@ KernXdl_AddOneBuiltinXdl(
 
     pHeader = apXdlTrack->mpXdl->mpHeader;
 
+//    K2OSKERN_Debug("%s:\n", apXdlTrack->mpName);
+
     for (ix = XDLSegmentIx_Text; ix < XDLSegmentIx_Relocs; ix++)
     {
         if ((pHeader->Segment[ix].mMemActualBytes > 0) &&
@@ -270,6 +272,8 @@ KernXdl_AddOneBuiltinXdl(
             pageCount = (((UINT32)pHeader->Segment[ix].mMemActualBytes) + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES;
 
             K2_ASSERT(0 == (pHeader->Segment[ix].mLinkAddr & K2_VA_MEMPAGE_OFFSET_MASK));
+
+//            K2OSKERN_Debug("%d: %08X %08X\n", ix, (UINT32)(pHeader->Segment[ix].mLinkAddr), (UINT32)(pHeader->Segment[ix].mMemActualBytes));
 
             if (ix == XDLSegmentIx_Text)
             {
@@ -286,12 +290,16 @@ KernXdl_AddOneBuiltinXdl(
 
             KernVirtMap_CreatePreMap(pHeader->Segment[ix].mLinkAddr, pageCount, mapType, &apXdlTrack->SegVirtMapRef[ix]);
 
-            apXdlTrack->SegVirtMapRef[ix].AsVirtMap->Kern.mType = KernMap_Xdl_Part;
+            apXdlTrack->SegVirtMapRef[ix].AsVirtMap->Kern.mSegType = KernSeg_Xdl_Part;
             apXdlTrack->SegVirtMapRef[ix].AsVirtMap->Kern.XdlPart.mXdlSegmentIx = ix;
             apXdlTrack->SegVirtMapRef[ix].AsVirtMap->Kern.XdlPart.mpOwnerTrack = apXdlTrack;
 
             apXdlTrack->SegVirtMapRef[ix].AsVirtMap->Kern.mSizeBytes = (UINT32)pHeader->Segment[ix].mMemActualBytes;
         }
+//        else
+//        {
+//            K2OSKERN_Debug("%d: --------------------\n", ix);
+//        }
     }
 }
 

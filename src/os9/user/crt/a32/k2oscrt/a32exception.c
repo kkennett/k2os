@@ -37,22 +37,26 @@ A32Crt_ExTrap_Mount_C(
     K2_EXCEPTION_TRAP *apTrap
 )
 {
+    K2OS_THREAD_PAGE *  pThreadPage;
+
     //
     // context saved.  LR is original LR value before call thru pointer to trap mount
     //
-    CrtMem_Touch(apTrap, sizeof(K2_EXCEPTION_TRAP));
 
     // move LR to PC so we return direct to caller of func through pointer
     apTrap->SavedContext.R[15] = apTrap->SavedContext.R[14];
 
     // returned as value if system call fails
-    apTrap->mTrapResult = K2STAT_ERROR_BAD_ARGUMENT;
+    apTrap->mTrapResult = K2STAT_ERROR_UNKNOWN;
 
     //
-    // this should return FALSE if the trap is mounted properly.  in which case the
-    // trap's mTrapResult will be set to NO_ERROR
+    // push onto thread trap stack
     //
-    return (BOOL)CrtKern_SysCall1(K2OS_SYSCALL_ID_TRAP_MOUNT, (UINT32)apTrap);
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    apTrap->mpNextTrap = (K2_EXCEPTION_TRAP *)pThreadPage->mTrapStackTop;
+    pThreadPage->mTrapStackTop = (UINT32)apTrap;
+
+    return FALSE;
 }
 
 BOOL K2_CALLCONV_REGS A32CrtAsm_ExTrap_Mount(K2_EXCEPTION_TRAP *apTrap);

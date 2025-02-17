@@ -112,7 +112,7 @@ KernCpu_DrainEvents(
     K2OSKERN_CPUCORE volatile *apThisCore
 )
 {
-    K2OSKERN_CPUCORE_EVENT * pEvent;
+    K2OSKERN_CPUCORE_EVENT volatile * pEvent;
 
     KernCpuCoreEventType    eventType;
     UINT32                  srcCoreIx;
@@ -128,8 +128,8 @@ KernCpu_DrainEvents(
     disp = K2OSKERN_SetIntr(FALSE);
     do
     {
-        pEvent = K2_GET_CONTAINER(K2OSKERN_CPUCORE_EVENT, pList->mpHead, ListLink);
-        K2LIST_Remove(pList, &pEvent->ListLink);
+        pEvent = K2_GET_CONTAINER(K2OSKERN_CPUCORE_EVENT volatile, pList->mpHead, ListLink);
+        K2LIST_Remove(pList, (K2LIST_LINK *)&pEvent->ListLink);
         K2OSKERN_SetIntr(disp);
 
         eventType = pEvent->mEventType;
@@ -152,7 +152,7 @@ KernCpu_DrainEvents(
         //
         // clear the event at its source
         //
-        pEvent->mEventType = KernCpuCoreEvent_None;
+        pEvent->mEventType = KernCpuCoreEventType_Invalid;
         K2_CpuWriteBarrier();
 
         KernCpu_ProcessOneEvent(apThisCore, pEventObj, eventType, srcCoreIx, &evtTick);
@@ -175,8 +175,8 @@ KernCpu_ExecOneDpc(
     K2OSKERN_DPC *      pDpc;
     K2OSKERN_pf_DPC *   pKey;
 
-    K2_ASSERT(aPrio > KernDpcPrio_Invalid);
-    K2_ASSERT(aPrio < KernDpcPrio_Count);
+    K2_ASSERT(aPrio > KernDpcPrioType_Invalid);
+    K2_ASSERT(aPrio < KernDpcPrioType_Count);
 
     switch (aPrio)
     {
@@ -217,13 +217,13 @@ KernCpu_ExecOneDpc(
 
 void
 KernCpu_QueueEvent(
-    K2OSKERN_CPUCORE_EVENT * apEvent
+    K2OSKERN_CPUCORE_EVENT volatile * apEvent
 )
 {
     K2OSKERN_CPUCORE volatile *pThisCore;
-    K2_ASSERT(FALSE == K2OSKERN_GetIntr());
+    K2_ASSERT(!K2OSKERN_GetIntr());
     pThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
-    K2LIST_AddAtTail((K2LIST_ANCHOR *)&pThisCore->PendingEventList, &apEvent->ListLink);
+    K2LIST_AddAtTail((K2LIST_ANCHOR *)&pThisCore->PendingEventList, (K2LIST_LINK *)&apEvent->ListLink);
 }
 
 void
@@ -239,8 +239,8 @@ KernCpu_QueueDpc(
 
     K2_ASSERT(NULL != apKey);
     K2_ASSERT(NULL != (*apKey));
-    K2_ASSERT(aPrio > KernDpcPrio_Invalid);
-    K2_ASSERT(aPrio < KernDpcPrio_Count);
+    K2_ASSERT(aPrio > KernDpcPrioType_Invalid);
+    K2_ASSERT(aPrio < KernDpcPrioType_Count);
 
     //
     // can only ever queue to current core.  
@@ -338,17 +338,17 @@ KernCpu_AbortListThreadsFromProc(
         pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, pListLink, CpuCoreThreadListLink);
         pListLink = pListLink->mpNext;
 
-        if (pThread->User.ProcRef.AsProc == apProc)
+        if (pThread->RefProc.AsProc == apProc)
         {
             //
             // terminate the thread
             //
-            KTRACE(apThisCore, 3, KTRACE_THREAD_STOPPED, pThread->User.ProcRef.AsProc->mId, pThread->mGlobalIx);
+            KTRACE(apThisCore, 3, KTRACE_THREAD_STOPPED, pThread->RefProc.AsProc->mId, pThread->mGlobalIx);
             K2LIST_Remove(apList, &pThread->CpuCoreThreadListLink);
             K2ATOMIC_Dec(&gData.Sched.mCoreThreadCount[apThisCore->mCoreIx]);
 
             pSchedItem = &pThread->SchedItem;
-            pSchedItem->mType = KernSchedItem_Aborted_Running_Thread;
+            pSchedItem->mSchedItemType = KernSchedItem_Aborted_Running_Thread;
             pThread->mState = KernThreadState_InScheduler;
             KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
             KernSched_QueueItem(pSchedItem);
@@ -380,14 +380,14 @@ KernCpu_StopProc(
         pThread = apThisCore->mpActiveThread;
         if (NULL != pThread)
         {
-            if (pThread->User.ProcRef.AsProc == apProc)
+            if (pThread->RefProc.AsProc == apProc)
             {
                 //
                 // terminate the active thread
                 //
-                KTRACE(apThisCore, 3, KTRACE_CORE_ABORT_THREAD, pThread->User.ProcRef.AsProc->mId, pThread->mGlobalIx);
+                KTRACE(apThisCore, 3, KTRACE_CORE_ABORT_THREAD, pThread->RefProc.AsProc->mId, pThread->mGlobalIx);
                 pSchedItem = &pThread->SchedItem;
-                pSchedItem->mType = KernSchedItem_Aborted_Running_Thread;
+                pSchedItem->mSchedItemType = KernSchedItem_Aborted_Running_Thread;
                 KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
                 KernCpu_TakeCurThreadOffThisCore(apThisCore, pThread, KernThreadState_InScheduler);
                 KernSched_QueueItem(pSchedItem);
@@ -420,7 +420,7 @@ KernCpu_CpuEvent_RecvIci(
     iciType = pIci->mIciType;
     pArg = pIci->mpArg;
     pIci->mpArg = NULL;
-    pIci->mIciType = KernIci_None;
+    pIci->mIciType = KernIciType_Invalid;
     K2_CpuWriteBarrier();
 
     KTRACE(apThisCore, 2, KTRACE_CORE_RECV_ICI, iciType);
@@ -435,9 +435,6 @@ KernCpu_CpuEvent_RecvIci(
         break;
     case KernIci_StopProc:
         KernCpu_StopProc(apThisCore, (K2OSKERN_OBJ_PROCESS *)pArg);
-        break;
-    case KernIci_DebugCmd:
-        KernDbg_RecvSlaveCommand(apThisCore, (K2OSKERN_DBG_COMMAND *)pArg);
         break;
     case KernIci_KernThreadTlbInv:
         KernThread_RecvThreadTlbInv(apThisCore, (K2OSKERN_TLBSHOOT *)pArg);
@@ -461,7 +458,7 @@ KernCpu_TakeCurThreadOffThisCore(
     K2_ASSERT(aNewState != KernThreadState_Running);
     K2_ASSERT(apCurThread->mpLastRunCore == apThisCore);
     K2ATOMIC_Dec(&gData.Sched.mCoreThreadCount[apThisCore->mCoreIx]);
-    KTRACE(apThisCore, 4, KTRACE_CORE_SUSPEND_THREAD, apCurThread->mIsKernelThread ? 0 : apCurThread->User.ProcRef.AsProc->mId, apCurThread->mGlobalIx, aNewState);
+    KTRACE(apThisCore, 4, KTRACE_CORE_SUSPEND_THREAD, apCurThread->mIsKernelThread ? 0 : apCurThread->RefProc.AsProc->mId, apCurThread->mGlobalIx, aNewState);
     apCurThread->mState = aNewState;
     apThisCore->mpActiveThread = NULL;
 }
@@ -598,7 +595,7 @@ KernCpu_Schedule(
             // no quantum left of current thread - move to ran list
             // (after the threads that just migrated)
             //
-            KTRACE(apThisCore, 3, KTRACE_THREAD_QUANTUM_EXPIRED, pThread->mIsKernelThread ? 0 : pThread->User.ProcRef.AsProc->mId, pThread->mGlobalIx);
+            KTRACE(apThisCore, 3, KTRACE_THREAD_QUANTUM_EXPIRED, pThread->mIsKernelThread ? 0 : pThread->RefProc.AsProc->mId, pThread->mGlobalIx);
             apThisCore->mpActiveThread = NULL;
             pThread->mState = KernThreadState_OnCpuLists;
             K2LIST_AddAtTail((K2LIST_ANCHOR *)&apThisCore->RanList, &pThread->CpuCoreThreadListLink);
@@ -654,7 +651,7 @@ KernCpu_Schedule(
     //
     // put active thread onto the run list
     //
-    KTRACE(apThisCore, 3, KTRACE_THREAD_QUANTUM_EXPIRED, pThread->mIsKernelThread ? 0 : pThread->User.ProcRef.AsProc->mId, pThread->mGlobalIx);
+    KTRACE(apThisCore, 3, KTRACE_THREAD_QUANTUM_EXPIRED, pThread->mIsKernelThread ? 0 : pThread->RefProc.AsProc->mId, pThread->mGlobalIx);
     apThisCore->mpActiveThread = NULL;
     pThread->mState = KernThreadState_OnCpuLists;
     K2LIST_AddAtTail((K2LIST_ANCHOR *)&apThisCore->RunList, &pThread->CpuCoreThreadListLink);
@@ -673,7 +670,7 @@ KernCpu_MigrateThreadToCore(
 {
     UINT32 v;
 
-    K2_ASSERT(apThread->mIsKernelThread || (KernProcState_Stopping > apThread->User.ProcRef.AsProc->mState));
+    K2_ASSERT(apThread->mIsKernelThread || (KernProcState_Stopping > apThread->RefProc.AsProc->mState));
     K2_ASSERT(KernThreadState_InScheduler == apThread->mState);
     apThread->mState = KernThreadState_Migrating;
     do
@@ -706,7 +703,7 @@ KernCpu_RunMonitor(
 
     /* interrupts MUST BE OFF entering here */
 #ifdef K2_DEBUG
-    if (FALSE != K2OSKERN_GetIntr())
+    if (K2OSKERN_GetIntr())
         K2OSKERN_Panic("Interrupts enabled on entry to monitor!\n");
 #endif
 
@@ -718,8 +715,6 @@ KernCpu_RunMonitor(
 
         do
         {
-            KernDbg_IoCheck(pThisCore);
-
             if (KernCpu_ExecOneDpc(pThisCore, KernDpcPrio_Hi))
                 break;
 
@@ -755,12 +750,12 @@ KernCpu_RunMonitor(
                             K2_ASSERT(KernThreadState_OnCpuLists == pThread->mState);
                             K2LIST_Remove((K2LIST_ANCHOR *)&pThisCore->RunList, &pThread->CpuCoreThreadListLink);
 
-                            KTRACE(pThisCore, 3, KTRACE_THREAD_RUN, pThread->mIsKernelThread ? 0 : pThread->User.ProcRef.AsProc->mId, pThread->mGlobalIx);
+                            KTRACE(pThisCore, 3, KTRACE_THREAD_RUN, pThread->mIsKernelThread ? 0 : pThread->RefProc.AsProc->mId, pThread->mGlobalIx);
                             pThread->mState = KernThreadState_Running;
 
-                            if (!pThread->mIsKernelThread)
+                            if (NULL != pThread->RefProc.AsAny)
                             {
-                                KernArch_SetCoreToProcess(pThisCore, pThread->User.ProcRef.AsProc);
+                                KernArch_SetCoreToProcess(pThisCore, pThread->RefProc.AsProc);
                             }
 
                             pThisCore->mpActiveThread = pThread;
@@ -773,8 +768,10 @@ KernCpu_RunMonitor(
                         //
                         // we have an active thread to run, so return to it
                         //
+                        K2_ASSERT(KernThreadState_Running == pThread->mState);
+
                         K2_ASSERT((pThisCore->RunList.mNodeCount == 0) || (0 != pThread->mQuantumHfTicksRemaining));
-                        KTRACE(pThisCore, 3, KTRACE_CORE_RESUME_THREAD, pThread->mIsKernelThread ? 0 : pThread->User.ProcRef.AsProc->mId, pThread->mGlobalIx);
+                        KTRACE(pThisCore, 3, KTRACE_CORE_RESUME_THREAD, pThread->mIsKernelThread ? 0 : pThread->RefProc.AsProc->mId, pThread->mGlobalIx);
                         pThisCore->mIsInMonitor = FALSE;
                         KernCpu_SetTickMode(pThisCore, KernTickMode_Thread);
 

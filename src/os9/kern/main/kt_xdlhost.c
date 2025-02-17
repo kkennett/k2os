@@ -173,9 +173,9 @@ KernXdl_Threaded_RemapSegment(
         return FALSE;
     }
 
-    K2_ASSERT(KernMap_Xdl_Part == refVirtMap.AsVirtMap->Kern.mType);
+    K2_ASSERT(KernSeg_Xdl_Part == refVirtMap.AsVirtMap->Kern.mSegType);
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
@@ -212,7 +212,7 @@ KernXdl_Threaded_RemapSegment(
 
         KernXdl_Remap_SendIci(pThisCore, &pThisThread->Hdr.ObjDpc.Func);
 
-        KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
+        KernArch_IntsOff_SaveKernelThreadStateAndEnterMonitor(pThisCore, pThisThread);
         //
         // this is return point from entering the monitor to do the shootdown
         // interrupts will be on
@@ -239,7 +239,6 @@ KernXdl_Threaded_RemapSegment(
         mapAttr = K2OS_MEMPAGE_ATTR_EXEC | K2OS_MEMPAGE_ATTR_READABLE;
         break;
     case K2OS_MapType_Data_ReadOnly:
-    case K2OS_MapType_Data_CopyOnWrite:
         mapAttr = K2OS_MEMPAGE_ATTR_READABLE;
         break;
     case K2OS_MapType_Data_ReadWrite:
@@ -266,7 +265,7 @@ KernXdl_Threaded_RemapSegment(
         virtAddr += K2_VA_MEMPAGE_BYTES;
     };
 
-    refVirtMap.AsVirtMap->mMapType = aNewMapType;
+    refVirtMap.AsVirtMap->mVirtToPhysMapType = aNewMapType;
 
     K2_CpuWriteBarrier();
 
@@ -315,7 +314,7 @@ KernXdl_Threaded_FreeSegment(
         return FALSE;
     }
 
-    if (refVirtMap.AsVirtMap->Kern.mType == KernMap_Xdl_Page)
+    if (refVirtMap.AsVirtMap->Kern.mSegType == KernSeg_Xdl_Page)
     {
         pHostFile = (K2OSKERN_HOST_FILE *)refVirtMap.AsVirtMap->Kern.XdlPage.mOwnerHostFile;
         K2_ASSERT(pHostFile->RefXdlPageVirtMap.AsVirtMap == refVirtMap.AsVirtMap);
@@ -323,14 +322,14 @@ KernXdl_Threaded_FreeSegment(
     }
     else
     {
-        K2_ASSERT(refVirtMap.AsVirtMap->Kern.mType == KernMap_Xdl_Part);
+        K2_ASSERT(refVirtMap.AsVirtMap->Kern.mSegType == KernSeg_Xdl_Part);
         pTrack = refVirtMap.AsVirtMap->Kern.XdlPart.mpOwnerTrack;
         KernObj_ReleaseRef(&pTrack->SegVirtMapRef[refVirtMap.AsVirtMap->Kern.XdlPart.mXdlSegmentIx]);
     }
 
     KernObj_ReleaseRef(&refVirtMap);
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (K2OS_Thread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
     //
@@ -340,7 +339,7 @@ KernXdl_Threaded_FreeSegment(
     K2_ASSERT(disp);
     pThisCore = K2OSKERN_GET_CURRENT_CPUCORE;
     K2_ASSERT(pThisCore->mpActiveThread == pThisThread);
-    KernArch_IntsOff_EnterMonitorFromKernelThread(pThisCore, pThisThread);
+    KernArch_IntsOff_SaveKernelThreadStateAndEnterMonitor(pThisCore, pThisThread);
     //
     // this is return point from entering the monitor to do the shootdown
     // interrupts will be on
@@ -398,78 +397,100 @@ KernXdlHost_Threaded_Open(
 
     if (0 != KernXdl_Threaded_CreateRwSegment(1, &pHostFile->RefXdlPageVirtMap))
     {
-        pHostFile->RefXdlPageVirtMap.AsVirtMap->Kern.mType = KernMap_Xdl_Page;
+        pHostFile->RefXdlPageVirtMap.AsVirtMap->Kern.mSegType = KernSeg_Xdl_Page;
         pHostFile->RefXdlPageVirtMap.AsVirtMap->Kern.XdlPage.mOwnerHostFile = (K2XDL_HOST_FILE)pHostFile;
         
         xdlPageVirt = pHostFile->RefXdlPageVirtMap.AsVirtMap->OwnerMapTreeNode.mUserVal;
-        if (0 == apArgs->mAcqContext)
+
+        pHostFile->mFile = K2OS_FsClient_OpenFile(
+            gData.Xdl.mFsClient,
+            apArgs->mpPath,
+            K2OS_ACCESS_R,
+            K2OS_ACCESS_R,
+            K2OS_FileOpen_Existing,
+            0, 0
+        );
+
+        if (NULL == pHostFile->mFile)
         {
-            pHostFile->mpRofsFile = K2ROFSHELP_SubFile(gData.FileSys.mpRofs, K2ROFS_ROOTDIR(gData.FileSys.mpRofs), apArgs->mpPath);
-            if (NULL == pHostFile->mpRofsFile)
-            {
-                pChk = apArgs->mpNamePart + apArgs->mNameLen - 1;
-                while (pChk != apArgs->mpNamePart)
-                {
-                    if (*pChk == '.')
-                        break;
-                    pChk--;
-                }
-                if (*pChk == '.')
-                {
-                    stat = K2STAT_ERROR_NOT_FOUND;
-                }
-                else
-                {
-                    //
-                    // file spec does not end in an extension. add dlx and try again
-                    //
-                    specLen = (UINT32)(apArgs->mpNamePart - apArgs->mpPath) + apArgs->mNameLen;
-                    pTemp = K2OS_Heap_Alloc(specLen + 8);
-                    if (NULL == pTemp)
-                    {
-                        stat = K2STAT_ERROR_OUT_OF_MEMORY;
-                    }
-                    else
-                    {
-                        K2ASC_CopyLen(pTemp, apArgs->mpPath, specLen);
-                        K2ASC_Copy(pTemp + specLen, ".xdl");
-                        pHostFile->mpRofsFile = K2ROFSHELP_SubFile(gData.FileSys.mpRofs, K2ROFS_ROOTDIR(gData.FileSys.mpRofs), pTemp);;
-                        K2OS_Heap_Free(pTemp);
-                        if (NULL == pHostFile->mpRofsFile)
-                        {
-                            stat = K2STAT_ERROR_NOT_FOUND;
-                        }
-                    }
-                }
-
-            }
-
-            if (NULL != pHostFile->mpRofsFile)
-            {
-                // found the file in the built in file system
-                pHostFile->mIsRofs = TRUE;
-                pHostFile->mCurSector = 0;
-                pHostFile->mKeepSymbols = TRUE;
-
-                *apRetHostFile = (K2XDL_HOST_FILE)pHostFile;
-                *apRetModuleDataAddr = xdlPageVirt;
-                *apRetModuleLinkAddr = xdlPageVirt;
-
-                pHostFile->Track.mpXdl = (XDL *)xdlPageVirt;
-
-                stat = K2STAT_NO_ERROR;
-            }
-            else
-            {
-                K2_ASSERT(K2STAT_IS_ERROR(stat));
-            }
+            stat = K2OS_Thread_GetLastStatus();
+            K2_ASSERT(K2STAT_IS_ERROR(stat));
         }
         else
         {
+            stat = K2STAT_NO_ERROR;
+        }
+
+        if (K2STAT_ERROR_NOT_FOUND == stat)
+        {
             //
-            // load from real file system
+            // not found under name specified as a file
+            // check to see if it has an extension. if not then
+            // try loading it with the xdl exetnsion
             //
-            stat = K2STAT_ERROR_NOT_IMPL;
+            pChk = apArgs->mpNamePart + apArgs->mNameLen;
+            while (pChk != apArgs->mpNamePart)
+            {
+                if (*pChk == '.')
+                    break;
+                pChk--;
+            }
+            if (*pChk != '.')
+            {
+                //
+                // file spec does not end in an extension. add xdl and try again
+                //
+                specLen = (UINT32)(apArgs->mpNamePart - apArgs->mpPath) + apArgs->mNameLen;
+                pTemp = K2OS_Heap_Alloc(specLen + 8);
+                if (NULL == pTemp)
+                {
+                    stat = K2STAT_ERROR_OUT_OF_MEMORY;
+                }
+                else
+                {
+                    K2ASC_CopyLen(pTemp, apArgs->mpPath, specLen);
+                    K2ASC_Copy(pTemp + specLen, ".xdl");
+
+                    pHostFile->mFile = K2OS_FsClient_OpenFile(
+                        gData.Xdl.mFsClient,
+                        pTemp,
+                        K2OS_ACCESS_R,
+                        K2OS_ACCESS_R,
+                        K2OS_FileOpen_Existing,
+                        0, 0
+                    );
+
+                    K2OS_Heap_Free(pTemp);
+
+                    if (NULL == pHostFile->mFile)
+                    {
+                        stat = K2OS_Thread_GetLastStatus();
+                        K2_ASSERT(K2STAT_IS_ERROR(stat));
+                    }
+                    else
+                    {
+                        stat = K2STAT_NO_ERROR;
+                    }
+                }
+            }
+        }
+
+        if (!K2STAT_IS_ERROR(stat))
+        {
+            //
+            // file is open
+            //
+//            K2OSKERN_Debug("File is open\n");
+//            KernFsNode_Dump();
+            pHostFile->mKeepSymbols = TRUE;
+
+            *apRetHostFile = (K2XDL_HOST_FILE)pHostFile;
+            *apRetModuleDataAddr = xdlPageVirt;
+            *apRetModuleLinkAddr = xdlPageVirt;
+
+            pHostFile->Track.mpXdl = (XDL *)xdlPageVirt;
+
+            stat = K2STAT_NO_ERROR;
         }
 
         if (K2STAT_IS_ERROR(stat))
@@ -498,42 +519,27 @@ KernXdlHost_Threaded_ReadSectors(
     UINT64 const *          apSectorCount
 )
 {
-    K2ROFS_FILE const * pFile;
-    UINT8 const *       pFileSectors;
     K2OSKERN_HOST_FILE *pHostFile;
-    UINT32              curSector;
     UINT32              sectorCount;
+    UINT32              red;
+    K2STAT              stat;
 
     pHostFile = (K2OSKERN_HOST_FILE *)apLoadCtx->mHostFile;
 
     sectorCount = (UINT32)(*apSectorCount);
 
-    if (pHostFile->mIsRofs)
+    red = 0;
+    if (!K2OS_File_Read(pHostFile->mFile, apBuffer, sectorCount * XDL_SECTOR_BYTES, &red))
     {
-        pFile = pHostFile->mpRofsFile;
-
-        pFileSectors = K2ROFS_FILEDATA(gData.FileSys.mpRofs, pFile);
-
-        do
-        {
-            curSector = pHostFile->mCurSector;
-            K2_CpuReadBarrier();
-
-            if (K2ROFS_FILESECTORS(pFile) < curSector + sectorCount)
-                return K2STAT_ERROR_OUT_OF_BOUNDS;
-
-        } while (curSector != K2ATOMIC_CompareExchange(&pHostFile->mCurSector, curSector + sectorCount, curSector));
-
-        K2MEM_Copy(
-            apBuffer,
-            pFileSectors + (K2ROFS_SECTOR_BYTES * curSector),
-            K2ROFS_SECTOR_BYTES * sectorCount
-        );
-
-        return K2STAT_NO_ERROR;
+        stat = K2OS_Thread_GetLastStatus();
+        K2_ASSERT(K2STAT_IS_ERROR(stat));
+    }
+    else
+    {
+        stat = K2STAT_NO_ERROR;
     }
 
-    return K2STAT_ERROR_NOT_IMPL;
+    return stat;
 }
 
 K2STAT
@@ -550,6 +556,12 @@ KernXdlHost_Threaded_Prepare(
     UINT32              segAddr;
     BOOL                ok;
     K2OSKERN_HOST_FILE *pHostFile;
+
+    if (0 == (apFileHdr->mFlags & XDL_FILE_HEADER_FLAG_KERNEL_ONLY))
+    {
+        K2OSKERN_Debug("*** Attempt to load non-kernel XDL into kernel\n");
+        return K2STAT_ERROR_NOT_ALLOWED;
+    }
 
     stat = K2STAT_NO_ERROR;
 
@@ -572,7 +584,7 @@ KernXdlHost_Threaded_Prepare(
             }
             else
             {
-                pHostFile->Track.SegVirtMapRef[ix].AsVirtMap->Kern.mType = KernMap_Xdl_Part;
+                pHostFile->Track.SegVirtMapRef[ix].AsVirtMap->Kern.mSegType = KernSeg_Xdl_Part;
                 pHostFile->Track.SegVirtMapRef[ix].AsVirtMap->Kern.mSizeBytes = apFileHdr->Segment[ix].mMemActualBytes;
                 pHostFile->Track.SegVirtMapRef[ix].AsVirtMap->Kern.XdlPart.mpOwnerTrack = &pHostFile->Track;
                 pHostFile->Track.SegVirtMapRef[ix].AsVirtMap->Kern.XdlPart.mXdlSegmentIx = ix;
@@ -686,6 +698,9 @@ KernXdlHost_Threaded_Finalize(
     }
 
     K2OSKERN_Debug("KERNXDL: Loaded [%.*s]\n", apFileHdr->mNameLen, apFileHdr->mName);
+//    K2OSKERN_Debug("   Text: %08X %08X\n", (UINT32)apUpdateSegAddrs->mData[XDLSegmentIx_Text], (UINT32)apFileHdr->Segment[XDLSegmentIx_Text].mMemActualBytes);
+//    K2OSKERN_Debug("   Read: %08X %08X\n", (UINT32)apUpdateSegAddrs->mData[XDLSegmentIx_Read], (UINT32)apFileHdr->Segment[XDLSegmentIx_Read].mMemActualBytes);
+//    K2OSKERN_Debug("   Data: %08X %08X\n", (UINT32)apUpdateSegAddrs->mData[XDLSegmentIx_Data], (UINT32)apFileHdr->Segment[XDLSegmentIx_Data].mMemActualBytes);
 
     return K2STAT_NO_ERROR;
 }
@@ -717,6 +732,8 @@ KernXdlHost_Threaded_Purge(
 
     ok = KernXdl_Threaded_FreeSegment(pHostFile->RefXdlPageVirtMap.AsVirtMap->OwnerMapTreeNode.mUserVal);
     K2_ASSERT(ok);
+
+    K2OS_File_Close(pHostFile->mFile);
 
     ok = K2OS_Heap_Free(pHostFile);
     K2_ASSERT(ok);
@@ -761,45 +778,28 @@ KernXdl_Threaded_Acquire(
 )
 {
     K2STAT                  stat;
-    char                    chk;
-    UINT32                  devPathLen;
-    char const *            pScan;
-    UINT32                  acqContext;
+    BOOL                    ok;
     XDL_FILE_HEADER const * pHeader;
 #if DIAG_LOAD
     XDL *                   pXdl;
     K2LIST_LINK *           pListLink;
 #endif
 
-    //
-    // split path, find/acquire filesystem, use that as second arg
-    //
-    acqContext = 0;
-    pScan = apFilePath - 1;
-    do {
-        pScan++;
-        chk = *pScan;
-        if (chk == ':')
-            break;
-    } while (chk != 0);
-    if (chk != 0)
+    if (NULL == gData.Xdl.mFsClient)
     {
-        // chk points to colon.  file path is after that
-        devPathLen = (UINT32)(pScan - apFilePath);
-        pScan++;
-        // empty before colon is same as no colon at all
-        if (devPathLen != 0)
+        K2OS_CritSec_Enter(&gData.Xdl.Sec);
+        if (NULL == gData.Xdl.mFsClient)
         {
-            // device specified in path that is 'devPathLen' in characters long
-            K2_ASSERT(0);   //TBD - file system
+            gData.Xdl.mFsClient = K2OS_FsClient_Create();
+            K2_ASSERT(NULL != gData.Xdl.mFsClient);
+            ok = K2OS_FsClient_SetBaseDir(gData.Xdl.mFsClient, "/fs/0/kern");
+            K2_ASSERT(ok);
+//            K2OSKERN_Debug("kernel xdl load path is open\n");
         }
-    }
-    else
-    {
-        pScan = apFilePath;
+        K2OS_CritSec_Leave(&gData.Xdl.Sec);
     }
 
-    stat = XDL_Acquire(pScan, acqContext, appRetXdl);
+    stat = XDL_Acquire(apFilePath, 0, appRetXdl);
 
     if (!K2STAT_IS_ERROR(stat))
     {

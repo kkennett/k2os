@@ -39,20 +39,21 @@ FATFS_RpcObj_Create(
     UINT32 *                    apRetContext
 )
 {
-    FATFS * pFs;
-
-    K2OSKERN_Debug("%s()\n", __FUNCTION__);
+    FATPROV *pProv;
 
     if (0 != apCreate->mCreatorProcessId)
     {
         return K2STAT_ERROR_NOT_ALLOWED;
     }
 
-    pFs = (FATFS *)apCreate->mCreatorContext;
+    pProv = (FATPROV *)apCreate->mCreatorContext;
 
-    pFs->mRpcObj = aObject;
+    if (pProv != &gFatProv)
+        return K2STAT_ERROR_NOT_ALLOWED;
 
-    *apRetContext = (UINT32)pFs;
+    gFatProv.mRpcObj = aObject;
+
+    *apRetContext = (UINT32)&gFatProv;
 
     return K2STAT_NO_ERROR;
 }
@@ -65,7 +66,8 @@ FATFS_RpcObj_OnAttach(
     UINT32 *        apRetUseContext
 )
 {
-    K2OSKERN_Debug("%s()\n", __FUNCTION__);
+    if (0 != aProcessId)
+        return K2STAT_ERROR_NOT_ALLOWED;
     return K2STAT_NO_ERROR;
 }
 
@@ -76,7 +78,6 @@ FATFS_RpcObj_OnDetach(
     UINT32          aUseContext
 )
 {
-    K2OSKERN_Debug("%s()\n", __FUNCTION__);
     return K2STAT_NO_ERROR;
 }
 
@@ -86,8 +87,57 @@ FATFS_RpcObj_Call(
     UINT32 *                    apRetUsedOutBytes
 )
 {
-    K2OSKERN_Debug("%s()\n", __FUNCTION__);
-    return K2STAT_ERROR_NOT_IMPL;
+    K2STAT  stat;
+    UINT32  u32;
+
+    stat = K2STAT_ERROR_UNKNOWN;
+
+    switch (apCall->Args.mMethodId)
+    {
+    case K2OS_FsProv_Method_GetCount:
+        if ((apCall->Args.mInBufByteCount > 0) ||
+            (apCall->Args.mOutBufByteCount < sizeof(UINT32)))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else
+        {
+            u32 = FATFS_NUM_PROV;
+            K2MEM_Copy(apCall->Args.mpOutBuf, &u32, sizeof(u32));
+            *apRetUsedOutBytes = sizeof(UINT32);
+            stat = K2STAT_NO_ERROR;
+        }
+        break;
+
+    case K2OS_FsProv_Method_GetEntry:
+        if ((apCall->Args.mInBufByteCount < sizeof(UINT32)) ||
+            (apCall->Args.mOutBufByteCount < sizeof(void *)))
+        {
+            stat = K2STAT_ERROR_BAD_ARGUMENT;
+        }
+        else
+        {
+            K2MEM_Copy(&u32, apCall->Args.mpInBuf, sizeof(UINT32));
+            if (u32 >= FATFS_NUM_PROV)
+            {
+                stat = K2STAT_ERROR_OUT_OF_BOUNDS;
+            }
+            else
+            {
+                u32 = (UINT32)&gFatProv.KernFsProv[u32];
+                K2MEM_Copy(apCall->Args.mpOutBuf, &u32, sizeof(void *));
+                *apRetUsedOutBytes = sizeof(void *);
+                stat = K2STAT_NO_ERROR;
+            }
+        }
+        break;
+
+    default:
+        stat = K2STAT_ERROR_NOT_IMPL;
+        break;
+    };
+
+    return stat;
 }
 
 K2STAT 
@@ -96,7 +146,7 @@ FATFS_RpcObj_Delete(
     UINT32          aObjContext
 )
 {
-    K2OSKERN_Debug("%s()\n", __FUNCTION__);
+    K2_ASSERT(aObjContext == (UINT32)&gFatProv);
     return K2STAT_NO_ERROR;
 }
 

@@ -296,7 +296,7 @@ PCNET32_WritePciCfg(
     writeIn.mBusChildId = apDevice->InstInfo.mBusChildId;
 
     K2MEM_Zero(&callArgs, sizeof(callArgs));
-    callArgs.mMethodId = K2OS_PCIBUS_METHOD_CFG_WRITE;
+    callArgs.mMethodId = K2OS_PciBus_Method_Write;
     callArgs.mpInBuf = (UINT8 const *)&writeIn;
     callArgs.mInBufByteCount = sizeof(writeIn);
     rpcOut = 0;
@@ -332,7 +332,7 @@ PCNET32_ReadPciCfg(
     readIn.Loc.mOffset = aOffset;
     readIn.Loc.mWidth = aWidth;
     readIn.mBusChildId = apDevice->InstInfo.mBusChildId;
-    callArgs.mMethodId = K2OS_PCIBUS_METHOD_CFG_READ;
+    callArgs.mMethodId = K2OS_PciBus_Method_Read;
     callArgs.mpInBuf = (UINT8 const *)&readIn;
     callArgs.mInBufByteCount = sizeof(readIn);
     callArgs.mpOutBuf = (UINT8 *)&result;

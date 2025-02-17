@@ -370,7 +370,7 @@ K2OS_CacheOperation(
             A32_ICacheInvalidateAll();
             break;
         default:
-            K2OSKERN_Panic("*** Unknown/Unsupported CacheOp\n");
+            gShared.FuncTab.Panic("*** Unknown/Unsupported CacheOp\n");
             break;
         }
     }
@@ -391,7 +391,7 @@ K2OS_CacheOperation(
             A32_ICacheInvalidateRange(aAddress, aBytes);
             break;
         default:
-            K2OSKERN_Panic("*** Unknown/Unsupported CacheOp\n");
+            gShared.FuncTab.Panic("*** Unknown/Unsupported CacheOp\n");
             break;
         }
     }

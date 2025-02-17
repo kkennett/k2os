@@ -32,7 +32,7 @@
 
 #include "kern.h"
 
-#define PHYS_AUDIT 0
+#define PHYS_AUDIT 1
 
 #define DESC_BUFFER_BYTES   (((sizeof(K2EFI_MEMORY_DESCRIPTOR) * 2) + 4) & ~3)
 
@@ -305,7 +305,7 @@ KernPhys_ChangePhysTrackToConventional(
 
     pTrack = (K2OS_PHYSTRACK_UEFI *)K2OS_PHYS32_TO_PHYSTRACK(aPhysAddr);
     do {
-        pTrack->mType = K2EFI_MEMTYPE_Conventional;
+        pTrack->mEfiMemType = K2EFI_MEMTYPE_Conventional;
         pTrack++;
     } while (--aPageCount);
 }
@@ -567,7 +567,7 @@ KernPhys_InitPhysTrack(
 
             do
             {
-                K2_ASSERT(pDesc->Type == ((K2OS_PHYSTRACK_UEFI *)pTrackPage)->mType);
+                K2_ASSERT(pDesc->Type == ((K2OS_PHYSTRACK_UEFI *)pTrackPage)->mEfiMemType);
                 pTrackPage->Flags.mAsUINT32 = memProp;
                 pTrackPage->mpOwnerProc = NULL;
                 pTrackPage->ListLink.mpPrev = NULL;
@@ -1082,26 +1082,6 @@ KernPhys_ScanToPhysPageArray(
         *apArray = KernPhys_ScanIter(apScan) | aSetLowBits;
         apArray++;
     }
-}
-
-void    
-KernPhys_ZeroPage(
-    UINT32 aPhysAddr
-)
-{
-    UINT32 virtAddr;
-
-    virtAddr = K2OS_KVA_PERCOREWORKPAGES_BASE + ((K2OSKERN_GetCpuIndex() * K2OS_PERCOREWORKPAGES_PERCORE) *  K2_VA_MEMPAGE_BYTES);
-
-    KernPte_MakePageMap(NULL, virtAddr, aPhysAddr, K2OS_MAPTYPE_KERN_DATA);
-
-    K2MEM_Zero((void *)virtAddr, K2_VA_MEMPAGE_BYTES);
-
-    K2OS_CacheOperation(K2OS_CACHEOP_FlushDataRange, virtAddr, K2_VA_MEMPAGE_BYTES);
-
-    KernPte_BreakPageMap(NULL, virtAddr, 0);
-
-    KernArch_InvalidateTlbPageOnCurrentCore(virtAddr);
 }
 
 void

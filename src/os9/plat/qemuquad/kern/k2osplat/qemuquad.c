@@ -45,16 +45,14 @@
 
 static UINT32 sgUartVirt = 0;
 
-static K2OS_PHYSADDR_INFO sgPhysInfo[] =
-{
-    { USE_UART_PHYSADDR, K2_VA_MEMPAGE_BYTES },
-};
-
 static K2OS_PLATINIT_MAP sgInitMap[] =
 {
     { USE_UART_PHYSADDR, 1, K2OS_MEMPAGE_ATTR_DEVICEIO | K2OS_MEMPAGE_ATTR_READWRITE, 0 },
     { 0, 0, 0, 0 }
 };
+
+static UINT32 gCount = 0;
+static UINT32 gResCount = 0;
 
 K2OS_PLATINIT_MAP * 
 K2_CALLCONV_REGS 
@@ -64,13 +62,22 @@ K2OSPLAT_Init(
 {
     if (NULL == apMapped)
     {
+        //
+        // first call - return map table
+        //
         return sgInitMap;
     }
 
+    // 
+    // second call - kernel has filled in map table virtual addresses
+    //
     sgUartVirt = sgInitMap[0].mVirtAddr;
     K2_ASSERT(0 != sgUartVirt);
     K2_CpuWriteBarrier();
 
+    //
+    // always return the map
+    //
     return sgInitMap;
 }
 
@@ -103,61 +110,94 @@ K2OSPLAT_DebugIn(
     return TRUE;
 }
 
-BOOL
-K2_CALLCONV_REGS 
-K2OSPLAT_CheckIntr(
-    K2OSKERN_PLATNODE const *apPlatNode
+K2OSPLAT_DEV
+K2OSPLAT_DeviceCreate(
+    K2OSPLAT_DEV            aParent,
+    UINT32                  aName,
+    UINT32                  aDeviceContext,
+    K2_DEVICE_IDENT const * apDeviceIdent,
+    UINT8  *                apMountInfoIo,
+    UINT32                  aMountInfoBufferBytes,
+    UINT32 *                apMountInfoBytesIo
 )
 {
-    return TRUE;
-}
+    UINT32          bytesIn;
+    char const *    pScan;
 
-void
-K2OSPLAT_GetResTable(
-    UINT32          aTableIx,
-    UINT32 *        apRetCount,
-    void const **   appRetTable
-)
-{
-    *apRetCount = sizeof(sgPhysInfo) / sizeof(K2OS_PHYSADDR_INFO);
-    *appRetTable = sgPhysInfo;
-}
+    //
+    // returns a platform opaque moniker for the device
+    //
 
-UINT32 
-K2OSPLAT_ForcedDriverQuery(
-    K2OSKERN_PLATNODE const *   apNode,
-    char *                      apIoBuf,
-    UINT32                    aIoBufSizeBytes,
-    UINT32                    aIoBufInCount
-)
-{
-    char const * pScan;
-
-    if (0 == aIoBufInCount)
+    if (NULL == apMountInfoBytesIo)
     {
-        return 0;
+        //
+        // no mount info.  just return the next moniker
+        //
+//        K2OSKERN_Debug("K2OSPLAT_DeviceCreate(NULL) - %d\n", gCount+1);
+        return (K2OSPLAT_DEV)++gCount;
     }
 
     //
-    // first forced driver is the USDHC controller
+    // has mount info. if desired parse to see what this is.
+    // return in the mount info buffer the forced driver path
+    // to use.  /fs/0 is always the built in file system
     //
-    pScan = apIoBuf;
-    do {
-        pScan = K2ASC_FindCharConstIns('H', pScan);
-        if (NULL == pScan)
-            break;
-        if (0 == K2ASC_CompInsLen(pScan, "H(FSCL0020)", 10))
-        {
-            //
-            // this is the root pci bus. force to built-in pci bus driver
-            //
-            return K2ASC_Copy(apIoBuf, ":fsusdhc.xdl");
-        }
-        pScan++;
-    } while ((*pScan) != 0);
+    bytesIn = *apMountInfoBytesIo;
+    *apMountInfoBytesIo = 0;
 
-    return 0;
+//    K2OSKERN_Debug("K2OSPLAT_DeviceCreate(\"%.*s\") - %d\n", bytesIn, (char *)apMountInfoIo, gCount+1);
+
+    if (0 != bytesIn)
+    {
+        //
+        // first forced driver is the storage runtime UEFI driver for USDHC4
+        //
+        pScan = (char const *)apMountInfoIo;
+        do
+        {
+            pScan = K2ASC_FindCharConstIns('H', pScan);
+            if (NULL == pScan)
+                break;
+            if (0 == K2ASC_CompInsLen(pScan, "H(FSCL0020)", 11))
+            {
+                //
+                // this is the USDHC4
+                //
+                *apMountInfoBytesIo = K2ASC_Copy((char *)apMountInfoIo, "/fs/0/kern/storerun.xdl");
+                return (K2OSPLAT_DEV)++gCount;
+            }
+            pScan++;
+        } while ((*pScan) != 0);
+    }
+
+    //
+    // we don't care what this is right now
+    //
+
+    return (K2OSPLAT_DEV)++gCount;
 }
+
+BOOL
+K2OSPLAT_DeviceRemove(
+    K2OSPLAT_DEV aDevice
+)
+{
+//    K2OSKERN_Debug("K2OSPLAT_DeviceRemove(%d)\n", aDevice);
+    return TRUE;
+}
+
+K2OSPLAT_RES
+K2OSPLAT_DeviceAddRes(
+    K2OSPLAT_DEV aDevice,
+    UINT32 aResType,
+    UINT32 aResInfo1,
+    UINT32 aResInfo2
+)
+{
+//    K2OSKERN_Debug("K2OSPLAT_DeviceAddRes(%d, %d, %08X, %08X)\n", aDevice, aResType, aResInfo1, aResInfo2);
+    return (K2OSPLAT_RES)++gResCount;
+}
+
 
 K2STAT
 K2_CALLCONV_REGS

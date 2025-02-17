@@ -224,6 +224,12 @@ CrtXdl_Prepare(
     BOOL            ok;
     CRT_HOST_FILE * pCrtHostFile;
 
+    if (0 != (apFileHdr->mFlags & XDL_FILE_HEADER_FLAG_KERNEL_ONLY))
+    {
+        CrtDbg_Printf("*** Attempt to load kernel XDL into user space\n");
+        return K2STAT_ERROR_NOT_ALLOWED;
+    }
+
     stat = K2STAT_NO_ERROR;
 
     pCrtHostFile = (CRT_HOST_FILE *)apLoadCtx->mHostFile;
@@ -407,7 +413,7 @@ CrtXdl_Init(
 
     sgpROFS = apROFS;
 
-    pFile = K2ROFSHELP_SubFile(sgpROFS, K2ROFS_ROOTDIR(sgpROFS), "k2oscrt.xdl");
+    pFile = K2ROFSHELP_SubFile(sgpROFS, K2ROFS_ROOTDIR(sgpROFS), "user/k2oscrt.xdl");
     K2_ASSERT(NULL != pFile);
 
     K2MEM_Zero(&sgXdlHost, sizeof(sgXdlHost));

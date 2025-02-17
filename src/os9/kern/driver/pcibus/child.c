@@ -212,7 +212,7 @@ PciBus_MountChild(
                         if (0 != (apChild->mBarVal[ix] & PCI_BAR_TYPE_IO_BIT))
                         {
                             K2MEM_Zero(&resDef, sizeof(resDef));
-                            resDef.mType = K2OS_RESTYPE_IO;
+                            resDef.mResType = K2OS_RESTYPE_IO;
                             resDef.mId = ix;
                             resDef.Io.Range.mBasePort = (UINT16)(apChild->mBarVal[ix] & PCI_BAR_BASEMASK_IO);
                             resDef.Io.Range.mSizeBytes = apChild->mBarSize[ix];
@@ -226,7 +226,7 @@ PciBus_MountChild(
                         else
                         {
                             K2MEM_Zero(&resDef, sizeof(resDef));
-                            resDef.mType = K2OS_RESTYPE_PHYS;
+                            resDef.mResType = K2OS_RESTYPE_PHYS;
                             resDef.mId = ix;
                             resDef.Phys.Range.mBaseAddr = apChild->mBarVal[ix] & PCI_BAR_BASEMASK_MEMORY;
                             resDef.Phys.Range.mSizeBytes = apChild->mBarSize[ix];
@@ -267,7 +267,7 @@ PciBus_MountChild(
                 if (irqLine != 0xFFFFFFFF)
                 {
                     K2MEM_Zero(&resDef, sizeof(resDef));
-                    resDef.mType = K2OS_RESTYPE_IRQ;
+                    resDef.mResType = K2OS_RESTYPE_IRQ;
                     resDef.mId = 0;
                     resDef.Irq.Config.Line.mIsActiveLow = TRUE;
                     resDef.Irq.Config.mSourceIrq = (UINT16)irqLine;

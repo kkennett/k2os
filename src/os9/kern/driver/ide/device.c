@@ -59,7 +59,7 @@ IDE_Device_GetMedia(
         apDevice->mpChannel->mpNotifyKey, 
         apDevice->mpChannel->mpController->mDevCtx, 
         apDevice, 
-        K2OS_BLOCKIO_NOTIFY_MEDIA_CHANGED);
+        K2OS_BlockIo_Notify_MediaChanged);
 #endif
 
     return stat;

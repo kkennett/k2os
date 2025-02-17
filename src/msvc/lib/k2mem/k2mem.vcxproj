@@ -146,6 +146,7 @@
     <ClInclude Include="..\..\..\shared\inc\lib\k2mem.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\shared\lib\k2mem\asbytes.c" />
     <ClCompile Include="..\..\..\shared\lib\k2mem\gather.c" />
     <ClCompile Include="..\..\..\shared\lib\k2mem\memcompare.c" />
     <ClCompile Include="..\..\..\shared\lib\k2mem\memcompare16.c" />
@@ -171,6 +172,7 @@
     <ClCompile Include="..\..\..\shared\lib\k2mem\memverify64.c" />
     <ClCompile Include="..\..\..\shared\lib\k2mem\memverify8.c" />
     <ClCompile Include="..\..\..\shared\lib\k2mem\scatter.c" />
+    <ClCompile Include="..\..\..\shared\lib\k2mem\touch.c" />
     <ClCompile Include="..\..\..\shared\lib\k2mem\vector.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

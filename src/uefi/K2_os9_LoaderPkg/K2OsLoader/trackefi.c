@@ -278,7 +278,7 @@ sTrackOneDescriptor(
         pTrack = (K2OS_PHYSTRACK_UEFI *)(virtTrackWork + v2pOffset);
         K2_ASSERT(pTrack->mProp == 0);
         pTrack->mProp = (UINT32)(apDesc->Attribute & K2EFI_MEMORYFLAG_PROP_MASK);
-        pTrack->mType = apDesc->Type;
+        pTrack->mEfiMemType = apDesc->Type;
         virtTrackWork += K2OS_PHYSTRACK_BYTES;
     } while (virtTrackWork <= virtTrackLast);
 }

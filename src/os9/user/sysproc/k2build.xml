@@ -54,5 +54,6 @@
 
     <lib>~lib/k2osblockio</lib>
     <lib>~lib/k2osnetio</lib>
+    <lib>~lib/k2osstorvol</lib>
    
 </k2build>

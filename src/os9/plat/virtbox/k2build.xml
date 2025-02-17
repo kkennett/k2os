@@ -36,10 +36,10 @@
     
     <plat>~plat/virtbox/kern/k2osplat</plat>    
     
-    <builtin>~kern/driver/pcibus</builtin>
-    <builtin>~kern/driver/ide</builtin>
-    <builtin>~kern/driver/ramdisk</builtin>
-    <builtin>~kern/fs/fatfs</builtin>
-    <builtin>~kern/driver/pcnet32</builtin>
+    <kern_builtin>~kern/driver/pcibus</kern_builtin>
+    <kern_builtin>~kern/driver/ide</kern_builtin>
+    <kern_builtin>~kern/driver/ramdisk</kern_builtin>
+    <kern_builtin>~kern/fs/fatfs</kern_builtin>
+    <kern_builtin>~kern/driver/pcnet32</kern_builtin>
     
 </k2build>

@@ -73,7 +73,7 @@ DevMgr_QueueEvent(
         return FALSE;
     }
 
-    pEvent->mType = aType;
+    pEvent->mDevNodeEventType = aType;
 
     pEvent->mArg = aArg;
 
@@ -269,6 +269,19 @@ DevMgr_NodeLocked_DelTimer(
 }
 
 void
+DevMgr_NotifyRun(
+    void
+)
+{
+    K2OS_MSG runMsg;
+
+    runMsg.mMsgType = K2OS_SYSTEM_MSGTYPE_SYSPROC;
+    runMsg.mShort = K2OS_SYSTEM_MSG_SYSPROC_SHORT_RUN;
+
+    K2OSKERN_SysProc_Notify(&runMsg);
+}
+
+void
 DevMgr_Run(
     void
 )
@@ -284,6 +297,8 @@ DevMgr_Run(
     K2OS_WaitResult     waitResult;
     BOOL                disp;
     DEVNODE *           pNextNode;
+
+    DevMgr_NotifyRun();
 
     do {
 
@@ -373,7 +388,7 @@ DevMgr_Run(
                 pEvent->mPending = FALSE;
 
                 K2OS_CritSec_Enter(&pEvent->DevNodeRef.mpDevNode->Sec);
-                Dev_NodeLocked_OnEvent(pEvent->DevNodeRef.mpDevNode, pEvent->mType, pEvent->mArg);
+                Dev_NodeLocked_OnEvent(pEvent->DevNodeRef.mpDevNode, pEvent->mDevNodeEventType, pEvent->mArg);
                 K2OS_CritSec_Leave(&pEvent->DevNodeRef.mpDevNode->Sec);
 
                 Dev_ReleaseRef(&pEvent->DevNodeRef);

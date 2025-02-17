@@ -34,10 +34,10 @@
 
 BOOL X32Crt_ExTrap_Mount_C(X32_CONTEXT ctx)
 {
-    K2_EXCEPTION_TRAP *pTrap;
+    K2_EXCEPTION_TRAP * pTrap;
+    K2OS_THREAD_PAGE *  pThreadPage;
 
     pTrap = (K2_EXCEPTION_TRAP *)ctx.ECX;
-    CrtMem_Touch(pTrap, sizeof(K2_EXCEPTION_TRAP));
 
     //
     // esp in context is value before pusha in assembly.
@@ -55,7 +55,11 @@ BOOL X32Crt_ExTrap_Mount_C(X32_CONTEXT ctx)
     // this should return FALSE if the trap is mounted properly.  in which case the
     // trap's mTrapResult will be set to NO_ERROR
     //
-    return (BOOL)CrtKern_SysCall1(K2OS_SYSCALL_ID_TRAP_MOUNT, (UINT32)pTrap);
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pTrap->mpNextTrap = (K2_EXCEPTION_TRAP *)pThreadPage->mTrapStackTop;
+    pThreadPage->mTrapStackTop = (UINT32)pTrap;
+
+    return FALSE;
 }
 
 BOOL K2_CALLCONV_REGS X32CrtAsm_ExTrap_Mount(K2_EXCEPTION_TRAP *apTrap);

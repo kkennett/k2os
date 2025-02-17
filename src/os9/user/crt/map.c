@@ -46,29 +46,6 @@ K2OS_VirtMap_Create(
         aVirtAddr, aMapType);
 }
 
-K2OS_PAGEARRAY_TOKEN 
-K2OS_VirtMap_AcquirePageArray(
-    K2OS_VIRTMAP_TOKEN  aTokVirtMap,
-    UINT32 *            apRetStartPageIndex
-)
-{
-    K2OS_PAGEARRAY_TOKEN    tokResult;
-    K2OS_THREAD_PAGE *      pThreadPage;
-
-    tokResult = (K2OS_PAGEARRAY_TOKEN)CrtKern_SysCall1(K2OS_SYSCALL_ID_MAP_ACQ_PAGEARRAY, (UINT32)aTokVirtMap);
-
-    if (NULL == tokResult)
-        return NULL;
-
-    if (NULL != apRetStartPageIndex)
-    {
-        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
-        *apRetStartPageIndex = pThreadPage->mSysCall_Arg7_Result0;
-    }
-
-    return tokResult;
-}
-
 UINT32
 K2OS_VirtMap_GetInfo(
     K2OS_VIRTMAP_TOKEN          aTokVirtMap,
@@ -82,7 +59,7 @@ K2OS_VirtMap_GetInfo(
     result = CrtKern_SysCall1(K2OS_SYSCALL_ID_MAP_GET_INFO, (UINT32)aTokVirtMap);
     if (0 != result)
     {
-        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
         if (NULL != apRetMapType)   
             *apRetMapType = pThreadPage->mSysCall_Arg7_Result0;
         if (NULL != apRetMapPageCount)
@@ -114,7 +91,7 @@ K2OS_VirtMap_Acquire(
     if (NULL == result)
         return NULL;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
     if (NULL != apRetMapType)
         *apRetMapType = pThreadPage->mSysCall_Arg7_Result0;
     if (NULL != apRetMapPageIndex)

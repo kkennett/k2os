@@ -40,6 +40,7 @@
     <source>getfsdata.s</source>
     <source>x32trap.c</source>
     <source>x32trapasm.s</source>
+    <source>@shared/k2time.c</source>
 
     <lib>@shared/lib/k2mem</lib>
     <lib>@shared/lib/k2asc</lib>
@@ -60,5 +61,6 @@
 
     <lib>~user/crt</lib>
     <lib>~lib/k2osrpc</lib>
+    <lib>~lib/k2osfs</lib>
 
 </k2build>

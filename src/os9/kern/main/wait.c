@@ -46,7 +46,7 @@ KernWait_SysCall(
     UINT32                      ixEntry;
     UINT32                      ixScan;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
@@ -131,7 +131,7 @@ KernWait_SysCall(
         {
         // these are waitable objects
         case KernObj_Process:
-            if (apCurThread->User.ProcRef.AsProc == apCurThread->MacroWait.WaitEntry[ixEntry].ObjRef.AsProc)
+            if (apCurThread->RefProc.AsProc == apCurThread->MacroWait.WaitEntry[ixEntry].ObjRef.AsProc)
             {
                 //
                 // cannot wait on your own process
@@ -194,7 +194,7 @@ KernWait_SysCall(
     // ready to go to scheduler to try the wait
     //
     apCurThread->mQuantumHfTicksRemaining = 0;
-    apCurThread->SchedItem.mType = KernSchedItem_Thread_SysCall;
+    apCurThread->SchedItem.mSchedItemType = KernSchedItem_Thread_SysCall;
     KernArch_GetHfTimerTick(&apCurThread->SchedItem.mHfTick);
     KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
     KernSched_QueueItem(&apCurThread->SchedItem);

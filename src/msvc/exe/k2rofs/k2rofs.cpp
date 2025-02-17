@@ -254,6 +254,7 @@ static UINT32 sCount(RofsDir *apDir, UINT32 *apPayloadSectors)
     UINT32      ret;
     RofsDir *   pSub;
     RofsFile *  pFile;
+    UINT32      pageAlignSize;
 
     ret = sizeof(K2ROFS_DIR);
     ret += apDir->mFileCount * sizeof(K2ROFS_FILE);
@@ -262,7 +263,8 @@ static UINT32 sCount(RofsDir *apDir, UINT32 *apPayloadSectors)
     pFile = apDir->mpFiles;
     while (pFile != NULL)
     {
-        *apPayloadSectors += (UINT32)((pFile->mpMap->FileBytes() + (K2ROFS_SECTOR_BYTES - 1)) / K2ROFS_SECTOR_BYTES);
+        pageAlignSize = (UINT32)(((pFile->mpMap->FileBytes() + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES);
+        *apPayloadSectors += ((pageAlignSize + (K2ROFS_SECTOR_BYTES - 1)) / K2ROFS_SECTOR_BYTES);
         pFile = pFile->mpParentNextFileLink;
     }
 
@@ -285,6 +287,7 @@ static void sFill(UINT8 *apBase, UINT8 **apWork, RofsDir *apDir, char **apString
     K2ROFS_FILE *   pOutFile;
     FILETIME        localFileTime;
     UINT32 *        pOffsets;
+    UINT32          pageAlignSize;
 
     pOutDir = (K2ROFS_DIR *)(*apWork);
     apDir->mpTarget = pOutDir;
@@ -310,7 +313,8 @@ static void sFill(UINT8 *apBase, UINT8 **apWork, RofsDir *apDir, char **apString
         pOutFile->mSizeBytes = (UINT32)pFile->mpMap->FileBytes();
         pOutFile->mStartSectorOffset = ((UINT32)((*apPayload) - apBase)) / K2ROFS_SECTOR_BYTES;
 
-        payloadSectors = (UINT32)((pFile->mpMap->FileBytes() + (K2ROFS_SECTOR_BYTES - 1)) / K2ROFS_SECTOR_BYTES);
+        pageAlignSize = (UINT32)(((pFile->mpMap->FileBytes() + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES);
+        payloadSectors = ((pageAlignSize + (K2ROFS_SECTOR_BYTES - 1)) / K2ROFS_SECTOR_BYTES);
         K2MEM_Copy((*apPayload), pFile->mpMap->DataPtr(), (UINT_PTR)pFile->mpMap->FileBytes());
         (*apPayload) += payloadSectors * K2ROFS_SECTOR_BYTES;
 
@@ -397,12 +401,15 @@ int CreateOutputFile(char const *apOutFileName)
     stringsOffset = totalOut;
     totalOut += gStringFieldSize;
 
-    // round up, convert to sectors
-    totalOut = ((totalOut + (K2ROFS_SECTOR_BYTES - 1)) / K2ROFS_SECTOR_BYTES);
+    // round up to page boundary, then convert to sectors
+    totalOut = ((totalOut + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES) * K2_VA_MEMPAGE_BYTES;
+    totalOut /= K2ROFS_SECTOR_BYTES;
 
     // now add all the payloads
     payloadsOffset = totalOut * K2ROFS_SECTOR_BYTES;
+    K2_ASSERT(0 == (payloadsOffset & K2_VA_MEMPAGE_OFFSET_MASK));
     totalOut += payloadSectors;
+    K2_ASSERT(0 == (payloadsOffset & K2_VA_MEMPAGE_OFFSET_MASK));
 
     // alloc aligned
     pAlloc = (UINT8 *)malloc((totalOut * K2ROFS_SECTOR_BYTES) + (K2ROFS_SECTOR_BYTES - 1));

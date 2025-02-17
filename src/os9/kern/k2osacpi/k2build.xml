@@ -44,8 +44,6 @@
     <copts arch="a32">-fno-builtin-memcpy</copts>
     <copts arch="a32">-DACPI_MISALIGNMENT_NOT_SUPPORTED</copts>
 
-    <source>xdl_entry.c</source>
-
     <source>cache.c</source>
     <source>initterm.c</source>
     <source>intr.c</source>

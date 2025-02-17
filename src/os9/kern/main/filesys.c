@@ -37,12 +37,17 @@ KernFileSys_Init(
     void
 )
 {
-    UINT32  pageCount;
+    KernFsNode_Init(NULL, &gData.FileSys.RootFsNode);
+    gData.FileSys.RootFsNode.Static.mIsDir = TRUE;
+    gData.FileSys.RootFsNode.Locked.mFsAttrib = K2_FSATTRIB_DIR | K2_FSATTRIB_SYSTEM;
 
-    gData.FileSys.mpRofs = (K2ROFS const *)K2OS_KVA_BUILTIN_FS_BASE;
-    pageCount = ((gData.FileSys.mpRofs->mSectorCount * K2ROFS_SECTOR_BYTES) + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES;
-    gData.FileSys.RefRofsVirtMap.AsAny = NULL;
-    KernVirtMap_CreatePreMap((UINT32)K2OS_KVA_BUILTIN_FS_BASE, pageCount, K2OS_MapType_Data_ReadOnly, &gData.FileSys.RefRofsVirtMap);
-    gData.FileSys.RefRofsVirtMap.AsVirtMap->PageArrayRef.AsPageArray->mUserPermit = PF_R; // read-only for user mappings
+    KernFsNode_Init(NULL, &gData.FileSys.FsRootFsNode);
+    gData.FileSys.FsRootFsNode.Static.mIsDir = TRUE;
+    gData.FileSys.FsRootFsNode.Locked.mFsAttrib = K2_FSATTRIB_DIR | K2_FSATTRIB_SYSTEM;
+    K2ASC_Copy(gData.FileSys.FsRootFsNode.Static.mName, "fs");
+    gData.FileSys.FsRootFsNode.Static.mpParentDir = &gData.FileSys.RootFsNode;
+
+    K2TREE_Insert(&gData.FileSys.RootFsNode.Locked.ChildTree, (UINT_PTR)gData.FileSys.FsRootFsNode.Static.mName, &gData.FileSys.FsRootFsNode.ParentLocked.ParentsChildTreeNode);
+    gData.FileSys.RootFsNode.mRefCount++;
 }
 

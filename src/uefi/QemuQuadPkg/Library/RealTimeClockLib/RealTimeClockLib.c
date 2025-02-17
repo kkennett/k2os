@@ -32,12 +32,15 @@
 
 #include <Uefi.h>
 #include <PiDxe.h>
+#include <Guid/EventGroup.h>
 #include <QemuQuad.h>
 #include <Library/IoLib.h>
 #include <Library/DebugLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 #include <Library/DxeServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UefiRuntimeLib.h>
+#include <Protocol/RealTimeClock.h>
 
 #define RATE_SECOND     32768ULL
 #define RATE_MINUTE     (RATE_SECOND * 60ULL)
@@ -50,7 +53,9 @@ static UINT16 const sgMonthDays[12] =
     31,28,31,30,31,30,31,31,30,31,30,31
 };
 
-static UINT32   sgRegs_SNVS = IMX6_PHYSADDR_SNVS;
+static EFI_EVENT mRtcVirtualAddrChangeEvent;
+
+static UINT32 sgRegs_SNVS = IMX6_PHYSADDR_SNVS;
 
 EFI_STATUS
 EFIAPI
@@ -67,12 +72,12 @@ LibGetTime (
 
     ASSERT(Time);
 
-    timeLow1 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_HPRTCLR);
-    timeHigh1 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_HPRTCMR);
+    timeLow1 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_LPSRTCLR);
+    timeHigh1 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_LPSRTCMR);
     do
     {
-        timeLow2 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_HPRTCLR);
-        timeHigh2 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_HPRTCMR);
+        timeLow2 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_LPSRTCLR);
+        timeHigh2 = MmioRead32(sgRegs_SNVS + IMX6_SNVS_OFFSET_LPSRTCMR);
         if (timeHigh2 == timeHigh1)
         {
             if ((timeLow2 - timeLow1) < 32)
@@ -180,12 +185,30 @@ typedef struct {
 } NON_VOLATILE_TIME_SETTINGS;
 STATIC CONST CHAR16 sgTimeSettingsVariableName[] = L"RtcTimeSettings";
 
+VOID
+EFIAPI
+LibRtcVirtualNotifyEvent (
+  IN EFI_EVENT        Event,
+  IN VOID             *Context
+  )
+{
+    //
+    // Only needed if you are going to support the OS calling RTC functions in virtual mode.
+    // You will need to call EfiConvertPointer (). To convert any stored physical addresses
+    // to virtual address. After the OS transistions to calling in virtual mode, all future
+    // runtime calls will be made in virtual mode.
+    //
+    EFI_STATUS Status;
+    Status = gRT->ConvertPointer(0, (void **)&sgRegs_SNVS);
+    ASSERT_EFI_ERROR(Status);
+}
+
 EFI_STATUS
 EFIAPI
-LibRtcInitialize (
-  IN EFI_HANDLE                            ImageHandle,
-  IN EFI_SYSTEM_TABLE                      *SystemTable
-  )
+LibRtcInitialize(
+    IN EFI_HANDLE                            ImageHandle,
+    IN EFI_SYSTEM_TABLE                      *SystemTable
+)
 {
     //
     // Init done in platsec. clock is running.
@@ -218,7 +241,7 @@ LibRtcInitialize (
         TimeSettings.Daylight = 0;
         DataSize = sizeof(NON_VOLATILE_TIME_SETTINGS);
         Status = EfiSetVariable((CHAR16*)sgTimeSettingsVariableName,
-            &gEfiCallerIdGuid, 
+            &gEfiCallerIdGuid,
             EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
             DataSize, (VOID*)&TimeSettings);
         if (EFI_ERROR(Status))
@@ -227,26 +250,18 @@ LibRtcInitialize (
         }
     }
 
+    //
+    // Register for the virtual address change event
+    //
+    Status = gBS->CreateEventEx(
+        EVT_NOTIFY_SIGNAL,
+        TPL_NOTIFY,
+        LibRtcVirtualNotifyEvent,
+        NULL,
+        &gEfiEventVirtualAddressChangeGuid,
+        &mRtcVirtualAddrChangeEvent
+    );
+    ASSERT_EFI_ERROR(Status);
+
     return EFI_SUCCESS;
 }
-
-VOID
-EFIAPI
-LibRtcVirtualNotifyEvent (
-  IN EFI_EVENT        Event,
-  IN VOID             *Context
-  )
-{
-    //
-    // Only needed if you are going to support the OS calling RTC functions in virtual mode.
-    // You will need to call EfiConvertPointer (). To convert any stored physical addresses
-    // to virtual address. After the OS transistions to calling in virtual mode, all future
-    // runtime calls will be made in virtual mode.
-    //
-    EFI_STATUS Status;
-    Status = gRT->ConvertPointer(0, (void **)&sgRegs_SNVS);
-    ASSERT_EFI_ERROR(Status);
-}
-
-
-

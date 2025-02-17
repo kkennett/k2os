@@ -45,9 +45,7 @@ KernIfEnum_Cleanup(
         KernHeap_Free(apIfEnum->mpEntries);
     }
 
-    K2MEM_Zero(apIfEnum, sizeof(K2OSKERN_OBJ_IFENUM));
-
-    KernHeap_Free(apIfEnum);
+    KernObj_Free(&apIfEnum->Hdr);
 }
 
 K2STAT
@@ -70,15 +68,18 @@ KernIfEnum_Create(
     K2OS_IFINST_DETAIL *    pOut;
     K2OSKERN_OBJ_IFINST *   pIfInst;
 
-    pCheck = (UINT32 const *)apGuid;
-    if ((pCheck[0] == 0) &&
-        (pCheck[1] == 0) &&
-        (pCheck[2] == 0) &&
-        (pCheck[3] == 0))
+    if (NULL != apGuid)
     {
-        apGuid = NULL;
+        pCheck = (UINT32 const *)apGuid;
+        if ((pCheck[0] == 0) &&
+            (pCheck[1] == 0) &&
+            (pCheck[2] == 0) &&
+            (pCheck[3] == 0))
+        {
+            apGuid = NULL;
+        }
     }
-    else
+    if (NULL == apGuid)
     {
         if (0 == aClassCode)
         {
@@ -86,18 +87,13 @@ KernIfEnum_Create(
         }
     }
 
-    pEnum = (K2OSKERN_OBJ_IFENUM *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_IFENUM));
+    pEnum = (K2OSKERN_OBJ_IFENUM *)KernObj_Alloc(KernObj_IfEnum);
     if (NULL == pEnum)
     {
         return K2STAT_ERROR_OUT_OF_MEMORY;
     }
 
     stat = K2STAT_ERROR_NOT_FOUND;
-
-    K2MEM_Zero(pEnum, sizeof(K2OSKERN_OBJ_IFENUM));
-
-    pEnum->Hdr.mObjType = KernObj_IfEnum;
-    K2LIST_Init(&pEnum->Hdr.RefObjList);
 
     K2OSKERN_SeqInit(&pEnum->SeqLock);
 
@@ -211,7 +207,7 @@ KernIfEnum_Create(
         {
             KernHeap_Free(pEnum->mpEntries);
         }
-        KernHeap_Free(pEnum);
+        KernObj_Free(&pEnum->Hdr);
     }
 
     return stat;
@@ -240,7 +236,7 @@ KernIfEnum_SysCall_Create(
 
     if (!K2STAT_IS_ERROR(stat))
     {
-        stat = KernProc_TokenCreate(apCurThread->User.ProcRef.AsProc, enumRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
+        stat = KernProc_TokenCreate(apCurThread->RefProc.AsProc, enumRef.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
     }
 
     if (K2STAT_IS_ERROR(stat))
@@ -261,7 +257,7 @@ KernIfEnum_SysCall_Reset(
     BOOL            disp;
 
     objRef.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &objRef);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &objRef);
     if (!K2STAT_IS_ERROR(stat))
     {
         if (objRef.AsAny->mObjType != KernObj_IfEnum)
@@ -284,145 +280,55 @@ KernIfEnum_SysCall_Reset(
     }
 }
 
-K2STAT
-KernIfEnum_CopyOut(
-    K2OSKERN_OBJ_PROCESS *  apProc,
-    K2OSKERN_OBJ_IFENUM *   apEnum,
-    UINT32                  aUserVirt,
-    UINT32 *                apIoUserCount
+K2STAT  
+KernIfEnum_Next(
+    K2OSKERN_OBJ_IFENUM *   apIfEnum,
+    K2OS_IFINST_DETAIL *    apEntryBuffer,
+    UINT32 *                apIoEntryBufferCount
 )
 {
-    K2STAT              stat;
-    UINT32              userBufferBytes;
-    UINT32              lockMapCount;
-    K2OSKERN_OBJREF *   pLockedMapRefs;
-    UINT32              map0FirstPageIx;
-    UINT32              numCopy;
-    BOOL                disp;
-    UINT32              startIx;
+    K2STAT  stat;
+    UINT32  startIx;
+    UINT32  userCount;
+    UINT32  numCopy;
+    BOOL    disp;
 
-    userBufferBytes = (*apIoUserCount) * sizeof(K2OS_IFINST_DETAIL);
+    startIx = apIfEnum->Locked.mCurrentIx;
+    userCount = *apIoEntryBufferCount;
+    K2_ASSERT(userCount > 0);
 
-    lockMapCount = (userBufferBytes + (K2_VA_MEMPAGE_BYTES - 1)) / K2_VA_MEMPAGE_BYTES;
-
-    pLockedMapRefs = (K2OSKERN_OBJREF *)KernHeap_Alloc(lockMapCount * sizeof(K2OSKERN_OBJREF));
-    if (NULL == pLockedMapRefs)
+    K2_CpuReadBarrier();
+    if (startIx == apIfEnum->mEntryCount)
     {
-        stat = K2STAT_ERROR_OUT_OF_MEMORY;
+        stat = K2STAT_ERROR_NO_MORE_ITEMS;
     }
     else
     {
-        K2MEM_Zero(pLockedMapRefs, sizeof(K2OSKERN_OBJREF) * lockMapCount);
-        stat = KernProc_AcqMaps(
-            apProc,
-            aUserVirt,
-            userBufferBytes,
-            TRUE,
-            &lockMapCount,
-            pLockedMapRefs,
-            &map0FirstPageIx
-        );
-    }
+        disp = K2OSKERN_SeqLock(&apIfEnum->SeqLock);
 
-    if (!K2STAT_IS_ERROR(stat))
-    {
-        disp = K2OSKERN_SeqLock(&apEnum->SeqLock);
+        startIx = apIfEnum->Locked.mCurrentIx;
 
-        startIx = apEnum->Locked.mCurrentIx;
-
-        numCopy = apEnum->mEntryCount - startIx;
+        numCopy = apIfEnum->mEntryCount - startIx;
         if (numCopy == 0)
         {
             stat = K2STAT_ERROR_NO_MORE_ITEMS;
         }
         else
         {
-            if (numCopy > (*apIoUserCount))
+            if (numCopy > userCount)
             {
-                numCopy = *apIoUserCount;
+                numCopy = userCount;
             }
-            K2MEM_Copy((void *)aUserVirt, &apEnum->mpEntries[startIx], numCopy * sizeof(K2OS_IFINST_DETAIL));
-            apEnum->Locked.mCurrentIx += numCopy;
-            *apIoUserCount = numCopy;
-        }
-        K2OSKERN_SeqUnlock(&apEnum->SeqLock, disp);
-    }
+            K2MEM_Copy(apEntryBuffer, &apIfEnum->mpEntries[startIx], numCopy * sizeof(K2OS_IFINST_DETAIL));
 
-    if (NULL != pLockedMapRefs)
-    {
-        for (startIx = 0; startIx < lockMapCount; startIx++)
-        {
-            KernObj_ReleaseRef(&pLockedMapRefs[startIx]);
+            apIfEnum->Locked.mCurrentIx += numCopy;
+
+            stat = K2STAT_NO_ERROR;
+            *apIoEntryBufferCount = numCopy;
         }
-        KernHeap_Free(pLockedMapRefs);
+
+        K2OSKERN_SeqUnlock(&apIfEnum->SeqLock, disp);
     }
 
     return stat;
-}
-
-void    
-KernIfEnum_SysCall_Next(
-    K2OSKERN_CPUCORE volatile * apThisCore,
-    K2OSKERN_OBJ_THREAD *       apCurThread
-)
-{
-    K2STAT              stat;
-    K2OSKERN_OBJREF     objRef;
-    UINT32              startIx;
-    K2OS_THREAD_PAGE *  pThreadPage;
-    UINT32              userVirt;
-    UINT32              userCount;
-
-    pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
-
-    userVirt = pThreadPage->mSysCall_Arg1;
-    userCount = pThreadPage->mSysCall_Arg2;
-
-    if ((userCount == 0) ||
-        (userVirt > (K2OS_KVA_KERN_BASE - (userCount * sizeof(K2OS_IFINST_DETAIL)))))
-    {
-        pThreadPage->mLastStatus = K2STAT_ERROR_BAD_ARGUMENT;
-        apCurThread->User.mSysCall_Result = 0;
-        return;
-    }
-
-    objRef.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &objRef);
-    if (!K2STAT_IS_ERROR(stat))
-    {
-        if (objRef.AsAny->mObjType != KernObj_IfEnum)
-        {
-            stat = K2STAT_ERROR_BAD_TOKEN;
-        }
-        else
-        {
-            // snapshot - if at end already this saves us all the time to lock the buffer maps
-            startIx = objRef.AsIfEnum->Locked.mCurrentIx;
-            K2_CpuReadBarrier();
-            if (startIx == objRef.AsIfEnum->mEntryCount)
-            {
-                stat = K2STAT_ERROR_NO_MORE_ITEMS;
-            }
-            else
-            {
-                stat = KernIfEnum_CopyOut(
-                    apCurThread->User.ProcRef.AsProc,
-                    objRef.AsIfEnum,
-                    userVirt,
-                    &userCount
-                );
-                if (!K2STAT_IS_ERROR(stat))
-                {
-                    pThreadPage->mSysCall_Arg7_Result0 = userCount;
-                    apCurThread->User.mSysCall_Result = (UINT32)TRUE;
-                }
-            }
-        }
-        KernObj_ReleaseRef(&objRef);
-    }
-    if (K2STAT_IS_ERROR(stat))
-    {
-        apCurThread->User.mSysCall_Result = 0;
-        apCurThread->mpKernRwViewOfThreadPage->mLastStatus = stat;
-    }
 }

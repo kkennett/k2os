@@ -86,12 +86,15 @@ sSubEntry(
     //
     if ((ch == 0) && (aMatchFile))
     {
-        pFiles = K2ROFSHELP_SubFileIx(apBase, apDir, 0);
-        for (ix = 0; ix < apDir->mFileCount; ix++)
+        if (0 != apDir->mFileCount)
         {
-            if (0 == K2ASC_CompIns(apSubPath, K2ROFS_NAMESTR(apBase, pFiles[ix].mName)))
+            pFiles = K2ROFSHELP_SubFileIx(apBase, apDir, 0);
+            for (ix = 0; ix < apDir->mFileCount; ix++)
             {
-                return &pFiles[ix];
+                if (0 == K2ASC_CompIns(apSubPath, K2ROFS_NAMESTR(apBase, pFiles[ix].mName)))
+                {
+                    return &pFiles[ix];
+                }
             }
         }
         return NULL;

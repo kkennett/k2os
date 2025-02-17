@@ -33,5 +33,8 @@
 
 -->
 <k2build type="lib">
-    <source>fs.c</source>
+    <source>fsmgr.c</source>
+    <source>fsclient.c</source>
+    <source>fsenum.c</source>
+    <source>fsfile.c</source>
 </k2build>

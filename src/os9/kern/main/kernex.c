@@ -61,12 +61,12 @@ KernEx_TrapDismount(
     K2OS_THREAD_PAGE *      pThreadPage;
     K2OSKERN_OBJ_THREAD *   pThisThread;
 
-    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_TLSAREA_BASE + (KernThread_GetId() * K2_VA_MEMPAGE_BYTES));
+    pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_KVA_THREADPAGES_BASE + (KernThread_GetId() * K2_VA_MEMPAGE_BYTES));
     pThisThread = (K2OSKERN_OBJ_THREAD *)pThreadPage->mContext;
     K2_ASSERT(pThisThread->mIsKernelThread);
 
-    K2_ASSERT(apTrap == pThisThread->mpTrapStack);
-    pThisThread->mpTrapStack = apTrap->mpNextTrap;
+    K2_ASSERT(((UINT32)apTrap) == pThreadPage->mTrapStackTop);
+    pThreadPage->mTrapStackTop = (UINT32)apTrap->mpNextTrap;
 
     return apTrap->mTrapResult;
 }

@@ -31,8 +31,6 @@
 //
 #include "rpcserver.h"
 
-#define TRAP_EXCEPTIONS 1
-
 RPC_SERVER * volatile   gpRpcServer;
 static INT32 volatile   sgNextServerObjId;
 
@@ -62,9 +60,10 @@ K2OSRPC_Server_SwapNotifyTarget(
 }
 
 BOOL
-K2OS_RpcObj_GetContext(
+K2OS_RpcObj_GetDetail(
     K2OS_RPC_OBJ    aObj,
-    UINT32 *        apRetContext
+    UINT32 *        apRetContext, 
+    UINT32 *        apRetObjId
 )
 {
     K2TREE_NODE *   pTreeNode;
@@ -72,7 +71,7 @@ K2OS_RpcObj_GetContext(
 
     FUNC_ENTER;
 
-    if ((NULL == aObj) || (NULL == apRetContext))
+    if (NULL == aObj)
     {
         K2OS_Thread_SetLastStatus(K2STAT_ERROR_BAD_ARGUMENT);
         FUNC_EXIT;
@@ -89,10 +88,17 @@ K2OS_RpcObj_GetContext(
     K2OS_CritSec_Enter(&gRpcGraphSec);
 
     pTreeNode = K2TREE_Find(&gpRpcServer->ObjByPtrTree, (UINT_PTR)aObj);
-    if ((NULL != pTreeNode) && (NULL != apRetContext))
+    if (NULL != pTreeNode)
     {
         pObj = K2_GET_CONTAINER(RPC_OBJ, pTreeNode, ServerObjPtrTreeNode);
-        *apRetContext = pObj->mUserContext;
+        if (NULL != apRetContext)
+        {
+            *apRetContext = pObj->mUserContext;
+        }
+        if (NULL != apRetObjId)
+        {
+            *apRetObjId = pObj->ServerObjIdTreeNode.mUserVal;
+        }
     }
 
     K2OS_CritSec_Leave(&gRpcGraphSec);
@@ -139,7 +145,7 @@ K2OS_RpcObj_SendNotify(
         return FALSE;
     }
 
-    msg.mType = K2OS_SYSTEM_MSGTYPE_RPC;
+    msg.mMsgType = K2OS_SYSTEM_MSGTYPE_RPC;
     msg.mShort = K2OS_SYSTEM_MSG_RPC_SHORT_NOTIFY;
     notify.mMarker = K2OSRPC_OBJ_NOTIFY_MARKER;
     notify.mCode = msg.mPayload[1] = aNotifyCode;
@@ -1068,11 +1074,11 @@ RpcServer_Thread(
         if ((waitResult == K2OS_Wait_Signalled_0) || (gpRpcServer->mShutdownStarted))
             break;
 
-        if (K2OS_Mailbox_Recv(tokWait[1], &msg, 0))
+        if (K2OS_Mailbox_Recv(tokWait[1], &msg))
         {
             if (!K2OS_IpcEnd_ProcessMsg(&msg))
             {
-                if ((msg.mType == K2OS_SYSTEM_MSGTYPE_IPC) &&
+                if ((msg.mMsgType == K2OS_SYSTEM_MSGTYPE_IPC) &&
                     (msg.mShort == K2OS_SYSTEM_MSG_IPC_SHORT_REQUEST))
                 {
                     // msg.mPayload[0] is interface instance id

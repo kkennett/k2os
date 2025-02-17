@@ -114,16 +114,16 @@ NetMgr_Adapter_Thread(
                                     break;
                                 }
 
-                                if (K2OS_Mailbox_Recv(apNetDev->mTokMailbox, &msg, 0))
+                                if (K2OS_Mailbox_Recv(apNetDev->mTokMailbox, &msg))
                                 {
                                     do {
                                         before = after;
 
-                                        if (msg.mType == K2OS_NETIO_MSGTYPE)
+                                        if (msg.mMsgType == K2OS_NETIO_MSGTYPE)
                                         {
                                             NetDev_Recv_NetIo(apNetDev, (K2OS_NETIO_MSG *)&msg);
                                         }
-                                        else if (msg.mType == K2OS_SYSTEM_MSGTYPE_RPC)
+                                        else if (msg.mMsgType == K2OS_SYSTEM_MSGTYPE_RPC)
                                         {
                                             if (msg.mShort == K2OS_SYSTEM_MSG_RPC_SHORT_NOTIFY)
                                             {
@@ -152,7 +152,7 @@ NetMgr_Adapter_Thread(
                                         }
                                         else
                                         {
-                                            Debug_Printf("***NETMGR: received unexpected message type (%04X)\n", msg.mType);
+                                            Debug_Printf("***NETMGR: received unexpected message type (%04X)\n", msg.mMsgType);
                                         }
 
                                         K2OS_System_GetMsTick(&after);
@@ -163,7 +163,7 @@ NetMgr_Adapter_Thread(
                                             NetDev_OnTimeExpired(apNetDev, msTicks);
                                         }
 
-                                    } while (K2OS_Mailbox_Recv(apNetDev->mTokMailbox, &msg, 0));
+                                    } while (K2OS_Mailbox_Recv(apNetDev->mTokMailbox, &msg));
                                 }
                             }
 
@@ -327,9 +327,9 @@ NetMgr_Thread(
         if (!K2OS_Thread_WaitOne(&waitResult, sgNetMgrTokMailbox, K2OS_TIMEOUT_INFINITE))
             break;
         K2_ASSERT(K2OS_Wait_Signalled_0 == waitResult);
-        if (K2OS_Mailbox_Recv(sgNetMgrTokMailbox, &msg, 0))
+        if (K2OS_Mailbox_Recv(sgNetMgrTokMailbox, &msg))
         {
-            if (msg.mType == K2OS_SYSTEM_MSGTYPE_IFINST)
+            if (msg.mMsgType == K2OS_SYSTEM_MSGTYPE_IFINST)
             {
                 if (msg.mShort == K2OS_SYSTEM_MSG_IFINST_SHORT_ARRIVE)
                 {
@@ -349,7 +349,7 @@ NetMgr_Thread(
             }
             else
             {
-                Debug_Printf("***NETMGR: received unexpected message type (%04X)\n", msg.mType);
+                Debug_Printf("***NETMGR: received unexpected message type (%04X)\n", msg.mMsgType);
             }
         }
     } while (1);

@@ -31,6 +31,7 @@
 //
 
 #include "x32kern.h"
+#include <lib/k2dis.h>
 
 static void
 sEmitSymbolName(
@@ -146,6 +147,106 @@ X32Kern_DumpKernelModeExceptionContext(
 }
 
 void
+DumpOneThread(
+    K2OSKERN_CPUCORE volatile * apThisCore,
+    K2OSKERN_OBJ_THREAD *       apThread
+)
+{
+    K2OSKERN_Debug("    Process %d Thread %d\n", (apThread->RefProc.AsProc == NULL) ? 0 : apThread->RefProc.AsProc->mId, apThread->mGlobalIx);
+    K2OSKERN_Debug("        Name [%s]\n", apThread->mName);
+    KernArch_DumpThreadContext(apThisCore, apThread);
+    K2OSKERN_Debug("        -------------\n");
+}
+
+void
+DumpThreads(
+    K2OSKERN_CPUCORE volatile * apThisCore
+)
+{
+    K2OSKERN_OBJ_PROCESS *  pProc;
+    K2OSKERN_OBJ_THREAD *   pThread;
+    K2LIST_LINK *           pListProc;
+    K2LIST_LINK *           pListThread;
+
+    pListThread = gData.Thread.CreateList.mpHead;
+    if (NULL != pListThread)
+    {
+        K2OSKERN_Debug("KERNEL THREADS IN CREATE LIST:\n");
+        do
+        {
+            pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, pListThread, OwnerThreadListLink);
+            DumpOneThread(apThisCore, pThread);
+            pListThread = pListThread->mpNext;
+        } while (NULL != pListThread);
+    }
+    pListThread = gData.Thread.ActiveList.mpHead;
+    if (NULL != pListThread)
+    {
+        K2OSKERN_Debug("KERNEL THREADS IN ACTIVE LIST:\n");
+        do
+        {
+            pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, pListThread, OwnerThreadListLink);
+            DumpOneThread(apThisCore, pThread);
+            pListThread = pListThread->mpNext;
+        } while (NULL != pListThread);
+    }
+    pListThread = gData.Thread.DeadList.mpHead;
+    if (NULL != pListThread)
+    {
+        K2OSKERN_Debug("KERNEL THREADS IN DEAD LIST:\n");
+        do
+        {
+            pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, pListThread, OwnerThreadListLink);
+            DumpOneThread(apThisCore, pThread);
+            pListThread = pListThread->mpNext;
+        } while (NULL != pListThread);
+    }
+
+    pListProc = gData.Proc.List.mpHead;
+    if (NULL != pListProc)
+    {
+        do
+        {
+            pProc = K2_GET_CONTAINER(K2OSKERN_OBJ_PROCESS, pListProc, GlobalProcListLink);
+            pListThread = pProc->Thread.Locked.CreateList.mpHead;
+            if (NULL != pListThread)
+            {
+                K2OSKERN_Debug("PROCESS %d THREADS IN CREATE LIST:\n", pProc->mId);
+                do
+                {
+                    pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, pListThread, OwnerThreadListLink);
+                    DumpOneThread(apThisCore, pThread);
+                    pListThread = pListThread->mpNext;
+                } while (NULL != pListThread);
+            }
+            pListThread = pProc->Thread.SchedLocked.ActiveList.mpHead;
+            if (NULL != pListThread)
+            {
+                K2OSKERN_Debug("PROCESS %d THREADS IN ACTIVE LIST:\n", pProc->mId);
+                do
+                {
+                    pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, pListThread, OwnerThreadListLink);
+                    DumpOneThread(apThisCore, pThread);
+                    pListThread = pListThread->mpNext;
+                } while (NULL != pListThread);
+            }
+            pListThread = pProc->Thread.Locked.DeadList.mpHead;
+            if (NULL != pListThread)
+            {
+                K2OSKERN_Debug("PROCESS %d THREADS IN DEAD LIST:\n", pProc->mId);
+                do
+                {
+                    pThread = K2_GET_CONTAINER(K2OSKERN_OBJ_THREAD, pListThread, OwnerThreadListLink);
+                    DumpOneThread(apThisCore, pThread);
+                    pListThread = pListThread->mpNext;
+                } while (NULL != pListThread);
+            }
+            pListProc = pListProc->mpNext;
+        } while (NULL != pListProc);
+    }
+}
+
+void
 KernArch_Panic(
     K2OSKERN_CPUCORE volatile * apThisCore, 
     BOOL                        aDumpStack
@@ -164,30 +265,67 @@ KernArch_Panic(
         );
     }
 
+//    DumpThreads(apThisCore);
+
     while (1);
 }
 
-void 
+void    
 KernArch_DumpThreadContext(
     K2OSKERN_CPUCORE volatile * apThisCore,
     K2OSKERN_OBJ_THREAD *       apThread
 )
 {
-    K2OSKERN_Debug("Process %d Thread %d Context\n", apThread->User.ProcRef.AsProc->mId, apThread->mGlobalIx);
-    X32Kern_DumpUserModeExceptionContext(&apThread->User.ArchExecContext);
-    if (K2STAT_IS_ERROR(apThread->User.LastEx.mExCode))
+    K2OSKERN_OBJREF refMap;
+    UINT32          pageIx;
+    UINT32          offset;
+    UINT32          iter;
+    UINT32          dataAddr;
+
+    if (apThread->mIsKernelThread)
     {
-        K2OSKERN_Debug("Last Exception:\n");
-        K2OSKERN_Debug("  Code    = %08X\n", apThread->User.LastEx.mExCode);
-        K2OSKERN_Debug("  Address = %08X\n", apThread->User.LastEx.mFaultAddr);
-        K2OSKERN_Debug("  Write   = %s\n", apThread->User.LastEx.mWasWrite ? "TRUE" : "FALSE");
-        K2OSKERN_Debug("  Present = %s\n", apThread->User.LastEx.mPageWasPresent ? "TRUE" : "FALSE");
+        X32Kern_DumpKernelModeExceptionContext((K2OSKERN_ARCH_EXEC_CONTEXT *)apThread->Kern.mStackPtr);
+
+        offset = ((K2OSKERN_ARCH_EXEC_CONTEXT *)apThread->Kern.mStackPtr)->EIP;
+
+        X32Kern_DumpStackTrace(
+            NULL,
+            offset,
+            ((K2OSKERN_ARCH_EXEC_CONTEXT *)apThread->Kern.mStackPtr)->REGS.EBP,
+            ((K2OSKERN_ARCH_EXEC_CONTEXT *)apThread->Kern.mStackPtr)->REGS.ESP_Before_PushA,
+            &gX32Kern_SymDump[apThisCore->mCoreIx * X32_SYM_NAME_MAX_LEN]
+        );
+
+        // try to find text segment that the EIP is inside of
+        refMap.AsAny = NULL;
+        if (KernVirtMap_FindMapAndCreateRef(offset, &refMap, &pageIx))
+        {
+            K2OSKERN_Debug("Code at EIP:\n");
+            pageIx = refMap.AsVirtMap->OwnerMapTreeNode.mUserVal;
+            K2_ASSERT(pageIx < offset);
+            offset -= pageIx;
+
+            for (iter = 0; iter < 8; iter++)
+            {
+                dataAddr = (UINT32)-1;
+                K2DIS_x32(&gX32Kern_SymDump[apThisCore->mCoreIx * X32_SYM_NAME_MAX_LEN],
+                    X32_SYM_NAME_MAX_LEN - 1, (UINT8 const *)pageIx, &offset, &dataAddr);
+                K2OSKERN_Debug("  %s\n", &gX32Kern_SymDump[apThisCore->mCoreIx * X32_SYM_NAME_MAX_LEN]);
+            }
+
+            KernObj_ReleaseRef(&refMap);
+        }
+        K2OSKERN_Debug("\n");
     }
-    X32Kern_DumpStackTrace(
-        apThread->User.ProcRef.AsProc,
-        apThread->User.ArchExecContext.EIP,
-        apThread->User.ArchExecContext.REGS.EBP,
-        apThread->User.ArchExecContext.ESP,
-        &gX32Kern_SymDump[apThisCore->mCoreIx * X32_SYM_NAME_MAX_LEN]
-    );
+    else
+    {
+//        X32Kern_DumpUserModeExceptionContext(&apThread->User.ArchExecContext);
+        KernArch_SetCoreToProcess(apThisCore, apThread->RefProc.AsProc);
+        X32Kern_DumpStackTrace(apThread->RefProc.AsProc,
+            apThread->User.ArchExecContext.EIP,
+            apThread->User.ArchExecContext.REGS.EBP,
+            apThread->User.ArchExecContext.ESP,
+            &gX32Kern_SymDump[apThisCore->mCoreIx * X32_SYM_NAME_MAX_LEN]
+        );
+    }
 }

@@ -152,3 +152,31 @@ K2TREE_Insert(
     K2TREE_NODE_SETBLACK(apTree->RootNode.mpLeftChild);
     apTree->mNodeCount++;
 }
+
+void
+K2TREE_SwapNode(
+    K2TREE_ANCHOR * apAnchor,
+    K2TREE_NODE *   apInTree,
+    K2TREE_NODE *   apSwapWith
+)
+{
+    K2TREE_NODE * pParent;
+
+    K2_ASSERT(apInTree->mUserVal == apSwapWith->mUserVal);
+
+    pParent = K2TREE_NODE_PARENT(apInTree);
+
+    apSwapWith->mParentBal = apInTree->mParentBal;
+    K2TREE_NODE_SETPARENT(apSwapWith->mpLeftChild, apSwapWith);
+    K2TREE_NODE_SETPARENT(apSwapWith->mpRightChild, apSwapWith);
+
+    if (pParent->mpLeftChild == apInTree)
+    {
+        pParent->mpLeftChild = apSwapWith;
+    }
+    else
+    {
+        K2_ASSERT(pParent->mpRightChild == apInTree);
+        pParent->mpRightChild = apSwapWith;
+    }
+}

@@ -1,6 +1,0 @@
-TARGET_TYPE = LIB
-
-SOURCES += cluster.c
-SOURCES += detect.c
-SOURCES += direntry.c
-

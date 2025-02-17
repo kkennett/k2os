@@ -52,7 +52,7 @@ K2OS_Virt_Get(
     if ((0 != result) &&
         (NULL != apRetPageCount))
     {
-        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_TLSAREA_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
+        pThreadPage = (K2OS_THREAD_PAGE *)(K2OS_UVA_THREADPAGES_BASE + (CRT_GET_CURRENT_THREAD_INDEX * K2_VA_MEMPAGE_BYTES));
         *apRetPageCount = pThreadPage->mSysCall_Arg7_Result0;
     }
 

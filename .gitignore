@@ -3,6 +3,7 @@
 .vs/**
 *.suo
 *.opendb
+k2tools/*
 bld/*
 img/* 
 *.ipch
@@ -12,3 +13,4 @@ src/uefi/conf/*
 doc/.vs/*
 k2pipecon.txt
 src/msvc/.vs/*
+store.dat

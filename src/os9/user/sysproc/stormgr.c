@@ -34,6 +34,12 @@
 #include <k2osstor.h>
 #include <k2osdev_blockio.h>
 
+// {E088781B-D814-459A-8B44-131A4EF0DDB3}
+#define K2OS_GPT_PARTITION_OBJECT_CLASSID       { 0xe088781b, 0xd814, 0x459a, { 0x8b, 0x44, 0x13, 0x1a, 0x4e, 0xf0, 0xdd, 0xb3 } }
+
+// {1B207783-814C-4741-B142-B3828CA2CD8A}
+#define K2OS_MBR_PARTITION_OBJECT_CLASSID       { 0x1b207783, 0x814c, 0x4741, { 0xb1, 0x42, 0xb3, 0x82, 0x8c, 0xa2, 0xcd, 0x8a } }
+
 static K2OS_THREAD_TOKEN    sgStorMgrTokThread;
 static UINT32               sgStorMgrThreadId;
 static K2OS_CRITSEC         sgStorDevListSec;
@@ -143,7 +149,7 @@ StorPart_Call(
 
     switch (apCall->Args.mMethodId)
     {
-    case K2OS_STORAGE_PARTITION_METHOD_GET_MEDIA:
+    case K2OS_StorePart_Method_GetMedia:
         pMediaOut = (K2OS_STORAGE_PARTITION_GET_MEDIA_OUT *)apCall->Args.mpOutBuf;
         if ((0 != apCall->Args.mInBufByteCount) ||
             (apCall->Args.mOutBufByteCount < sizeof(K2OS_STORAGE_PARTITION_GET_MEDIA_OUT)))
@@ -161,7 +167,7 @@ StorPart_Call(
         }
         break;
 
-    case K2OS_STORAGE_PARTITION_METHOD_GET_INFO:
+    case K2OS_StorePart_Method_GetInfo:
         pGetInfoOut = (K2OS_STORAGE_PARTITION_GET_INFO_OUT *)apCall->Args.mpOutBuf;
         if ((0 != apCall->Args.mInBufByteCount) ||
             (apCall->Args.mOutBufByteCount < sizeof(K2OS_STORAGE_PARTITION_GET_INFO_OUT)))
@@ -1132,9 +1138,9 @@ StorMgr_Thread(
         if (!K2OS_Thread_WaitOne(&waitResult, sgStorMgrTokMailbox, K2OS_TIMEOUT_INFINITE))
             break;
         K2_ASSERT(K2OS_Wait_Signalled_0 == waitResult);
-        if (K2OS_Mailbox_Recv(sgStorMgrTokMailbox, &msg, 0))
+        if (K2OS_Mailbox_Recv(sgStorMgrTokMailbox, &msg))
         {
-            if (msg.mType == K2OS_SYSTEM_MSGTYPE_IFINST)
+            if (msg.mMsgType == K2OS_SYSTEM_MSGTYPE_IFINST)
             {
                 if (msg.mShort == K2OS_SYSTEM_MSG_IFINST_SHORT_ARRIVE)
                 {
@@ -1152,7 +1158,7 @@ StorMgr_Thread(
                     Debug_Printf("*** SysProc StorMgr received unexpected IFINST message (%04X)\n", msg.mShort);
                 }
             }
-            else if (msg.mType == K2OS_SYSTEM_MSGTYPE_RPC)
+            else if (msg.mMsgType == K2OS_SYSTEM_MSGTYPE_RPC)
             {
                 if (msg.mShort == K2OS_SYSTEM_MSG_RPC_SHORT_NOTIFY)
                 {
@@ -1165,7 +1171,7 @@ StorMgr_Thread(
             }
             else
             {
-                Debug_Printf("*** SysProc StorMgr received unexpected message type (%04X)\n", msg.mType);
+                Debug_Printf("*** SysProc StorMgr received unexpected message type (%04X)\n", msg.mMsgType);
             }
         }
 

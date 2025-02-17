@@ -47,12 +47,17 @@ struct _K2OSACPI_INIT
     UINT32      mXFacsVirt;
 };
 
+typedef struct _K2OSKERN_MAPUSER_OPAQUE K2OSKERN_MAPUSER_OPAQUE;
+typedef K2OSKERN_MAPUSER_OPAQUE *   K2OSKERN_MAPUSER;
+
 typedef K2OS_PAGEARRAY_TOKEN (*K2OSKERN_pf_PageArray_CreateAt)(UINT32 aPhysBase, UINT32 aPageCount);
 typedef K2OS_PAGEARRAY_TOKEN (*K2OSKERN_pf_PageArray_CreateIo)(UINT32 aFlags, UINT32 aPageCountPow2, UINT32 *apRetPhysBase);
 typedef UINT32               (*K2OSKERN_pf_PageArray_GetPagePhys)(K2OS_PAGEARRAY_TOKEN aTokPageArray, UINT32 aPageIndex);
 typedef K2OS_TOKEN           (*K2OSKERN_pf_UserToken_Clone)(UINT32 aProcessId, K2OS_TOKEN aUserToken);
 typedef K2OS_VIRTMAP_TOKEN   (*K2OSKERN_pf_UserVirtMap_Create)(UINT32 aProcessId, UINT32 aVirtResBase, UINT32 aVirtResPageCount, K2OS_PAGEARRAY_TOKEN aTokPageArray);
 typedef K2STAT               (*K2OSKERN_pf_UserMap)(UINT32 aProcessId, K2OS_PAGEARRAY_TOKEN aKernTokPageArray, UINT32 aPageCount, UINT32 *apRetUserVirtAddr, K2OS_VIRTMAP_TOKEN *apRetTokUserVirtMap);
+typedef K2OSKERN_MAPUSER     (*K2OSKERN_pf_MapUserBuffer)(UINT32 aProcessId, K2OS_BUFDESC const *apBufDesc, UINT32 *apRetKernVirtAddr);
+typedef void                 (*K2OSKERN_pf_UnmapUserBuffer)(K2OSKERN_MAPUSER aMapUser);
 
 typedef struct _K2OSKERN_DDK K2OSKERN_DDK;
 struct _K2OSKERN_DDK
@@ -63,6 +68,8 @@ struct _K2OSKERN_DDK
     K2OSKERN_pf_UserToken_Clone         UserToken_Clone;
     K2OSKERN_pf_UserVirtMap_Create      UserVirtMap_Create;
     K2OSKERN_pf_UserMap                 UserMap;
+    K2OSKERN_pf_MapUserBuffer           MapUserBuffer;
+    K2OSKERN_pf_UnmapUserBuffer         UnmapUserBuffer;
 };
 
 typedef void (*K2OSKERN_pf_WaitSysProcReady)(void);
@@ -74,6 +81,9 @@ struct _K2OSEXEC_INIT
     K2OSKERN_DDK                    DdkInit;
     K2OSKERN_pf_WaitSysProcReady    WaitSysProcReady;
     K2ROFS const *                  mpRofs;
+    K2OSKERN_FSNODE *               mpRootFsNode;
+    K2OSKERN_FSNODE *               mpFsRootFsNode;
+    K2OSKERN_pf_FsNodeInit          mfFsNodeInit;
 };
 
 /* --------------------------------------------------------------------------------- */

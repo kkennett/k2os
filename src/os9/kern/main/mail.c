@@ -42,9 +42,7 @@ KernMailbox_Cleanup_Complete(
 
     KernVirt_Release(apMailbox->mKernVirtAddr);
 
-    K2MEM_Zero(apMailbox, sizeof(K2OSKERN_OBJ_MAILBOX));
-
-    KernHeap_Free(apMailbox);
+    KernObj_Free(&apMailbox->Hdr);
 }
 
 void
@@ -203,6 +201,7 @@ KernMailbox_SysCall_Create(
 
     K2OSKERN_OBJ_PROCESS *      pProc;
 
+    BOOL                        disp;
     UINT32                      kernMapVirt;
     K2OSKERN_OBJREF             refGate;
     K2OSKERN_OBJREF             refPageArray;
@@ -217,7 +216,7 @@ KernMailbox_SysCall_Create(
 
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
-    pMailbox = (K2OSKERN_OBJ_MAILBOX *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_MAILBOX));
+    pMailbox = (K2OSKERN_OBJ_MAILBOX *)KernObj_Alloc(KernObj_Mailbox);
     if (NULL == pMailbox)
     {
         stat = K2STAT_ERROR_OUT_OF_MEMORY;
@@ -225,7 +224,7 @@ KernMailbox_SysCall_Create(
     else
     {
         do {
-            pOwner = (K2OSKERN_OBJ_MAILBOXOWNER *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_MAILBOXOWNER));
+            pOwner = (K2OSKERN_OBJ_MAILBOXOWNER *)KernObj_Alloc(KernObj_MailboxOwner);
             if (NULL == pOwner)
             {
                 stat = K2STAT_ERROR_OUT_OF_MEMORY;
@@ -257,7 +256,7 @@ KernMailbox_SysCall_Create(
                         }
 
                         do {
-                            pProc = apCurThread->User.ProcRef.AsProc;
+                            pProc = apCurThread->RefProc.AsProc;
 
                             stat = KernProc_UserVirtHeapAlloc(pProc, 3, &pOwnerUserHeapNode);
                             if (K2STAT_IS_ERROR(stat))
@@ -295,16 +294,10 @@ KernMailbox_SysCall_Create(
 
                                 K2_CpuWriteBarrier();
 
-                                K2MEM_Zero(pMailbox, sizeof(K2OSKERN_OBJ_MAILBOX));
-                                pMailbox->Hdr.mObjType = KernObj_Mailbox;
-                                K2LIST_Init(&pMailbox->Hdr.RefObjList);
                                 pMailbox->mKernVirtAddr = kernMapVirt;
                                 KernObj_CreateRef(&pMailbox->RefGate, refGate.AsAny);
                                 KernObj_CreateRef(&pMailbox->RefPageArray, refPageArray.AsAny);
 
-                                K2MEM_Zero(pOwner, sizeof(K2OSKERN_OBJ_MAILBOXOWNER));
-                                pOwner->Hdr.mObjType = KernObj_MailboxOwner;
-                                K2LIST_Init(&pOwner->Hdr.RefObjList);
                                 pOwner->mProcVirt = userOwnerVirt;
                                 KernObj_CreateRef(&pOwner->RefProcMap, refOwnerMap.AsAny);
                                 KernObj_CreateRef(&pOwner->RefProc, &pProc->Hdr);
@@ -346,7 +339,7 @@ KernMailbox_SysCall_Create(
             if (K2STAT_IS_ERROR(stat))
             {
                 K2_ASSERT(NULL != pOwner);
-                KernHeap_Free(pOwner);
+                KernObj_Free(&pOwner->Hdr);
             }
 
         } while (0);
@@ -354,7 +347,7 @@ KernMailbox_SysCall_Create(
         if (K2STAT_IS_ERROR(stat))
         {
             K2_ASSERT(NULL != pMailbox);
-            KernHeap_Free(pMailbox);
+            KernObj_Free(&pMailbox->Hdr);
         }
     }
 
@@ -362,9 +355,13 @@ KernMailbox_SysCall_Create(
     {
         K2_ASSERT(NULL != refOwner.AsAny);
 
-        stat = KernProc_TokenCreate(apCurThread->User.ProcRef.AsProc, refOwner.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
+        stat = KernProc_TokenCreate(apCurThread->RefProc.AsProc, refOwner.AsAny, (K2OS_TOKEN *)&apCurThread->User.mSysCall_Result);
         if (!K2STAT_IS_ERROR(stat))
         {
+            disp = K2OSKERN_SeqLock(&pProc->MboxOwner.SeqLock);
+            K2LIST_AddAtTail(&pProc->MboxOwner.Locked.List, &refOwner.AsMailboxOwner->OwnerMboxOwnerListLocked.ListLink);
+            K2OSKERN_SeqUnlock(&pProc->MboxOwner.SeqLock, disp);
+
             pThreadPage->mSysCall_Arg7_Result0 = userOwnerVirt;
         }
         
@@ -443,7 +440,7 @@ KernMailboxOwner_SysCall_RecvRes(
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refMailboxOwner.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refMailboxOwner);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refMailboxOwner);
     if (!K2STAT_IS_ERROR(stat))
     {
         if (KernObj_MailboxOwner != refMailboxOwner.AsAny->mObjType)
@@ -488,7 +485,7 @@ KernMailboxOwner_SysCall_RecvLast(
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refMailboxOwner.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refMailboxOwner);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refMailboxOwner);
     if (!K2STAT_IS_ERROR(stat))
     {
         if (KernObj_MailboxOwner != refMailboxOwner.AsAny->mObjType)
@@ -498,7 +495,7 @@ KernMailboxOwner_SysCall_RecvLast(
         else
         {
             pSchedItem = &apCurThread->SchedItem;
-            pSchedItem->mType = KernSchedItem_Thread_SysCall;
+            pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
             KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
             KernObj_CreateRef(&pSchedItem->ObjRef, refMailboxOwner.AsMailboxOwner->RefMailbox.AsAny);
             KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
@@ -521,8 +518,16 @@ KernMailboxOwner_Cleanup(
     K2OSKERN_OBJ_MAILBOXOWNER * apMailboxOwner
 )
 {
-    if (NULL != apMailboxOwner->RefProc.AsAny)
+    K2OSKERN_OBJ_PROCESS *  pProc;
+    BOOL                    disp;
+
+    pProc = apMailboxOwner->RefProc.AsProc;
+    if (NULL != pProc)
     {
+        disp = K2OSKERN_SeqLock(&pProc->MboxOwner.SeqLock);
+        K2LIST_Remove(&pProc->MboxOwner.Locked.List, &apMailboxOwner->OwnerMboxOwnerListLocked.ListLink);
+        K2OSKERN_SeqUnlock(&pProc->MboxOwner.SeqLock, disp);
+
         K2_ASSERT(NULL != apMailboxOwner->RefProcMap.AsVirtMap);
         KernObj_ReleaseRef(&apMailboxOwner->RefProcMap);
 
@@ -530,14 +535,16 @@ KernMailboxOwner_Cleanup(
     }
     else
     {
+        disp = K2OSKERN_SeqLock(&gData.MboxOwner.SeqLock);
+        K2LIST_Remove(&gData.MboxOwner.KernList, &apMailboxOwner->OwnerMboxOwnerListLocked.ListLink);
+        K2OSKERN_SeqUnlock(&gData.MboxOwner.SeqLock, disp);
+
         K2_ASSERT(NULL == apMailboxOwner->RefProcMap.AsVirtMap);
     }
 
     KernObj_ReleaseRef(&apMailboxOwner->RefMailbox);
 
-    K2MEM_Zero(apMailboxOwner, sizeof(K2OSKERN_OBJ_MAILBOXOWNER));
-
-    KernHeap_Free(apMailboxOwner);
+    KernObj_Free(&apMailboxOwner->Hdr);
 }
 
 void    
@@ -554,7 +561,7 @@ KernMailslot_SysCall_Get(
     K2OSKERN_PROCHEAP_NODE *    pSlotUserHeapNode;
     K2OSKERN_OBJ_MAILBOX *      pMailbox;
 
-    pProc = apCurThread->User.ProcRef.AsProc;
+    pProc = apCurThread->RefProc.AsProc;
 
     refMailslot.AsAny = NULL;
     stat = KernProc_TokenTranslate(pProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refMailslot);
@@ -647,7 +654,7 @@ KernMailbox_InIntr_Fast_Check_SentFirst(
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refSender.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refSender);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refSender);
     if (K2STAT_IS_ERROR(stat))
     {
         apCurThread->User.mSysCall_Result = 0;
@@ -720,7 +727,7 @@ KernMailbox_SysCall_SentFirst(
     pThreadPage = apCurThread->mpKernRwViewOfThreadPage;
 
     refSender.AsAny = NULL;
-    stat = KernProc_TokenTranslate(apCurThread->User.ProcRef.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refSender);
+    stat = KernProc_TokenTranslate(apCurThread->RefProc.AsProc, (K2OS_TOKEN)apCurThread->User.mSysCall_Arg0, &refSender);
     if (K2STAT_IS_ERROR(stat))
     {
         apCurThread->User.mSysCall_Result = 0;
@@ -762,7 +769,7 @@ KernMailbox_SysCall_SentFirst(
             if (0 != (ixCons & K2OS_MAILBOX_GATE_CLOSED_BIT))
             {
                 pSchedItem = &apCurThread->SchedItem;
-                pSchedItem->mType = KernSchedItem_Thread_SysCall;
+                pSchedItem->mSchedItemType = KernSchedItem_Thread_SysCall;
                 KernArch_GetHfTimerTick(&pSchedItem->mHfTick);
                 KernObj_CreateRef(&pSchedItem->ObjRef, &pMailbox->Hdr);
                 KernCpu_TakeCurThreadOffThisCore(apThisCore, apCurThread, KernThreadState_InScheduler);
@@ -793,17 +800,13 @@ KernMailbox_Share(
     }
     else
     {
-        pMailslot = (K2OSKERN_OBJ_MAILSLOT *)KernHeap_Alloc(sizeof(K2OSKERN_OBJ_MAILSLOT));
+        pMailslot = (K2OSKERN_OBJ_MAILSLOT *)KernObj_Alloc(KernObj_Mailslot);
         if (NULL == pMailslot)
         {
             stat = K2STAT_ERROR_OUT_OF_MEMORY;
         }
         else
         {
-            K2MEM_Zero(pMailslot, sizeof(K2OSKERN_OBJ_MAILSLOT));
-            pMailslot->Hdr.mObjType = KernObj_Mailslot;
-            K2LIST_Init(&pMailslot->Hdr.RefObjList);
-
             if (NULL != apTargetProc)
             {
                 KernObj_CreateRef(&pMailslot->RefProc, &apTargetProc->Hdr);
@@ -856,9 +859,7 @@ KernMailslot_Cleanup(
 
     KernObj_ReleaseRef(&apMailslot->RefMailbox);
 
-    K2MEM_Zero(apMailslot, sizeof(K2OSKERN_OBJ_MAILSLOT));
-
-    KernHeap_Free(apMailslot);
+    KernObj_Free(&apMailslot->Hdr);
 }
 
 K2STAT
@@ -944,4 +945,35 @@ KernMailbox_Deliver(
     *apRetDoSignal = (0 != (ixCons & K2OS_MAILBOX_GATE_CLOSED_BIT)) ? TRUE : FALSE;
 
     return K2STAT_NO_ERROR;
+}
+
+void    
+KernMailboxOwner_AbortReserveHolders(
+    K2OSKERN_OBJ_MAILBOXOWNER *apMailboxOwner
+)
+{
+    K2OSKERN_MAILBOX_CONSUMER_PAGE  *   pCons;
+    UINT32                              ixSlot;
+    UINT32                              ixWord;
+    UINT32                              ixBit;
+
+    pCons = (K2OSKERN_MAILBOX_CONSUMER_PAGE *)apMailboxOwner->RefMailbox.AsMailbox->mKernVirtAddr;
+    ixSlot = 0;
+    for (ixWord = 0; ixWord < K2OS_MAILBOX_BITFIELD_DWORD_COUNT; ixWord++)
+    {
+        for (ixBit = 0; ixBit < 32; ixBit++)
+        {
+            if (0 != (pCons->UserVisible.ReserveMask[ixWord].mVal & (1 << ixBit)))
+            {
+//                K2OSKERN_Debug("Abort reserve holder in slot %d\n", ixSlot);
+                K2_ASSERT(pCons->ReserveHolder[ixSlot].AsAny != NULL);
+                KernObj_ReleaseRef(&pCons->ReserveHolder[ixSlot]);
+            }
+            else
+            {
+                K2_ASSERT(pCons->ReserveHolder[ixSlot].AsAny == NULL);
+            }
+            ixSlot++;
+        }
+    }
 }
